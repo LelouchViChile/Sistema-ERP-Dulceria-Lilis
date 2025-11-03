@@ -1,0 +1,48 @@
+{% load static %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold text-white" href="{% url 'dashboard' %}">
+            <i class="bi bi-shop"></i> Dulcería Lilis ERP
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarERP"
+            aria-controls="navbarERP" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarERP">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link" href="{% url 'gestion_usuarios' %}"><i
+                            class="bi bi-people"></i>Usuarios</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'products:list' %}"><i class="bi bi-box-seam"></i>
+                        Productos</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'suppliers:list' %}"><i class="bi bi-truck"></i>
+                        Proveedores</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'transactional:list' %}"><i
+                            class="bi bi-cash-stack"></i> Ventas</a></li>
+                <li class="nav-item"><a class="nav-link" href=""><i class="bi bi-cart-check"></i> Compras</a></li>
+                <li class="nav-item"><a class="nav-link" href=""><i class="bi bi-bar-chart"></i> Reportes</a></li>
+            </ul>
+
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown"
+                        role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img src="{% static 'img/user.png' %}" class="rounded-circle me-2" width="30" height="30"
+                            alt="User">
+                        {{ request.user.username|default:"Invitado" }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-person-circle"></i> Perfil</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-gear"></i> Configuración</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i
+                                    class="bi bi-box-arrow-right"></i> Cerrar sesión</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

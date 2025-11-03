@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Productos{% endblock %}
+
+{% block content %}
+<h5 class="fw-bold mt-3">Gestión de Productos</h5>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header pb-1">
+        <h6>Formulario de Producto</h6>
+        <ul class="nav nav-tabs mt-2" id="proTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#tab-ident" role="tab">
+                    1. Identificación y precios
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-stock" role="tab">
+                    2. Stock y control
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-rel" role="tab">
+                    3. Relaciones y derivados
+                </a>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content">
+            <!-- Identificación y precios -->
+            <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">SKU</label>
+                        <input type="text" class="form-control" placeholder="SKU-10001">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">EAN / UPC</label>
+                        <input type="text" class="form-control" placeholder="7789012345678">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Categoría</label>
+                        <select class="form-control">
+                            <option>Seleccione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Marca</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Modelo</label>
+                        <input type="text" class="form-control">
+                    </div>
+                </div>
+                <hr>
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <label class="form-label">UOM Compra</label>
+                        <select class="form-control">
+                            <option>Seleccione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">UOM Venta</label>
+                        <select class="form-control">
+                            <option>Seleccione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Factor conversión</label>
+                        <input type="number" class="form-control" value="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Costo estándar</label>
+                        <input type="number" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Costo promedio</label>
+                        <input type="number" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Precio venta</label>
+                        <input type="number" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">IVA (%)</label>
+                        <input type="number" class="form-control" value="19">
+                    </div>
+                </div>
+            </div>
+            <!-- Stock y control -->
+            <div class="tab-pane fade" id="tab-stock" role="tabpanel">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Stock mínimo</label>
+                        <input type="number" class="form-control" value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Stock máximo</label>
+                        <input type="number" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Punto reorden</label>
+                        <input type="number" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Control por lote</label>
+                        <input class="form-check-input ms-2" type="checkbox">
+                        <label class="form-check-label ms-4">Percedero</label>
+                        <input class="form-check-input ms-2" type="checkbox">
+                    </div>
+                </div>
+            </div>
+            <!-- Relaciones y derivados -->
+            <div class="tab-pane fade" id="tab-rel" role="tabpanel">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Imagen URL</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Ficha técnica URL</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Stock actual</label>
+                        <input type="number" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Alerta bajo stock</label>
+                        <input type="text" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Alerta por vencer</label>
+                        <input type="text" class="form-control" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button type="button" class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
+            <button type="button" class="btn btn-light">Limpiar</button>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>Productos</div>
+        <button class="btn btn-outline-secondary btn-sm">Exportar a Excel</button>
+    </div>
+    <div class="card-body">
+        <div class="mb-2">
+            <input type="text" class="form-control" placeholder="Buscar por SKU o nombre...">
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle text-center">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Nombre</th>
+                        <th>Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td>{{ p.sku }}</td>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.stock }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="editarProducto('{{ p.sku }}')"><i
+                                    class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="eliminarProducto('{{ p.sku }}')"><i
+                                    class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function guardarProducto() {
+        Swal.fire({
+            title: 'Guardar producto',
+            text: '¿Deseas guardar este producto?',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#c11b17',
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire('Producto guardado', 'Los datos fueron almacenados correctamente', 'success');
+            }
+        });
+    }
+    function editarProducto(sku) {
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: 'Vas a editar el producto ' + sku,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#c11b17',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire('Redirigiendo...', '', 'info');
+            }
+        });
+    }
+    function eliminarProducto(sku) {
+        Swal.fire({
+            title: 'Advertencia',
+            text: '¿Quieres eliminar el producto ' + sku + '? Esta acción es irreversible',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#c11b17',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire('Eliminado', 'Producto ' + sku + ' eliminado', 'success');
+            }
+        });
+    }
+</script>
+{% endblock %}

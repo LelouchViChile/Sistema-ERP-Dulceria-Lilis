@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard | Dulcería Lilis ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-people fs-1 text-primary"></i>
+                    <h5 class="card-title mt-2">Usuarios</h5>
+                    <p class="card-text text-muted">Gestión del personal del sistema.</p>
+                    <a href="{% url 'gestion_usuarios' %}" class="btn btn-outline-primary btn-sm">Entrar</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-box-seam fs-1 text-success"></i>
+                    <h5 class="card-title mt-2">Productos</h5>
+                    <p class="card-text text-muted">Control de stock y categorías.</p>
+                    <a href="{% url 'products:list' %}" class="btn btn-outline-success btn-sm">Entrar</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-cart-check fs-1 text-warning"></i>
+                    <h5 class="card-title mt-2">Transacciones</h5>
+                    <p class="card-text text-muted">Movimientos de inventario.</p>
+                    <a href="{% url 'transactional:list' %}" class="btn btn-outline-warning btn-sm">Entrar</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <i class="bi bi-bar-chart fs-1 text-danger"></i>
+                    <h5 class="card-title mt-2">Reportes</h5>
+                    <p class="card-text text-muted">Análisis de rendimiento.</p>
+                    <a href="" class="btn btn-outline-danger btn-sm">Entrar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
