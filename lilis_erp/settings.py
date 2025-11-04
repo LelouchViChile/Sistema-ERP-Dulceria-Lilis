@@ -91,6 +91,22 @@ WSGI_APPLICATION = 'lilis_erp.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'lilis_erp',   # Nombre de tu base de datos
+        'USER': 'admin-erp',            # Usuario por defecto de WAMP
+        'PASSWORD': 'Ventana#123',            # Vacío si no configuraste contraseña
+        'HOST': 'localhost',       # Conexión local
+        'PORT': '3306',            # Puerto por defecto de MySQL
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    },
+}
+
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'DulceriaLilis',
         'USER': 'root',
         'PASSWORD': 'Admin12345',
@@ -102,7 +118,7 @@ DATABASES = {
         },
     },
 }
-
+"""
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 

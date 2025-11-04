@@ -12,8 +12,8 @@ class Proveedor(models.Model):
     ESTADOS = ((ESTADO_ACTIVO, "Activo"), (ESTADO_BLOQUEADO, "Bloqueado"))
 
     rut_nif = models.CharField("RUT/NIF", max_length=20, unique=True, validators=[valida_rut])
-    razon_social = models.CharField("Razón social", max_length=255)
-    nombre_fantasia = models.CharField("Nombre de fantasía", max_length=255, blank=True)
+    razon_social = models.CharField("Razón social", max_length=191)
+    nombre_fantasia = models.CharField("Nombre de fantasía", max_length=191, blank=True)
     email = models.EmailField("Correo electrónico")
     telefono = models.CharField("Teléfono", max_length=30, blank=True, validators=[valida_fono])
     sitio_web = models.URLField("Sitio web", blank=True)

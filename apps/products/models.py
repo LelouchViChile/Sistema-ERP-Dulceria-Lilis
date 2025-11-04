@@ -23,7 +23,7 @@ class Producto(models.Model):
 
     sku = models.CharField("SKU", max_length=50, unique=True, validators=[valida_sku])
     ean_upc = models.CharField("EAN/UPC", max_length=14, blank=True, null=True, unique=True, validators=[valida_ean])
-    nombre = models.CharField("Nombre", max_length=255)
+    nombre = models.CharField("Nombre", max_length=191)
     descripcion = models.TextField("Descripción", blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="productos", verbose_name="Categoría")
     marca = models.CharField("Marca", max_length=100, blank=True)

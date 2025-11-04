@@ -183,11 +183,12 @@
                 <label>Rol*</label>
                 <select id="rol" name="rol">
                     <option value="">Seleccione...</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="USER">USER</option>
-                    <option value="SUPERVISOR">SUPERVISOR</option>
-                    <option value="AUDITOR">AUDITOR</option>
-                    <option value="OPERADOR">OPERADOR</option>
+                    <option value="ADMIN">Administrador</option> 
+                    <option value="COMPRAS">Operador de Compras</option> 
+                    <option value="INVENTARIO">Operador de Inventario</option> 
+                    <option value="PRODUCCION">Operador de Producción</option> 
+                    <option value="VENTAS">Operador de Ventas</option> 
+                    <option value="FINANZAS">Analista Financiero</option> 
                 </select>
             </div>
             <div>
@@ -373,11 +374,12 @@ function editarUsuario(id) {
                 <input id="edit_last" class="swal2-input" placeholder="Apellido" value="${data.last_name}">
                 <input id="edit_tel" class="swal2-input" placeholder="Teléfono" value="${data.telefono}">
                 <select id="edit_rol" class="swal2-select">
-                    <option value="ADMIN" ${data.rol === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
-                    <option value="USER" ${data.rol === 'USER' ? 'selected' : ''}>USER</option>
-                    <option value="SUPERVISOR" ${data.rol === 'SUPERVISOR' ? 'selected' : ''}>SUPERVISOR</option>
-                    <option value="AUDITOR" ${data.rol === 'AUDITOR' ? 'selected' : ''}>AUDITOR</option>
-                    <option value="OPERADOR" ${data.rol === 'OPERADOR' ? 'selected' : ''}>OPERADOR</option>
+                    <option value="ADMIN" ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option> 
+                    <option value="COMPRAS" ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option> 
+                    <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option> 
+                    <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option> 
+                    <option value="VENTAS" ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option> 
+                    <option value="FINANZAS" ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option> 
                 </select>
                 <select id="edit_estado" class="swal2-select">
                     <option value="activo" ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>

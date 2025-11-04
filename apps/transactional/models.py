@@ -9,7 +9,7 @@ from apps.suppliers.models import Proveedor
 
 class Bodega(models.Model):
     nombre = models.CharField("Nombre", max_length=120, unique=True)
-    ubicacion = models.CharField("Ubicación", max_length=255, blank=True)
+    ubicacion = models.CharField("Ubicación", max_length=191, blank=True)
     capacidad = models.DecimalField("Capacidad (uom)", max_digits=14, decimal_places=3, null=True, blank=True,
                                     validators=[MinValueValidator(0)])
 
