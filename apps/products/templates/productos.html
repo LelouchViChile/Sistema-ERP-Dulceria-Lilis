@@ -242,4 +242,148 @@
         });
     }
 </script>
+
+<!-- ================== AGREGADO: SweetAlert2 + Validaciones en español ================== -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    (function () {
+        // Helper: obtiene el input/select que sigue a un <label> con texto dado (sin cambiar tu HTML)
+        function getCampoPorEtiqueta(texto, scopeSel) {
+            const scope = document.querySelector(scopeSel || 'body');
+            const labels = scope.querySelectorAll('label.form-label, label.form-check-label');
+            texto = (texto || '').toLowerCase().trim();
+            for (const lb of labels) {
+                const t = (lb.textContent || '').toLowerCase().trim();
+                if (t === texto || t.includes(texto)) {
+                    // busca un input/select hermano en el mismo contenedor
+                    const cont = lb.closest('div');
+                    if (!cont) continue;
+                    const candidato = cont.querySelector('input, select, textarea');
+                    if (candidato) return candidato;
+                }
+            }
+            return null;
+        }
+
+        // Validación de URL simple
+        function urlValida(str) {
+            if (!str) return true;
+            try { new URL(str); return true; } catch { return false; }
+        }
+
+        // Reglas de validación (sin tocar tu estructura)
+        function validarProductoCampos() {
+            const errores = [];
+
+            // --- TAB: Identificación y precios ---
+            const sku = getCampoPorEtiqueta('SKU', '#tab-ident');
+            const ean = getCampoPorEtiqueta('EAN', '#tab-ident') || getCampoPorEtiqueta('EAN / UPC', '#tab-ident');
+            const nombre = getCampoPorEtiqueta('Nombre', '#tab-ident');
+            const categoria = getCampoPorEtiqueta('Categoría', '#tab-ident');
+            const uomCompra = getCampoPorEtiqueta('UOM Compra', '#tab-ident');
+            const uomVenta = getCampoPorEtiqueta('UOM Venta', '#tab-ident');
+            const factor = getCampoPorEtiqueta('Factor conversión', '#tab-ident');
+            const costo = getCampoPorEtiqueta('Costo estándar', '#tab-ident');
+            const precio = getCampoPorEtiqueta('Precio venta', '#tab-ident');
+            const iva = getCampoPorEtiqueta('IVA', '#tab-ident') || getCampoPorEtiqueta('IVA (%)', '#tab-ident');
+
+            // SKU
+            const skuVal = (sku?.value || '').trim().toUpperCase();
+            if (!skuVal) errores.push('El campo “SKU” es obligatorio.');
+            else if (!/^[A-Z0-9\-_.]{3,50}$/.test(skuVal)) errores.push('SKU inválido. Usa A-Z, 0-9, -, _, . (3 a 50 caracteres).');
+
+            // EAN/UPC (opcional)
+            const eanVal = (ean?.value || '').trim();
+            if (eanVal && !/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(eanVal)) errores.push('EAN/UPC debe tener 8, 12, 13 o 14 dígitos.');
+
+            // Nombre
+            const nombreVal = (nombre?.value || '').trim();
+            if (!nombreVal) errores.push('El campo “Nombre” es obligatorio.');
+
+            // Categoría (no “Seleccione…”)
+            if (categoria && categoria.tagName === 'SELECT') {
+                if (categoria.selectedIndex === 0) errores.push('Selecciona una “Categoría”.');
+            }
+
+            // UOMs
+            if (uomCompra && uomCompra.tagName === 'SELECT' && uomCompra.selectedIndex === 0) errores.push('Selecciona “UOM Compra”.');
+            if (uomVenta && uomVenta.tagName === 'SELECT' && uomVenta.selectedIndex === 0) errores.push('Selecciona “UOM Venta”.');
+
+            // Factor conversión
+            const factorNum = parseFloat(factor?.value || '0');
+            if (!(factorNum > 0)) errores.push('“Factor conversión” debe ser mayor a 0.');
+
+            // Precios
+            const costoNum = parseFloat(costo?.value || '0');
+            const precioNum = parseFloat(precio?.value || '0');
+            if (costo && costo.value !== '' && costoNum < 0) errores.push('“Costo estándar” no puede ser negativo.');
+            if (precio && precio.value !== '' && precioNum < 0) errores.push('“Precio venta” no puede ser negativo.');
+            if (!isNaN(costoNum) && !isNaN(precioNum) && (precio?.value !== '') && (costo?.value !== '') && precioNum < costoNum) {
+                errores.push('“Precio venta” no puede ser menor que “Costo estándar”.');
+            }
+
+            // IVA 0–25
+            const ivaNum = parseFloat(iva?.value || '19');
+            if (isNaN(ivaNum) || ivaNum < 0 || ivaNum > 25) errores.push('“IVA (%)” debe estar entre 0 y 25.');
+
+            // --- TAB: Stock y control ---
+            const stockMin = getCampoPorEtiqueta('Stock mínimo', '#tab-stock');
+            const stockMax = getCampoPorEtiqueta('Stock máximo', '#tab-stock');
+            const puntoReorden = getCampoPorEtiqueta('Punto reorden', '#tab-stock');
+
+            const minNum = parseFloat(stockMin?.value || '0');
+            const maxNum = stockMax?.value === '' ? null : parseFloat(stockMax.value);
+            const reoNum = puntoReorden?.value === '' ? null : parseFloat(puntoReorden.value);
+
+            if (isNaN(minNum) || minNum < 0) errores.push('“Stock mínimo” debe ser un número ≥ 0.');
+            if (maxNum !== null && (isNaN(maxNum) || maxNum < 0)) errores.push('“Stock máximo” debe ser un número ≥ 0.');
+            if (reoNum !== null && (isNaN(reoNum) || reoNum < 0)) errores.push('“Punto reorden” debe ser un número ≥ 0.');
+            if (maxNum !== null && maxNum < minNum) errores.push('“Stock máximo” no puede ser menor que “Stock mínimo”.');
+            if (reoNum !== null && reoNum < minNum) errores.push('“Punto reorden” no puede ser menor que “Stock mínimo”.');
+
+            // Checkbox: Control por lote / Percedero (sin tocar tu HTML)
+            // Están en el mismo <div>; tomamos por orden
+            const chkDiv = document.querySelector('#tab-stock .col-md-3:has(label.form-label)');
+            // Fallback directo al contenedor más cercano de “Control por lote”
+            const loteLbl = getCampoPorEtiqueta('Control por lote', '#tab-stock');
+            let chkLote = null, chkPerecible = null;
+            if (loteLbl) {
+                const cont = loteLbl.closest('div');
+                if (cont) {
+                    const chks = cont.querySelectorAll('input[type="checkbox"]');
+                    chkLote = chks[0] || null;
+                    chkPerecible = chks[1] || null;
+                }
+            }
+
+            // --- TAB: Relaciones ---
+            const urlImg = getCampoPorEtiqueta('Imagen URL', '#tab-rel');
+            const urlFicha = getCampoPorEtiqueta('Ficha técnica URL', '#tab-rel');
+
+            if (urlImg && urlImg.value && !urlValida(urlImg.value)) errores.push('“Imagen URL” no es una URL válida.');
+            if (urlFicha && urlFicha.value && !urlValida(urlFicha.value)) errores.push('“Ficha técnica URL” no es una URL válida.');
+
+            return errores;
+        }
+
+        // Envolvemos tu guardarProducto(): validamos primero y SI TODO OK llamamos a tu función original
+        const _guardarOriginal = window.guardarProducto;
+        window.guardarProducto = function () {
+            const errores = validarProductoCampos();
+            if (errores.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Revisa el formulario',
+                    html: '<ul style="text-align:left; margin-left:1rem;">' + errores.map(e => `<li>${e}</li>`).join('') + '</ul>',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+            // Si pasa validación, seguimos con tu flujo original (confirmación + éxito)
+            _guardarOriginal && _guardarOriginal();
+        };
+    })();
+</script>
+<!-- ================== /AGREGADO ================== -->
+
 {% endblock %}

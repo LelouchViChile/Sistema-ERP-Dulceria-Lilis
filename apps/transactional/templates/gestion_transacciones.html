@@ -215,4 +215,122 @@
         });
     }
 </script>
+
+<!-- ============== AGREGADO: SweetAlert2 + Validaciones en español (sin cambiar tu HTML) ============== -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    (function () {
+        // Utilidad: obtener input/select por el texto de su <label>
+        function campo(etiqueta, scopeSel) {
+            const scope = document.querySelector(scopeSel || 'body');
+            const labels = scope.querySelectorAll('label.form-label');
+            etiqueta = (etiqueta || '').toLowerCase().trim();
+            for (const l of labels) {
+                const txt = (l.textContent || '').toLowerCase().trim();
+                if (txt === etiqueta || txt.includes(etiqueta)) {
+                    const cont = l.closest('div');
+                    if (cont) {
+                        const inp = cont.querySelector('input,select,textarea');
+                        if (inp) return inp;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function yyyymmdd(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Reglas de validación de negocio mínimas (basadas en lo presente en el template)
+        function validarMovimiento() {
+            const errs = [];
+
+            const fecha = campo('Fecha', '#tab-datos');
+            const tipo = campo('Tipo', '#tab-datos');
+            const prod = campo('Producto', '#tab-datos');
+            const prov = campo('Proveedor', '#tab-datos');
+            const cant = campo('Cantidad', '#tab-datos');
+
+            const lote = campo('Lote', '#tab-avanzado');
+            const serie = campo('Serie', '#tab-avanzado');
+            const fvenc = campo('Fecha vencimiento', '#tab-avanzado');
+
+            const docRef = campo('Doc. Referencia', '#tab-referencias');
+            const motivo = campo('Motivo', '#tab-referencias');
+            const obs = campo('Observaciones', '#tab-referencias');
+
+            // Fecha requerida, no futura
+            const hoy = new Date();
+            const hoyStr = yyyymmdd(hoy);
+            const fechaVal = (fecha?.value || '').trim();
+            if (!fechaVal) errs.push('El campo “Fecha” es obligatorio.');
+            else if (fechaVal > hoyStr) errs.push('La “Fecha” no puede estar en el futuro.');
+
+            // Tipo requerido
+            const tipoVal = (tipo?.value || '').trim();
+            if (!tipoVal) errs.push('Selecciona el “Tipo” de movimiento.');
+
+            // Producto y cantidad
+            const prodVal = (prod?.value || '').trim();
+            if (!prodVal) errs.push('El campo “Producto” es obligatorio.');
+
+            const cantNum = parseFloat(cant?.value || '0');
+            if (!(cantNum > 0)) errs.push('La “Cantidad” debe ser mayor a 0.');
+
+            // Proveedor requerido para Ingreso (regla común)
+            if (tipoVal === 'Ingreso') {
+                const provVal = (prov?.value || '').trim();
+                if (!provVal) errs.push('Para un “Ingreso”, el campo “Proveedor” es obligatorio.');
+            }
+
+            // Motivo requerido para Ajuste/Devolución (según etiqueta)
+            const motivoVal = (motivo?.value || '').trim();
+            if ((tipoVal === 'Ajuste' || tipoVal === 'Devolución') && !motivoVal) {
+                errs.push('Para “Ajuste/Devolución”, ingresa un “Motivo”.');
+            }
+
+            // Fecha de vencimiento: si se informa, no puede ser pasada para Ingreso/Transferencia
+            const fv = (fvenc?.value || '').trim();
+            if (fv && (tipoVal === 'Ingreso' || tipoVal === 'Transferencia') && fv < hoyStr) {
+                errs.push('La “Fecha vencimiento” no puede estar vencida para Ingreso/Transferencia.');
+            }
+
+            // Doc. Ref formato opcional (alfa-num y -/_)
+            const dr = (docRef?.value || '').trim();
+            if (dr && !/^[\w\-]+$/i.test(dr)) {
+                errs.push('“Doc. Referencia” solo debe contener letras, números, guiones o guión bajo.');
+            }
+
+            // Observaciones: límite sugerido
+            const obsVal = (obs?.value || '').trim();
+            if (obsVal.length > 500) {
+                errs.push('“Observaciones” no puede superar 500 caracteres.');
+            }
+
+            return errs;
+        }
+
+        // Envolvemos tu guardarMovimiento(): validamos primero, luego llamamos a tu confirmación original
+        const _guardarMov = window.guardarMovimiento;
+        window.guardarMovimiento = function () {
+            const errs = validarMovimiento();
+            if (errs.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Revisa el formulario',
+                    html: '<ul style="text-align:left;margin-left:1rem;">' + errs.map(e => `<li>${e}</li>`).join('') + '</ul>',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+            _guardarMov && _guardarMov();
+        };
+    })();
+</script>
+<!-- ============== /AGREGADO ============== -->
+
 {% endblock %}

@@ -1,26 +1,28 @@
-# users/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.core.validators import RegexValidator
 
 class Usuario(AbstractUser):
-    ROLES = [
-        ('ADMIN', 'Administrador'),
-        ('USER', 'Usuario'),
-        ('SUPERVISOR', 'Supervisor'),
-        ('AUDITOR', 'Auditor'),
-        ('OPERADOR', 'Operador'),
-    ]
+    telefono = models.CharField(
+        "Teléfono", max_length=30, blank=True,
+        validators=[RegexValidator(r'^[0-9+()\-\s]{6,30}$', 'Teléfono inválido')]
+    )
+    area = models.CharField("Área/Unidad", max_length=120, blank=True)
+    mfa_habilitado = models.BooleanField("MFA habilitado", default=False)
+    activo = models.BooleanField("Activo", default=True)
 
-    ESTADOS = [
-        ('activo', 'Activo'),
-        ('inactivo', 'Inactivo'),
-        ('bloqueado', 'Bloqueado'),
-    ]
-
-    telefono = models.CharField(max_length=20, blank=True, null=True)
-    rol = models.CharField(max_length=20, choices=ROLES, default='USER')
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='activo')
-    mfa_habilitado = models.BooleanField(default=False)
+    class Meta:
+        verbose_name = "Usuario"
+        verbose_name_plural = "Usuarios"
+        indexes = [
+            models.Index(fields=["username"]),
+            models.Index(fields=["email"]),
+            models.Index(fields=["activo"]),
+        ]
+        constraints = [
+            models.CheckConstraint(check=models.Q(activo__in=[True, False]), name="usr_activo_bool"),
+        ]
 
     def __str__(self):
-        return f"{self.username} ({self.rol})"
+        nombre = (self.first_name + " " + self.last_name).strip()
+        return f"{self.username} ({nombre})" if nombre else self.username

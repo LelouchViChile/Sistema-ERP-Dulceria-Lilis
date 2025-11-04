@@ -1,15 +1,18 @@
-# users/admin.py
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
 from .models import Usuario
 
 @admin.register(Usuario)
-class UsuarioAdmin(UserAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'telefono', 'rol', 'estado', 'is_active')
-    list_filter = ('rol', 'estado', 'is_active')
+class UsuarioAdmin(admin.ModelAdmin):
+    list_display = ("username", "email", "first_name", "last_name", "telefono", "is_staff", "activo", "last_login")
+    list_filter = ("is_staff", "is_superuser", "is_active", "activo")
+    search_fields = ("username", "email", "first_name", "last_name", "telefono")
+    ordering = ("username",)
     fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        ('Información personal', {'fields': ('first_name', 'last_name', 'email', 'telefono')}),
-        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Información adicional', {'fields': ('rol', 'estado')}),
+        ("Credenciales", {"fields": ("username", "password")}),
+        ("Información personal", {"fields": ("first_name", "last_name", "email", "telefono", "area")}),
+        ("Permisos", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Seguridad", {"fields": ("mfa_habilitado",)}),
+        ("Estado", {"fields": ("activo",)}),
+        ("Fechas", {"fields": ("last_login", "date_joined")}),
     )
+    readonly_fields = ("last_login", "date_joined")

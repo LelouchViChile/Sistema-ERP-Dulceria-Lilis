@@ -102,7 +102,6 @@
 </div>
 
 <script>
-
     function guardarProveedor() {
         Swal.fire({
             title: 'Guardar datos',
@@ -154,4 +153,71 @@
         });
     }
 </script>
+
+<!-- ============== AGREGADO: SweetAlert2 + Validaciones en español ============== -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    (function () {
+        // Busca campo según su etiqueta
+        function campo(etiqueta) {
+            const lbls = document.querySelectorAll('label.form-label');
+            etiqueta = etiqueta.toLowerCase();
+            for (const l of lbls) {
+                const txt = l.textContent.toLowerCase();
+                if (txt.includes(etiqueta)) {
+                    const cont = l.closest('div');
+                    if (cont) { const inp = cont.querySelector('input,select'); if (inp) return inp; }
+                }
+            }
+            return null;
+        }
+
+        // Validaciones específicas
+        function validarProveedor() {
+            const errores = [];
+            const rut = campo('RUT');
+            const razon = campo('Razón social');
+            const email = campo('Email');
+            const fono = campo('Teléfono');
+            const web = campo('Sitio web');
+
+            const rutVal = (rut?.value || '').trim();
+            const razonVal = (razon?.value || '').trim();
+            const emailVal = (email?.value || '').trim();
+            const fonoVal = (fono?.value || '').trim();
+            const webVal = (web?.value || '').trim();
+
+            if (!rutVal) errores.push('El campo “RUT/NIF” es obligatorio.');
+            else if (!/^[0-9kK\.\-]{7,20}$/.test(rutVal)) errores.push('Formato de “RUT/NIF” inválido.');
+
+            if (!razonVal) errores.push('El campo “Razón social” es obligatorio.');
+
+            if (!emailVal) errores.push('El campo “Email” es obligatorio.');
+            else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailVal)) errores.push('Formato de “Email” inválido.');
+
+            if (fonoVal && !/^[0-9+()\-\s]{6,30}$/.test(fonoVal)) errores.push('Formato de “Teléfono” inválido.');
+
+            if (webVal && !/^https?:\/\/.+/i.test(webVal)) errores.push('La “Sitio web” debe comenzar con http:// o https://');
+
+            return errores;
+        }
+
+        // Guardamos la referencia del original
+        const _guardar = window.guardarProveedor;
+        window.guardarProveedor = function () {
+            const errs = validarProveedor();
+            if (errs.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Revisa el formulario',
+                    html: '<ul style="text-align:left;margin-left:1rem;">' + errs.map(e => `<li>${e}</li>`).join('') + '</ul>',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+            _guardar && _guardar();
+        };
+    })();
+</script>
+<!-- ============== /AGREGADO ============== -->
 {% endblock %}

@@ -33,6 +33,48 @@
             </form>
         </div>
     </div>
+
+    <!-- SweetAlert2 (agregado) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Validaciones + mensajes SweetAlert2 (agregado) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('form');
+            const usuario = document.getElementById('username');
+            const clave = document.getElementById('password');
+
+            // 1) Validación de campos vacíos antes de enviar
+            form.addEventListener('submit', function (e) {
+                const u = (usuario?.value || '').trim();
+                const p = (clave?.value || '').trim();
+
+                if (!u || !p) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Campos incompletos',
+                        text: 'Por favor, completa Usuario y Contraseña.',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            });
+
+            // 2) Mostrar mensajes de error del backend con SweetAlert2 (sin quitar los alerts existentes)
+            const alerts = document.querySelectorAll('.alert.alert-danger');
+            alerts.forEach(function (al) {
+                const msg = al.textContent.trim();
+                if (msg) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de inicio de sesión',
+                        text: msg,
+                        confirmButtonText: 'Ok'
+                    });
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>
