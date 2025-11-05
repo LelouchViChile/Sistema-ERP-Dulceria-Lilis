@@ -7,7 +7,12 @@ def gestion_transacciones(request):
     """
     Vista principal de gestión de transacciones (movimientos de inventario).
     Por ahora usa datos de ejemplo.
+    Solo pueden acceder ADMIN o rol 'PRODUCCION'. Otros: 403.
     """
+    rol = getattr(request.user, "rol", "") or ""
+    if not (request.user.is_superuser or rol == "PRODUCCION"):
+        return render(request, "403.html", status=403)
+
     movimientos_demo = [
         {
             "fecha": "2025-11-01",

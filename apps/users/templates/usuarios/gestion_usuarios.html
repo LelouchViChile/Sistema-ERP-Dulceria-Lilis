@@ -1,502 +1,430 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load static %}
-
-{% block title %}Gestión de Usuarios | Dulcería Lilis ERP{% endblock %}
+{% block title %}Gestión de Usuarios{% endblock %}
 
 {% block content %}
-<style>
-    body {
-        font-family: "Segoe UI", sans-serif;
-        margin: 0;
-        padding: 20px;
-    }
+<div class="container-fluid">
+    <div style="max-width: 1400px;">
 
-    /* Estilos específicos para esta página */
-    h2 {
-        color: #a10000;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .contenedor {
-        display: grid;
-        grid-template-columns: 350px 1fr;
-        gap: 20px;
-        margin-top: 20px;
-    }
-
-    form {
-        background: #fff;
-        border: 2px solid #e3e3e3;
-        padding: 20px;
-        border-radius: 10px;
-    }
-
-    form h3 {
-        font-size: 1.2em;
-        color: #a10000;
-        margin-top: 0;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
-    }
-
-    .campo-doble {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-
-    .mfa-container {
-        display: flex;
-        align-items: center;
-        margin-top: 15px;
-        background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 6px;
-    }
-
-    label {
-        font-weight: bold;
-        display: block;
-        margin-top: 8px;
-    }
-
-    input, select {
-        width: 100%;
-        padding: 6px;
-        margin-top: 4px;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-    }
-
-    .acciones {
-        margin-top: 15px;
-        display: flex;
-        justify-content: space-between;
-    }
-
-    button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: bold;
-    }
-
-    .guardar { background: #d32f2f; color: white; }
-    .limpiar { background: #ccc; color: black; }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-
-    th, td {
-        padding: 8px 12px;
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-    }
-
-    th {
-        background: #a10000;
-        color: white;
-    }
-
-    tbody td {
-        vertical-align: middle;
-    }
-
-    tbody tr:hover { background: #f5f5f5; }
-
-    .btn-edit, .btn-del {
-        border: none;
-        padding: 4px 8px;
-        cursor: pointer;
-        background: none;
-        font-size: 16px;
-        margin: 0 5px;
-    }
-
-    .btn-edit { color: #ff9800; }
-    .btn-del { color: #e53935; }
-</style>
-
-<h2><i class="bi bi-people-fill"></i> Gestión de Usuarios</h2>
-
-<!-- Controles de Búsqueda y Ordenamiento -->
-<div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar usuario..." value="{{ query }}">
-        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="id"{% if sort_by == 'id' %} selected{% endif %}>Ordenar por...</option>
-            <option value="username"{% if sort_by == 'username' %} selected{% endif %}>Usuario (A-Z)</option>
-            <option value="-username"{% if sort_by == '-username' %} selected{% endif %}>Usuario (Z-A)</option>
-            <option value="first_name"{% if sort_by == 'first_name' %} selected{% endif %}>Nombre (A-Z)</option>
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
-    </form>
-</div>
-
-<div class="contenedor">
-    <!-- Formulario -->
-    <form id="formUsuario" method="post" action="{% url 'crear_usuario' %}">
-        <h3><i class="bi bi-person-plus-fill"></i> Registrar Nuevo Usuario</h3>
-        {% csrf_token %}
-        <label>Username*</label>
-        <input type="text" id="username" name="username" placeholder="ej: jdoe">
-
-        <label>Email*</label>
-        <input type="email" id="email" name="email" placeholder="ej: jdoe@empresa.cl">
-        
-        <div class="campo-doble">
-            <div>
-                <label>Nombre*</label>
-                <input type="text" id="nombre" name="first_name">
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-center border-bottom border-danger border-2 pb-3 mb-4">
+            <div class="d-flex align-items-center gap-2">
+                <h4 class="fw-bold m-0 text-danger">
+                    <i class="bi bi-people-fill me-2"></i>Gestión de Usuarios
+                </h4>
             </div>
-            <div>
-                <label>Apellido*</label>
-                <input type="text" id="apellido" name="last_name">
-            </div>
-        </div>
 
-        <div class="campo-doble">
-            <div>
-                <label>Contraseña*</label>
-                <input type="password" id="password" name="password" placeholder="Segura">
-            </div>
-            <div>
-                <label>Confirmar*</label>
-                <input type="password" id="password2" name="password2" placeholder="Confirmar">
-            </div>
-        </div>
+            <!-- Buscador + Orden + Exportar -->
+            <form method="get" class="d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm shadow-sm" style="width: 320px;">
+                    <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..."
+                           value="{{ query|default:'' }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
 
-        <label>Teléfono*</label>
-        <input type="text" id="telefono" name="telefono" placeholder="+569...">
-
-        <div class="campo-doble">
-            <div>
-                <label>Rol*</label>
-                <select id="rol" name="rol">
-                    <option value="">Seleccione...</option>
-                    <option value="ADMIN">Administrador</option> 
-                    <option value="COMPRAS">Operador de Compras</option> 
-                    <option value="INVENTARIO">Operador de Inventario</option> 
-                    <option value="PRODUCCION">Operador de Producción</option> 
-                    <option value="VENTAS">Operador de Ventas</option> 
-                    <option value="FINANZAS">Analista Financiero</option> 
+                <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+                    <!-- OJO: espacios alrededor del == -->
+                    <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
+                    <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Usuario (A-Z)</option>
+                    <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>Usuario (Z-A)</option>
+                    <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Nombre (A-Z)</option>
                 </select>
+
+                <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
+                   href="{% url 'gestion_usuarios' %}?q={{ query }}&sort={{ sort_by }}&export=xlsx">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+                </a>
+            </form>
+        </div>
+
+        <div class="d-flex gap-2">
+            <!-- Panel izquierdo - Formulario -->
+            <div style="width: 320px; flex-shrink: 0">
+                <div class="bg-light p-3 rounded-3 border border-danger shadow-sm">
+                    <h6 class="fw-bold mb-3 text-danger d-flex align-items-center">
+                        <i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario
+                    </h6>
+                    <form id="userForm" class="row g-2">
+                        {% csrf_token %}
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Username*</label>
+                            <input type="text" class="form-control form-control-sm" id="username" required placeholder="ej: jperez">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Email*</label>
+                            <input type="email" class="form-control form-control-sm" id="email" required placeholder="ej: juan.perez@empresa.cl">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Nombre*</label>
+                            <input type="text" class="form-control form-control-sm" id="nombre" required placeholder="ej: Juan">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Apellido*</label>
+                            <input type="text" class="form-control form-control-sm" id="apellido" required placeholder="ej: Pérez">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Contraseña*</label>
+                            <input type="password" class="form-control form-control-sm" id="password" required placeholder="Segura (8+)">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Confirmar*</label>
+                            <input type="password" class="form-control form-control-sm" id="password2" required placeholder="Confirmar">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Teléfono*</label>
+                            <input type="tel" class="form-control form-control-sm" id="telefono" pattern="[\+]?[0-9]{9,12}" required placeholder="+56912345678">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Rol*</label>
+                            <select class="form-select form-select-sm" id="rol" required>
+                                <option value="">Seleccione un rol</option>
+                                <option value="ADMIN">ADMIN</option>
+                                <option value="COMPRAS">COMPRAS</option>
+                                <option value="INVENTARIO">INVENTARIO</option>
+                                <option value="PRODUCCION">PRODUCCION</option>
+                                <option value="VENTAS">VENTAS</option>
+                                <option value="FINANZAS">FINANZAS</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Estado*</label>
+                            <select class="form-select form-select-sm" id="estado" required>
+                                <option value="">Seleccione un estado</option>
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                                <option value="bloqueado">Bloqueado</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">MFA habilitado*</label>
+                            <select class="form-select form-select-sm" id="mfa" required>
+                                <option value="">Seleccione una opción</option>
+                                <option value="Si">Sí</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Último acceso</label>
+                            <input type="datetime-local" class="form-control form-control-sm" id="ultimo_acceso">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Sesiones activas</label>
+                            <input type="number" class="form-control form-control-sm" id="sesiones" min="0" placeholder="ej: 1">
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-danger btn-sm flex-grow-1">Guardar</button>
+                                <button type="reset" class="btn btn-outline-danger btn-sm px-3">Limpiar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div>
-                <label>Estado*</label>
-                <select id="estado" name="estado">
-                    <option value="activo" selected>Activo</option>
-                    <option value="inactivo">Inactivo</option>
-                    <option value="bloqueado">Bloqueado</option>
-                </select>
+
+            <!-- Panel derecho - Tabla -->
+            <div class="flex-grow-1">
+                <div class="bg-white p-3 rounded-3 border border-danger shadow-sm d-flex flex-column">
+                    <div class="flex-grow-1">
+                        <table class="table table-hover align-middle mb-0 small" style="min-width: max-content">
+                            <thead class="table-light text-danger sticky-top bg-white">
+                                <tr>
+                                    <th style="width: 80px">Username</th>
+                                    <th style="width: 170px">Email</th>
+                                    <th style="width: 80px">Nombre</th>
+                                    <th style="width: 90px">Apellido</th>
+                                    <th style="width: 120px">Teléfono</th>
+                                    <th style="width: 90px">Rol</th>
+                                    <th style="width: 80px">Estado</th>
+                                    <th style="width: 50px">MFA</th>
+                                    <th style="width: 130px">Último acceso</th>
+                                    <th class="text-center" style="width: 70px">Sesiones</th>
+                                    <th style="width: 90px">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for usuario in page_obj.object_list %}
+                                <tr>
+                                    <td>{{ usuario.username }}</td>
+                                    <td>{{ usuario.email }}</td>
+                                    <td>{{ usuario.first_name }}</td>
+                                    <td>{{ usuario.last_name }}</td>
+                                    <td>{{ usuario.telefono }}</td>
+                                    <td>{{ usuario.rol }}</td>
+                                    <td>
+                                        {% if usuario.estado == 'activo' %}
+                                            <span class="badge bg-success-subtle text-success">Activo</span>
+                                        {% elif usuario.estado == 'inactivo' %}
+                                            <span class="badge bg-warning-subtle text-warning">Inactivo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{% if usuario.mfa_habilitado %}✅{% else %}❌{% endif %}</td>
+                                    <td>{{ usuario.last_login|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-center">-</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-warning btn-sm" onclick="editarUsuario('{{ usuario.id }}')" title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('{{ usuario.id }}')" title="Eliminar">
+                                                <i class="bi bi-trash3-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted py-3">No hay usuarios registrados.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+                        <small class="text-danger">
+                            Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios
+                        </small>
+                        <nav aria-label="Navegación">
+                            <ul class="pagination pagination-sm mb-0">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+
+                                {% for num in page_obj.paginator.page_range %}
+                                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                                    <a class="page-link border-danger {% if page_obj.number == num %}bg-danger border-danger{% else %}text-danger{% endif %}"
+                                       href="?page={{ num }}&q={{ query }}&sort={{ sort_by }}">{{ num }}</a>
+                                </li>
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
-
-        <div class="mfa-container">
-            <input type="checkbox" id="mfa_habilitado" name="mfa_habilitado" style="width: auto; margin-right: 10px;">
-            <label for="mfa_habilitado" style="margin-top: 0;">Habilitar MFA</label>
-        </div>
-
-        <div class="acciones">
-            <button type="submit" class="guardar"><i class="bi bi-check-lg"></i> Guardar</button>
-            <button type="button" id="btnLimpiar" class="limpiar"><i class="bi bi-eraser"></i> Limpiar</button>
-        </div>
-    </form>
-
-    <!-- Tabla -->
-    <table>
-        <thead>
-            <tr>
-                <th>Usuario</th>
-                <th>Nombre</th>
-                <th>Teléfono</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>MFA</th>
-                <th>Último Acceso</th>
-                <th>Sesiones</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for usuario in page_obj.object_list %}
-            <tr>
-                <td style="font-weight: 500;">{{ usuario.username }}</td>
-                <td>{{ usuario.first_name }} {{ usuario.last_name }}</td>
-                <td>{{ usuario.telefono }}</td>
-                <td>{{ usuario.rol }}</td>
-                <td>{{ usuario.estado }}</td>
-                <td>{% if usuario.mfa_habilitado %}✅ Sí{% else %}❌ No{% endif %}</td>
-                <td>{{ usuario.last_login|date:"d/m/Y H:i" }}</td>
-                <td>-</td> {# Campo para futuras sesiones activas #}
-                <td>
-                    <button class="btn-edit" onclick="editarUsuario('{{ usuario.id }}')" title="Editar"><i class="bi bi-pencil-square"></i></button>
-                    <button class="btn-del" onclick="eliminarUsuario('{{ usuario.id }}')" title="Eliminar"><i class="bi bi-trash3-fill"></i></button>
-                </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="9" style="text-align:center;">No hay usuarios registrados.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Controles de Paginación -->
-    <nav aria-label="Paginación de usuarios" class="mt-4 d-flex justify-content-end">
-        <ul class="pagination pagination-sm">
-            {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a></li>
-            {% endif %}
-
-            <li class="page-item active" aria-current="page">
-                <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-            </li>
-
-            {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a></li>
-            {% endif %}
-        </ul>
-    </nav>
+    </div>
 </div>
+{% endblock %}
 
-<!-- CDN SweetAlert2 -->
+{% block extra_js %}
+{{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
-// ===================== VALIDACIONES Y ACCIONES =====================
-
-// --- Envío del formulario con validaciones principales ---
-document.getElementById("formUsuario").addEventListener("submit", function(e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-
-    // --- Validación de campos del lado del cliente ---
-    const username = (formData.get('username') || '').trim();
-    const email = (formData.get('email') || '').trim();
-    const nombre = (formData.get('first_name') || '').trim();
-    const apellido = (formData.get('last_name') || '').trim();
-    const password = formData.get('password') || '';
-    const password2 = formData.get('password2') || '';
-    const telefono = (formData.get('telefono') || '').trim();
-    const rol = formData.get('rol') || '';
-    const estado = formData.get('estado') || '';
-
-    if (!username || !email || !nombre || !apellido || !password || !password2 || !telefono || !rol || !estado) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campos Incompletos',
-            text: 'Por favor, rellene todos los campos obligatorios.'
-        });
-        return; // Detiene el envío del formulario
-    }
-
-    if (password.length < 8) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Contraseña Débil',
-            text: 'La contraseña debe tener al menos 8 caracteres.'
-        });
-        return; // Detiene el envío del formulario
-    }
-
-    if (password !== password2) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error en Contraseña',
-            text: 'Las contraseñas no coinciden.'
-        });
-        return; // Detiene el envío del formulario
-    }
-    // --- Fin de la validación ---
-
-    Swal.showLoading();
-
-    fetch("{% url 'crear_usuario' %}", {
-        method: "POST",
-        headers: { "X-CSRFToken": "{{ csrf_token }}" },
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'ok') {
-            Swal.fire({ icon: 'success', title: data.message, timer: 1500, showConfirmButton: false })
-                .then(() => location.reload());
-        } else {
-            Swal.fire({ icon: 'error', title: 'Error', text: data.message });
-        }
-    })
-    .catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de red', text: 'Inténtalo otra vez.' });
-    });
-});
-
-// --- Confirmación para LIMPIAR ---
-document.getElementById("btnLimpiar").addEventListener("click", function() {
-    Swal.fire({
-        title: '¿Limpiar formulario?',
-        text: "Se borrarán todos los datos ingresados.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, limpiar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById("formUsuario").reset();
-        }
-    });
-});
-
-// --- EDITAR con SweetAlert ---
-function editarUsuario(id) {
-    fetch(`/users/editar/${id}/`)
-    .then(res => res.json())
-    .then(data => {
-        Swal.fire({
-            title: 'Editar Usuario',
-            html: `
-                <input id="edit_username" class="swal2-input" placeholder="Username" value="${data.username}">
-                <input id="edit_first" class="swal2-input" placeholder="Nombre" value="${data.first_name}">
-                <input id="edit_email" class="swal2-input" placeholder="Email" value="${data.email}">
-                <input id="edit_last" class="swal2-input" placeholder="Apellido" value="${data.last_name}">
-                <input id="edit_tel" class="swal2-input" placeholder="Teléfono" value="${data.telefono}">
-                <select id="edit_rol" class="swal2-select">
-                    <option value="ADMIN" ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option> 
-                    <option value="COMPRAS" ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option> 
-                    <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option> 
-                    <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option> 
-                    <option value="VENTAS" ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option> 
-                    <option value="FINANZAS" ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option> 
-                </select>
-                <select id="edit_estado" class="swal2-select">
-                    <option value="activo" ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>
-                    <option value="inactivo" ${data.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
-                    <option value="bloqueado" ${data.estado === 'bloqueado' ? 'selected' : ''}>Bloqueado</option>
-                </select>
-            `,
-            didOpen: () => {
-                const container = Swal.getHtmlContainer();
-                container.querySelector('#edit_rol').style.width = '100%';
-                container.querySelector('#edit_rol').style.marginBottom = '1rem';
-                container.querySelector('#edit_estado').style.width = '100%';
-            },
-            showCancelButton: true,
-            confirmButtonText: 'Guardar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: () => {
-                const fd = new FormData();
-                fd.append('username', document.getElementById('edit_username').value);
-                fd.append('email', document.getElementById('edit_email').value);
-                fd.append('first_name', document.getElementById('edit_first').value);
-                fd.append('last_name', document.getElementById('edit_last').value);
-                fd.append('telefono', document.getElementById('edit_tel').value);
-                fd.append('rol', document.getElementById('edit_rol').value);
-                fd.append('estado', document.getElementById('edit_estado').value);
-
-                return fetch(`/users/editar/${id}/`, {
-                    method: 'POST',
-                    headers: { "X-CSRFToken": "{{ csrf_token }}" },
-                    body: fd
-                }).then(r => r.json());
+    // === CSRF ===
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
             }
-        }).then(result => {
-            if (result.value && result.value.status === 'ok') {
-                Swal.fire({ icon: 'success', title: 'Actualizado correctamente', timer: 1200, showConfirmButton: false })
-                    .then(() => location.reload());
-            }
-        });
-    });
-}
+        }
+        return cookieValue;
+    }
+    const CSRF_TOKEN = getCookie('csrftoken');
 
-// --- ELIMINAR con confirmación ---
-function eliminarUsuario(id) {
-    Swal.fire({
-        title: '¿Estás seguro?',
-        text: "¡No podrás revertir esta acción!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/users/eliminar/${id}/`, {
+    // === Validación y alta ===
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const required = ['username','email','nombre','apellido','password','password2','telefono','rol','estado','mfa'];
+        const errors = [];
+
+        for (const id of required) {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
+                el.classList.add('is-invalid');
+                errors.push(`El campo ${id} es obligatorio`);
+            } else {
+                el.classList.remove('is-invalid');
+            }
+        }
+
+        const email = document.getElementById('email').value.trim();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            document.getElementById('email').classList.add('is-invalid');
+            errors.push('El email no tiene un formato válido');
+        }
+
+        const tel = document.getElementById('telefono').value.trim();
+        if (tel && !/^\+?[0-9]{9,12}$/.test(tel)) {
+            document.getElementById('telefono').classList.add('is-invalid');
+            errors.push('El teléfono debe contener entre 9 y 12 dígitos');
+        }
+
+        const p1 = document.getElementById('password').value;
+        const p2 = document.getElementById('password2').value;
+        if (p1.length < 8) errors.push('La contraseña debe tener al menos 8 caracteres');
+        if (p1 !== p2) errors.push('Las contraseñas no coinciden');
+
+        if (errors.length) {
+            Swal.fire({title:'Error de validación', html:errors.join('<br>'), icon:'error'});
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('username', document.getElementById('username').value.trim());
+        fd.append('email', document.getElementById('email').value.trim());
+        fd.append('first_name', document.getElementById('nombre').value.trim());
+        fd.append('last_name', document.getElementById('apellido').value.trim());
+        fd.append('telefono', tel);
+        fd.append('password', p1);
+        fd.append('password2', p2);
+        fd.append('rol', document.getElementById('rol').value);
+        fd.append('estado', document.getElementById('estado').value);
+        fd.append('mfa_habilitado', document.getElementById('mfa').value);
+
+        try {
+            const res = await fetch("{% url 'crear_usuario' %}", {
                 method: 'POST',
-                headers: { "X-CSRFToken": "{{ csrf_token }}" }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    Swal.fire('¡Eliminado!', data.message, 'success').then(() => location.reload());
+                headers: {'X-CSRFToken': CSRF_TOKEN},
+                body: fd
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                Swal.fire({icon:'success',title:data.message,timer:1400,showConfirmButton:false})
+                    .then(()=>location.reload());
+            } else {
+                Swal.fire({icon:'error',title:'No se pudo guardar',text:data.message||'Error desconocido'});
+            }
+        } catch {
+            Swal.fire({icon:'error',title:'Error de red',text:'Inténtalo nuevamente.'});
+        }
+    });
+
+    // === Editar ===
+    async function editarUsuario(id) {
+        try {
+            const res = await fetch(`/users/editar/${id}/`, {method:'GET', headers:{'X-CSRFToken': CSRF_TOKEN}});
+            const payload = await res.json();
+            if (payload.status !== 'ok') throw new Error('No se pudo cargar el usuario');
+
+            const u = payload.user;
+
+            const { value: result } = await Swal.fire({
+                title: 'Editar Usuario',
+                html: `
+                    <input id="e_username" class="swal2-input" placeholder="Username" value="${u.username}">
+                    <input id="e_first" class="swal2-input" placeholder="Nombre" value="${u.first_name}">
+                    <input id="e_last" class="swal2-input" placeholder="Apellido" value="${u.last_name}">
+                    <input id="e_email" class="swal2-input" placeholder="Email" value="${u.email}">
+                    <input id="e_tel" class="swal2-input" placeholder="Teléfono" value="${u.telefono||''}">
+                    <select id="e_rol" class="swal2-input">
+                        <option value="ADMIN" ${u.rol==='ADMIN'?'selected':''}>ADMIN</option>
+                        <option value="COMPRAS" ${u.rol==='COMPRAS'?'selected':''}>COMPRAS</option>
+                        <option value="INVENTARIO" ${u.rol==='INVENTARIO'?'selected':''}>INVENTARIO</option>
+                        <option value="PRODUCCION" ${u.rol==='PRODUCCION'?'selected':''}>PRODUCCION</option>
+                        <option value="VENTAS" ${u.rol==='VENTAS'?'selected':''}>VENTAS</option>
+                        <option value="FINANZAS" ${u.rol==='FINANZAS'?'selected':''}>FINANZAS</option>
+                    </select>
+                    <select id="e_estado" class="swal2-input">
+                        <option value="activo" ${u.estado==='activo'?'selected':''}>activo</option>
+                        <option value="inactivo" ${u.estado==='inactivo'?'selected':''}>inactivo</option>
+                        <option value="bloqueado" ${u.estado==='bloqueado'?'selected':''}>bloqueado</option>
+                    </select>
+                    <input id="e_pwd" type="password" class="swal2-input" placeholder="Nueva contraseña (opcional)">
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const email = document.getElementById('e_email').value.trim();
+                    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                        Swal.showValidationMessage('Email inválido');
+                        return false;
+                    }
+                    const pwd = document.getElementById('e_pwd').value;
+                    if (pwd && pwd.length < 8) {
+                        Swal.showValidationMessage('La nueva contraseña debe tener al menos 8 caracteres');
+                        return false;
+                    }
+                    return {
+                        username: document.getElementById('e_username').value.trim(),
+                        first_name: document.getElementById('e_first').value.trim(),
+                        last_name: document.getElementById('e_last').value.trim(),
+                        email: email,
+                        telefono: document.getElementById('e_tel').value.trim(),
+                        rol: document.getElementById('e_rol').value,
+                        estado: document.getElementById('e_estado').value,
+                        password: pwd
+                    };
                 }
             });
+
+            if (!result) return;
+
+            const fd = new FormData();
+            Object.entries(result).forEach(([k,v])=> fd.append(k, v));
+
+            const r2 = await fetch(`/users/editar/${id}/`, {
+                method: 'POST',
+                headers: {'X-CSRFToken': CSRF_TOKEN},
+                body: fd
+            });
+            const j = await r2.json();
+
+            if (j.status === 'ok') {
+                Swal.fire({icon:'success',title:'Actualizado correctamente',timer:1200,showConfirmButton:false})
+                    .then(()=>location.reload());
+            } else {
+                Swal.fire({icon:'error',title:'No se pudo actualizar',text:j.message||'Error desconocido'});
+            }
+
+        } catch (e) {
+            Swal.fire({icon:'error',title:'Error',text:e.message||'No se pudo editar'});
         }
-    });
-}
+    }
 
-// ---------------- Validaciones suaves por campo (blur) ----------------
-(function () {
-    const $ = (id) => document.getElementById(id);
-
-    const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
-    const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-    const reTel  = /^[0-9+()\-\s]{6,30}$/;
-    const strongPass = (s) => /[a-z]/.test(s) && /[A-Z]/.test(s) && /\d/.test(s) && s.length >= 8;
-
-    const username = $('username');
-    const email    = $('email');
-    const tel      = $('telefono');
-    const pass1    = $('password');
-    const pass2    = $('password');
-
-    username && username.addEventListener('blur', () => {
-        const v = (username.value || '').trim();
-        if (v && !reUser.test(v)) {
-            Swal.fire({ icon: 'info', title: 'Username inválido', text: 'Usa 3–30 caracteres: letras, números, . _ -' });
-        }
-    });
-
-    email && email.addEventListener('blur', () => {
-        const v = (email.value || '').trim();
-        if (v && !reMail.test(v)) {
-            Swal.fire({ icon: 'info', title: 'Email inválido', text: 'Ejemplo: nombre@dominio.cl' });
-        }
-    });
-
-    tel && tel.addEventListener('blur', () => {
-        const v = (tel.value || '').trim();
-        if (v && !reTel.test(v)) {
-            Swal.fire({ icon: 'info', title: 'Teléfono inválido', text: 'Usa +, números, espacios y () - (mín. 6 dígitos).' });
-        }
-    });
-
-    pass1 && pass1.addEventListener('blur', () => {
-        const v = pass1.value || '';
-        if (v && !strongPass(v)) {
-            Swal.fire({ icon: 'info', title: 'Contraseña poco segura', html: 'Debe tener <b>8+</b> caracteres e incluir <b>mayúscula</b>, <b>minúscula</b> y <b>número</b>.' });
-        }
-    });
-
-    pass2 && pass2.addEventListener('blur', () => {
-        if (pass1.value && pass2.value && pass1.value !== pass2.value) {
-            Swal.fire({ icon: 'error', title: 'Las contraseñas no coinciden', text: 'Revisa ambos campos.' });
-        }
-    });
-})();
+    // === Eliminar ===
+    function eliminarUsuario(id) {
+        Swal.fire({
+            title: '¿Eliminar usuario?',
+            text: 'No podrás revertir esta acción',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then(async (res) => {
+            if (!res.isConfirmed) return;
+            try {
+                const r = await fetch(`/users/eliminar/${id}/`, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': CSRF_TOKEN}
+                });
+                const j = await r.json();
+                if (j.status === 'ok') {
+                    Swal.fire({icon:'success',title:'Eliminado',timer:1000,showConfirmButton:false})
+                        .then(()=>location.reload());
+                } else {
+                    Swal.fire({icon:'error',title:'No se pudo eliminar',text:j.message||'Error desconocido'});
+                }
+            } catch {
+                Swal.fire({icon:'error',title:'Error de red',text:'Inténtalo nuevamente.'});
+            }
+        });
+    }
 </script>
-
 {% endblock %}

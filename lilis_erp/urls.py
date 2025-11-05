@@ -17,32 +17,29 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from . import views # Importamos las vistas del proyecto
+from apps.account.views import module_gate_view  # 🔹 Importa la vista del portón
+
+from django.contrib import admin
+from django.urls import path, include
+from . import views
+from apps.account.views import module_gate_view
 
 urlpatterns = [
-    # --- Ruta Principal ---
-    # La URL raíz ('/') apunta a la vista 'dashboard_page'.
-    # Como 'dashboard_page' está protegida, redirigirá automáticamente a 'login' si no has iniciado sesión.
-    # Esta ruta DEBE ir primero.
-    path('', views.dashboard_page, name='dashboard'),
+    # Raíz → dashboard (solo admin lo verá; no admin será redirigido en la vista)
+    path("", views.dashboard_page, name="dashboard"),
 
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
 
-    # --- Rutas de Autenticación ---
-    # Incluimos las URLs de la app 'account' ('/login/', '/logout/') en la raíz.
-    path('', include('apps.account.urls')),
+    # Auth
+    path("", include("apps.account.urls")),
 
-    # --- Rutas de Productos ---
-    # Todas las URLs que comiencen con 'productos/' serán manejadas por la app 'products'.
-    path('productos/', include('apps.products.urls')),
+    # Módulos (namespaced para que {% url 'suppliers:list' %} etc. funcione)
+    path("productos/", include(("apps.products.urls", "products"), namespace="products")),
+    path("users/", include("apps.users.urls")),
+    path("proveedores/", include(("apps.suppliers.urls", "suppliers"), namespace="suppliers")),
+    path("transacciones/", include(("apps.transactional.urls", "transactional"), namespace="transactional")),
 
-    # --- Rutas de Usuarios ---
-    # Todas las URLs que comiencen con 'users/' serán manejadas por la app 'users'.
-    path('users/', include('apps.users.urls')),
-
-    # --- Rutas de Proveedores ---
-    # Todas las URLs que comiencen con 'proveedores/' serán manejadas por la app 'suppliers'.
-    path('proveedores/', include('apps.suppliers.urls')),
-
-    # --- Rutas de Transacciones ---
-    path('transacciones/', include('apps.transactional.urls')),
+    # Portón (lo dejamos tal cual)
+    path("modulos/<slug:app_slug>/entrar/", module_gate_view, name="module_gate"),
 ]
+

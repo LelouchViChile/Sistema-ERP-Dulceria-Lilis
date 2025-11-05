@@ -3,31 +3,48 @@
 
 {% block content %}
 <h5 class="fw-bold mt-3">Gestión Proveedores</h5>
+
 <div class="card shadow-sm mb-4">
     <div class="card-header pb-1">
         <h6>Formulario de Proveedor</h6>
+
         <ul class="nav nav-tabs mt-2" role="tablist">
             <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#tab1">Ingrese datos del proveedor</a>
+                <a class="nav-link active" data-bs-toggle="tab" href="#tab-ident" role="tab">
+                    1. Identificación y contacto
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-dir" role="tab">
+                    2. Dirección y comercial
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-rel" role="tab">
+                    3. Relación con productos
+                </a>
             </li>
         </ul>
     </div>
+
     <div class="card-body">
         <div class="tab-content">
-            <div id="tab1" class="tab-pane fade show active">
+            <!-- ✅ TAB 1 -->
+            <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
                 <div class="row g-2">
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <label class="form-label">RUT/NIF</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Nombre fantasía (opcional)</label>
                         <input type="text" class="form-control">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Razón social</label>
                         <input type="text" class="form-control">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Nombre fantasía (opcional)</label>
-                        <input type="text" class="form-control">
-                    </div>
+
                     <div class="col-md-6">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control">
@@ -37,15 +54,68 @@
                         <input type="text" class="form-control">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Sitio web (opcional)</label>
-                        <input type="text" class="form-control">
+                        <label class="form-label">Sitio web</label>
+                        <input type="text" class="form-control" placeholder="https://…">
                     </div>
                 </div>
-                <div class="mt-3">
-                    <button type="button" class="btn btn-primary" onclick="guardarProveedor()">Guardar</button>
-                    <button type="button" class="btn btn-light">Limpiar</button>
+            </div>
+
+            <!-- ✅ TAB 2 -->
+            <div class="tab-pane fade" id="tab-dir" role="tabpanel">
+                <div class="row g-2">
+                    <h6 class="fw-bold mt-2">Condiciones comerciales</h6>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Plazos de pago (días)</label>
+                        <input type="number" class="form-control num-no-neg" min="0" max="365" step="1"
+                            inputmode="numeric">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Moneda</label>
+                        <select class="form-control">
+                            <option>CLP</option>
+                            <option>USD</option>
+                            <option>EUR</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Descuento (%)</label>
+                        <input type="number" class="form-control num-no-neg" min="0" max="100" step="0.01"
+                            inputmode="decimal">
+                    </div>
                 </div>
             </div>
+
+            <!-- ✅ TAB 3 -->
+            <div class="tab-pane fade" id="tab-rel" role="tabpanel">
+                <h6 class="fw-bold">Relación con productos</h6>
+
+                <div class="row g-2">
+                    <div class="col-md-4 d-flex align-items-center">
+                        <label class="form-label mb-0">Proveedor preferente</label>
+                        <input type="checkbox" class="form-check-input ms-2">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Lead time (días)</label>
+                        <input type="number" class="form-control num-no-neg" min="0" max="365" step="1"
+                            inputmode="numeric">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Costo asociado</label>
+                        <input type="number" class="form-control num-no-neg" min="0" step="0.01" inputmode="decimal">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <!-- type="button" para no hacer submit accidental -->
+            <button type="button" class="btn btn-primary" onclick="guardarProveedor()">Guardar</button>
+            <button type="button" class="btn btn-light" id="btnLimpiar">Limpiar</button>
         </div>
     </div>
 </div>
@@ -154,32 +224,58 @@
     }
 </script>
 
-<!-- ============== AGREGADO: SweetAlert2 + Validaciones en español ============== -->
+<!-- ============== AGREGADO: SweetAlert2 + Validaciones en español y bloqueo de negativos ============== -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     (function () {
-        // Busca campo según su etiqueta
-        function campo(etiqueta) {
-            const lbls = document.querySelectorAll('label.form-label');
-            etiqueta = etiqueta.toLowerCase();
-            for (const l of lbls) {
-                const txt = l.textContent.toLowerCase();
-                if (txt.includes(etiqueta)) {
+        // Util: busca el input/select por el texto de su <label>
+        function campo(labelText) {
+            const labels = document.querySelectorAll('label.form-label');
+            const target = (labelText || '').toLowerCase().trim();
+            for (const l of labels) {
+                const txt = (l.textContent || '').toLowerCase().trim();
+                if (txt.includes(target)) {
                     const cont = l.closest('div');
-                    if (cont) { const inp = cont.querySelector('input,select'); if (inp) return inp; }
+                    if (cont) {
+                        const inp = cont.querySelector('input,select');
+                        if (inp) return inp;
+                    }
                 }
             }
             return null;
         }
 
-        // Validaciones específicas
+        // Bloquea escribir '-', '+', 'e/E' en <input type="number"> y fuerza min=0
+        function bloquearNegativos(el) {
+            if (!el) return;
+            el.addEventListener('keydown', (ev) => {
+                const invalid = ['e', 'E', '+', '-'];
+                if (invalid.includes(ev.key)) ev.preventDefault();
+            });
+            el.addEventListener('input', () => {
+                const min = Number(el.getAttribute('min') ?? ''); // respeta min si existe
+                const val = Number(el.value);
+                if (!Number.isFinite(val)) return;
+                if (!isNaN(min) && val < min) el.value = min;
+            });
+        }
+
+        // Aplica a todos los inputs marcados
+        document.querySelectorAll('.num-no-neg').forEach(bloquearNegativos);
+
+        // Valida el formulario del proveedor
         function validarProveedor() {
-            const errores = [];
+            const errs = [];
             const rut = campo('RUT');
             const razon = campo('Razón social');
             const email = campo('Email');
             const fono = campo('Teléfono');
             const web = campo('Sitio web');
+
+            const plazo = campo('Plazos de pago');
+            const desc = campo('Descuento');
+            const lead = campo('Lead time');
+            const costo = campo('Costo asociado');
 
             const rutVal = (rut?.value || '').trim();
             const razonVal = (razon?.value || '').trim();
@@ -187,22 +283,40 @@
             const fonoVal = (fono?.value || '').trim();
             const webVal = (web?.value || '').trim();
 
-            if (!rutVal) errores.push('El campo “RUT/NIF” es obligatorio.');
-            else if (!/^[0-9kK\.\-]{7,20}$/.test(rutVal)) errores.push('Formato de “RUT/NIF” inválido.');
+            if (!rutVal) errs.push('El campo “RUT/NIF” es obligatorio.');
+            else if (!/^[0-9kK.\-]{7,20}$/.test(rutVal)) errs.push('Formato de “RUT/NIF” inválido.');
 
-            if (!razonVal) errores.push('El campo “Razón social” es obligatorio.');
+            if (!razonVal) errs.push('El campo “Razón social” es obligatorio.');
 
-            if (!emailVal) errores.push('El campo “Email” es obligatorio.');
-            else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailVal)) errores.push('Formato de “Email” inválido.');
+            if (!emailVal) errs.push('El campo “Email” es obligatorio.');
+            else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailVal)) errs.push('Formato de “Email” inválido.');
 
-            if (fonoVal && !/^[0-9+()\-\s]{6,30}$/.test(fonoVal)) errores.push('Formato de “Teléfono” inválido.');
+            if (fonoVal && !/^[0-9+()\-\s]{6,30}$/.test(fonoVal)) errs.push('Formato de “Teléfono” inválido.');
 
-            if (webVal && !/^https?:\/\/.+/i.test(webVal)) errores.push('La “Sitio web” debe comenzar con http:// o https://');
+            if (webVal && !/^https?:\/\/.+/i.test(webVal)) errs.push('El “Sitio web” debe comenzar con http:// o https://');
 
-            return errores;
+            // Númericos (no negativos y en rango)
+            const plazoNum = Number(plazo?.value || '0');
+            const descNum = Number(desc?.value || '0');
+            const leadNum = Number(lead?.value || '0');
+            const costoNum = Number(costo?.value || '0');
+
+            if (plazo && (plazoNum < 0 || plazoNum > 365 || !Number.isFinite(plazoNum)))
+                errs.push('“Plazos de pago” debe estar entre 0 y 365 días.');
+
+            if (desc && (descNum < 0 || descNum > 100 || !Number.isFinite(descNum)))
+                errs.push('“Descuento (%)” debe estar entre 0 y 100.');
+
+            if (lead && (leadNum < 0 || leadNum > 365 || !Number.isFinite(leadNum)))
+                errs.push('“Lead time (días)” debe estar entre 0 y 365 días.');
+
+            if (costo && (costoNum < 0 || !Number.isFinite(costoNum)))
+                errs.push('“Costo asociado” no puede ser negativo.');
+
+            return errs;
         }
 
-        // Guardamos la referencia del original
+        // Envolvemos tu guardarProveedor(): validamos primero
         const _guardar = window.guardarProveedor;
         window.guardarProveedor = function () {
             const errs = validarProveedor();
@@ -217,6 +331,15 @@
             }
             _guardar && _guardar();
         };
+
+        // Botón limpiar: resetea todos los inputs/selects del card
+        document.getElementById('btnLimpiar')?.addEventListener('click', () => {
+            document.querySelectorAll('#tab-ident input, #tab-dir input, #tab-rel input, #tab-dir select').forEach(el => {
+                if (el.type === 'checkbox') el.checked = false;
+                else el.value = '';
+            });
+            Swal.fire({ icon: 'info', title: 'Formulario limpiado', timer: 1200, showConfirmButton: false });
+        });
     })();
 </script>
 <!-- ============== /AGREGADO ============== -->
