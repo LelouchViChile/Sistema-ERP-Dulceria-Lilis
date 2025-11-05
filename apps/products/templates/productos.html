@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Gestión de Productos{% endblock %}
 
 {% block content %}
@@ -25,365 +26,332 @@
             </li>
         </ul>
     </div>
+
     <div class="card-body">
-        <div class="tab-content">
-            <!-- Identificación y precios -->
-            <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
-                <div class="row g-2">
-                    <div class="col-md-3">
-                        <label class="form-label">SKU</label>
-                        <input type="text" class="form-control" placeholder="SKU-10001">
+        <!-- SIN SweetAlert: validación Bootstrap -->
+        <form id="form-prod" class="needs-validation" novalidate>
+            <div class="tab-content">
+                <!-- Identificación y precios -->
+                <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label">SKU</label>
+                            <input type="text" class="form-control" placeholder="SKU-10001" required>
+                            <div class="invalid-feedback">Este campo es obligatorio.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">EAN / UPC</label>
+                            <input type="text" class="form-control" placeholder="7789012345678">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" required>
+                            <div class="invalid-feedback">Este campo es obligatorio.</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Descripción</label>
+                            <input type="text" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Categoría</label>
+                            <select class="form-control">
+                                <option>Seleccione...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Marca</label>
+                            <input type="text" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Modelo</label>
+                            <input type="text" class="form-control">
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">EAN / UPC</label>
-                        <input type="text" class="form-control" placeholder="7789012345678">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Nombre</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label">Descripción</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Categoría</label>
-                        <select class="form-control">
-                            <option>Seleccione...</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Marca</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Modelo</label>
-                        <input type="text" class="form-control">
+
+                    <hr>
+
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <label class="form-label">UOM Compra</label>
+                            <select class="form-control" required>
+                                <option value="">Seleccione...</option>
+                                <option value="UN">Unidad</option>
+                                <option value="CAJA">Caja</option>
+                                <option value="KG">Kilogramo</option>
+                                <option value="LT">Litro</option>
+                                <option value="PAQ">Paquete</option>
+                            </select>
+                            <div class="invalid-feedback">Selecciona una unidad de compra.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">UOM Venta</label>
+                            <select class="form-control" required>
+                                <option value="">Seleccione...</option>
+                                <option value="UN">Unidad</option>
+                                <option value="CAJA">Caja</option>
+                                <option value="KG">Kilogramo</option>
+                                <option value="LT">Litro</option>
+                                <option value="PAQ">Paquete</option>
+                            </select>
+                            <div class="invalid-feedback">Selecciona una unidad de venta.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Factor conversión</label>
+                            <input type="number" class="form-control" value="1" step="1" min="0" data-nonneg required>
+                            <div class="invalid-feedback">Ej.: 12 si 1 CAJA = 12 UN.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Costo estándar</label>
+                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Costo promedio</label>
+                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Precio venta</label>
+                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">IVA (%)</label>
+                            <input type="number" class="form-control" value="19" step="1" min="0" data-nonneg required>
+                            <div class="invalid-feedback">Indica el IVA.</div>
+                        </div>
                     </div>
                 </div>
-                <hr>
-                <div class="row g-2">
-                    <div class="col-md-2">
-                        <label class="form-label">UOM Compra</label>
-                        <select class="form-control">
-                            <option>Seleccione...</option>
-                        </select>
+
+                <!-- Stock y control -->
+                <div class="tab-pane fade" id="tab-stock" role="tabpanel">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label">Stock mínimo</label>
+                            <input type="number" class="form-control" value="0" step="0.001" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Stock máximo</label>
+                            <input type="number" class="form-control" step="0.001" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Punto reorden</label>
+                            <input type="number" class="form-control" step="0.001" min="0" data-nonneg>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-center">
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" id="ctrlLote">
+                                <label class="form-check-label" for="ctrlLote">Control por lote</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="perecible">
+                                <label class="form-check-label" for="perecible">Perecible</label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">UOM Venta</label>
-                        <select class="form-control">
-                            <option>Seleccione...</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Factor conversión</label>
-                        <input type="number" class="form-control" value="1">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Costo estándar</label>
-                        <input type="number" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Costo promedio</label>
-                        <input type="number" class="form-control" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Precio venta</label>
-                        <input type="number" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">IVA (%)</label>
-                        <input type="number" class="form-control" value="19">
+                </div>
+
+                <!-- Relaciones y derivados -->
+                <div class="tab-pane fade" id="tab-rel" role="tabpanel">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Imagen URL</label>
+                            <input type="url" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ficha técnica URL</label>
+                            <input type="url" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Stock actual</label>
+                            <input type="number" class="form-control" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Alerta bajo stock</label>
+                            <input type="text" class="form-control" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Alerta por vencer</label>
+                            <input type="text" class="form-control" readonly>
+                        </div>
                     </div>
                 </div>
             </div>
-            <!-- Stock y control -->
-            <div class="tab-pane fade" id="tab-stock" role="tabpanel">
-                <div class="row g-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Stock mínimo</label>
-                        <input type="number" class="form-control" value="0">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Stock máximo</label>
-                        <input type="number" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Punto reorden</label>
-                        <input type="number" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Control por lote</label>
-                        <input class="form-check-input ms-2" type="checkbox">
-                        <label class="form-check-label ms-4">Percedero</label>
-                        <input class="form-check-input ms-2" type="checkbox">
-                    </div>
-                </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-light" id="btn-clear">Limpiar</button>
             </div>
-            <!-- Relaciones y derivados -->
-            <div class="tab-pane fade" id="tab-rel" role="tabpanel">
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label">Imagen URL</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Ficha técnica URL</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Stock actual</label>
-                        <input type="number" class="form-control" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Alerta bajo stock</label>
-                        <input type="text" class="form-control" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Alerta por vencer</label>
-                        <input type="text" class="form-control" readonly>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="mt-3">
-            <button type="button" class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
-            <button type="button" class="btn btn-light">Limpiar</button>
-        </div>
+        </form>
     </div>
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <div>Productos</div>
-        <button class="btn btn-outline-secondary btn-sm">Exportar a Excel</button>
-    </div>
-    <div class="card-body">
-        <div class="mb-2">
-            <input type="text" class="form-control" placeholder="Buscar por SKU o nombre...">
+    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+        <div class="mb-2 mb-md-0">Productos</div>
+
+        <div class="d-flex gap-2 w-100 w-md-auto">
+            <!-- Buscador con lupa (Ajax en vivo) -->
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="searchProducts"
+                    placeholder="Buscar por SKU, nombre o categoría..." autocomplete="off"
+                    data-url="{% url 'products:search' %}" value="{{ query|default:'' }}">
+            </div>
+
+            <!-- Exportar Excel -->
+            <a class="btn btn-outline-secondary btn-sm"
+                href="{% url 'products:list' %}?export=xlsx{% if query %}&q={{ query|urlencode }}{% endif %}">
+                Exportar a Excel
+            </a>
         </div>
+    </div>
+
+    <div class="card-body">
         <div class="table-responsive">
             <table class="table table-striped align-middle text-center">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>SKU</th>
                         <th>Nombre</th>
+                        <th>Categoría</th>
                         <th>Stock</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="productsTbody">
                     {% for p in productos %}
                     <tr>
+                        <td>{{ p.id }}</td>
                         <td>{{ p.sku }}</td>
                         <td>{{ p.nombre }}</td>
+                        <td>{{ p.categoria }}</td>
                         <td>{{ p.stock }}</td>
                         <td>
-                            <button class="btn btn-sm btn-warning" onclick="editarProducto('{{ p.sku }}')"><i
-                                    class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-danger" onclick="eliminarProducto('{{ p.sku }}')"><i
-                                    class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-warning" disabled>
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" disabled>
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-muted">Sin resultados</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        {% if page_obj %}
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</small>
+            <div>
+                {% if page_obj.has_previous %}
+                <a class="btn btn-sm btn-outline-secondary"
+                    href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">Anterior</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a class="btn btn-sm btn-outline-secondary"
+                    href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">Siguiente</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
+<!-- ============== SCRIPTS ============== -->
 <script>
-    function guardarProducto() {
-        Swal.fire({
-            title: 'Guardar producto',
-            text: '¿Deseas guardar este producto?',
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#c11b17',
-            confirmButtonText: 'Sí, guardar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Producto guardado', 'Los datos fueron almacenados correctamente', 'success');
-            }
-        });
-    }
-    function editarProducto(sku) {
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: 'Vas a editar el producto ' + sku,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#c11b17',
-            confirmButtonText: 'Sí, editar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Redirigiendo...', '', 'info');
-            }
-        });
-    }
-    function eliminarProducto(sku) {
-        Swal.fire({
-            title: 'Advertencia',
-            text: '¿Quieres eliminar el producto ' + sku + '? Esta acción es irreversible',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#c11b17',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Eliminado', 'Producto ' + sku + ' eliminado', 'success');
-            }
-        });
-    }
-</script>
-
-<!-- ================== AGREGADO: SweetAlert2 + Validaciones en español ================== -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
+    // Validaciones Bootstrap y no-negativos
     (function () {
-        // Helper: obtiene el input/select que sigue a un <label> con texto dado (sin cambiar tu HTML)
-        function getCampoPorEtiqueta(texto, scopeSel) {
-            const scope = document.querySelector(scopeSel || 'body');
-            const labels = scope.querySelectorAll('label.form-label, label.form-check-label');
-            texto = (texto || '').toLowerCase().trim();
-            for (const lb of labels) {
-                const t = (lb.textContent || '').toLowerCase().trim();
-                if (t === texto || t.includes(texto)) {
-                    // busca un input/select hermano en el mismo contenedor
-                    const cont = lb.closest('div');
-                    if (!cont) continue;
-                    const candidato = cont.querySelector('input, select, textarea');
-                    if (candidato) return candidato;
-                }
+        const form = document.getElementById('form-prod');
+        if (!form) return;
+
+        // Bloqueo negativos y "bajar bajo 0" en inputs con data-nonneg
+        const nonnegs = form.querySelectorAll('input[type="number"][data-nonneg]');
+        function clamp(el) {
+            let v = el.value;
+            if (v === '') return;
+            let num = Number(v);
+            if (isNaN(num) || num < 0) {
+                el.value = 0;
             }
-            return null;
         }
+        nonnegs.forEach(el => {
+            el.addEventListener('keydown', (e) => {
+                if (['-', 'e', 'E', '+'].includes(e.key)) e.preventDefault();
+            });
+            el.addEventListener('input', () => clamp(el));
+            el.addEventListener('blur', () => clamp(el));
+        });
 
-        // Validación de URL simple
-        function urlValida(str) {
-            if (!str) return true;
-            try { new URL(str); return true; } catch { return false; }
-        }
-
-        // Reglas de validación (sin tocar tu estructura)
-        function validarProductoCampos() {
-            const errores = [];
-
-            // --- TAB: Identificación y precios ---
-            const sku = getCampoPorEtiqueta('SKU', '#tab-ident');
-            const ean = getCampoPorEtiqueta('EAN', '#tab-ident') || getCampoPorEtiqueta('EAN / UPC', '#tab-ident');
-            const nombre = getCampoPorEtiqueta('Nombre', '#tab-ident');
-            const categoria = getCampoPorEtiqueta('Categoría', '#tab-ident');
-            const uomCompra = getCampoPorEtiqueta('UOM Compra', '#tab-ident');
-            const uomVenta = getCampoPorEtiqueta('UOM Venta', '#tab-ident');
-            const factor = getCampoPorEtiqueta('Factor conversión', '#tab-ident');
-            const costo = getCampoPorEtiqueta('Costo estándar', '#tab-ident');
-            const precio = getCampoPorEtiqueta('Precio venta', '#tab-ident');
-            const iva = getCampoPorEtiqueta('IVA', '#tab-ident') || getCampoPorEtiqueta('IVA (%)', '#tab-ident');
-
-            // SKU
-            const skuVal = (sku?.value || '').trim().toUpperCase();
-            if (!skuVal) errores.push('El campo “SKU” es obligatorio.');
-            else if (!/^[A-Z0-9\-_.]{3,50}$/.test(skuVal)) errores.push('SKU inválido. Usa A-Z, 0-9, -, _, . (3 a 50 caracteres).');
-
-            // EAN/UPC (opcional)
-            const eanVal = (ean?.value || '').trim();
-            if (eanVal && !/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(eanVal)) errores.push('EAN/UPC debe tener 8, 12, 13 o 14 dígitos.');
-
-            // Nombre
-            const nombreVal = (nombre?.value || '').trim();
-            if (!nombreVal) errores.push('El campo “Nombre” es obligatorio.');
-
-            // Categoría (no “Seleccione…”)
-            if (categoria && categoria.tagName === 'SELECT') {
-                if (categoria.selectedIndex === 0) errores.push('Selecciona una “Categoría”.');
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
             }
+            form.classList.add('was-validated');
+        }, false);
 
-            // UOMs
-            if (uomCompra && uomCompra.tagName === 'SELECT' && uomCompra.selectedIndex === 0) errores.push('Selecciona “UOM Compra”.');
-            if (uomVenta && uomVenta.tagName === 'SELECT' && uomVenta.selectedIndex === 0) errores.push('Selecciona “UOM Venta”.');
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            form.reset();
+            form.classList.remove('was-validated');
+        });
+    })();
 
-            // Factor conversión
-            const factorNum = parseFloat(factor?.value || '0');
-            if (!(factorNum > 0)) errores.push('“Factor conversión” debe ser mayor a 0.');
+    // Buscador en vivo (AJAX) productos
+    (function () {
+        const input = document.getElementById('searchProducts');
+        const tbody = document.getElementById('productsTbody');
+        if (!input || !tbody) return;
 
-            // Precios
-            const costoNum = parseFloat(costo?.value || '0');
-            const precioNum = parseFloat(precio?.value || '0');
-            if (costo && costo.value !== '' && costoNum < 0) errores.push('“Costo estándar” no puede ser negativo.');
-            if (precio && precio.value !== '' && precioNum < 0) errores.push('“Precio venta” no puede ser negativo.');
-            if (!isNaN(costoNum) && !isNaN(precioNum) && (precio?.value !== '') && (costo?.value !== '') && precioNum < costoNum) {
-                errores.push('“Precio venta” no puede ser menor que “Costo estándar”.');
-            }
+        const url = input.dataset.url;
+        let abortCtrl = null;
+        let timer = null;
 
-            // IVA 0–25
-            const ivaNum = parseFloat(iva?.value || '19');
-            if (isNaN(ivaNum) || ivaNum < 0 || ivaNum > 25) errores.push('“IVA (%)” debe estar entre 0 y 25.');
-
-            // --- TAB: Stock y control ---
-            const stockMin = getCampoPorEtiqueta('Stock mínimo', '#tab-stock');
-            const stockMax = getCampoPorEtiqueta('Stock máximo', '#tab-stock');
-            const puntoReorden = getCampoPorEtiqueta('Punto reorden', '#tab-stock');
-
-            const minNum = parseFloat(stockMin?.value || '0');
-            const maxNum = stockMax?.value === '' ? null : parseFloat(stockMax.value);
-            const reoNum = puntoReorden?.value === '' ? null : parseFloat(puntoReorden.value);
-
-            if (isNaN(minNum) || minNum < 0) errores.push('“Stock mínimo” debe ser un número ≥ 0.');
-            if (maxNum !== null && (isNaN(maxNum) || maxNum < 0)) errores.push('“Stock máximo” debe ser un número ≥ 0.');
-            if (reoNum !== null && (isNaN(reoNum) || reoNum < 0)) errores.push('“Punto reorden” debe ser un número ≥ 0.');
-            if (maxNum !== null && maxNum < minNum) errores.push('“Stock máximo” no puede ser menor que “Stock mínimo”.');
-            if (reoNum !== null && reoNum < minNum) errores.push('“Punto reorden” no puede ser menor que “Stock mínimo”.');
-
-            // Checkbox: Control por lote / Percedero (sin tocar tu HTML)
-            // Están en el mismo <div>; tomamos por orden
-            const chkDiv = document.querySelector('#tab-stock .col-md-3:has(label.form-label)');
-            // Fallback directo al contenedor más cercano de “Control por lote”
-            const loteLbl = getCampoPorEtiqueta('Control por lote', '#tab-stock');
-            let chkLote = null, chkPerecible = null;
-            if (loteLbl) {
-                const cont = loteLbl.closest('div');
-                if (cont) {
-                    const chks = cont.querySelectorAll('input[type="checkbox"]');
-                    chkLote = chks[0] || null;
-                    chkPerecible = chks[1] || null;
-                }
-            }
-
-            // --- TAB: Relaciones ---
-            const urlImg = getCampoPorEtiqueta('Imagen URL', '#tab-rel');
-            const urlFicha = getCampoPorEtiqueta('Ficha técnica URL', '#tab-rel');
-
-            if (urlImg && urlImg.value && !urlValida(urlImg.value)) errores.push('“Imagen URL” no es una URL válida.');
-            if (urlFicha && urlFicha.value && !urlValida(urlFicha.value)) errores.push('“Ficha técnica URL” no es una URL válida.');
-
-            return errores;
-        }
-
-        // Envolvemos tu guardarProducto(): validamos primero y SI TODO OK llamamos a tu función original
-        const _guardarOriginal = window.guardarProducto;
-        window.guardarProducto = function () {
-            const errores = validarProductoCampos();
-            if (errores.length) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Revisa el formulario',
-                    html: '<ul style="text-align:left; margin-left:1rem;">' + errores.map(e => `<li>${e}</li>`).join('') + '</ul>',
-                    confirmButtonText: 'Entendido'
-                });
+        function render(items) {
+            if (!items || !items.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Sin resultados</td></tr>`;
                 return;
             }
-            // Si pasa validación, seguimos con tu flujo original (confirmación + éxito)
-            _guardarOriginal && _guardarOriginal();
-        };
+            tbody.innerHTML = items.slice(0, 10).map(p => `
+        <tr>
+          <td>${p.id ?? ''}</td>
+          <td>${p.sku ?? ''}</td>
+          <td>${p.nombre ?? ''}</td>
+          <td>${p.categoria ?? ''}</td>
+          <td>${p.stock ?? 0}</td>
+          <td>
+            <button class="btn btn-sm btn-warning" disabled><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+        }
+
+        async function doSearch(q) {
+            if (abortCtrl) abortCtrl.abort();
+            abortCtrl = new AbortController();
+
+            const params = new URLSearchParams({ q: q || '' });
+            const resp = await fetch(`${url}?${params.toString()}`, {
+                method: 'GET',
+                signal: abortCtrl.signal,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!resp.ok) { render([]); return; }
+            const data = await resp.json();
+            render(data.results || []);
+        }
+
+        function onInput() {
+            const q = input.value.trim();
+            clearTimeout(timer);
+            timer = setTimeout(() => doSearch(q).catch(() => render([])), 250);
+        }
+
+        input.addEventListener('input', onInput);
     })();
 </script>
-<!-- ================== /AGREGADO ================== -->
-
 {% endblock %}

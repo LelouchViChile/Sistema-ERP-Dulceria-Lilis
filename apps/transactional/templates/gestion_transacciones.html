@@ -5,332 +5,335 @@
 <h5 class="fw-bold mt-3">Gestión de Transacciones</h5>
 
 <div class="row mb-3">
-    <div class="col-md-4">
-        <div class="card p-2">Movimientos (hoy): <span class="fw-bold">3</span></div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-2">Stock: <span class="fw-bold">2521</span></div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-2">Productos: <span class="fw-bold">135</span></div>
-    </div>
+  <div class="col-md-4">
+    <div class="card p-2">Movimientos (hoy): <span class="fw-bold">3</span></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-2">Stock: <span class="fw-bold">2521</span></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-2">Productos: <span class="fw-bold">135</span></div>
+  </div>
 </div>
 
 <div class="card shadow-sm mb-4">
-    <div class="card-header pb-1">
-        <h6>Registrar movimiento</h6>
-        <ul class="nav nav-tabs mt-2" id="movTabs" role="tablist">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#tab-datos" role="tab">
-                    1. Datos del movimiento
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tab-avanzado" role="tab">
-                    2. Control avanzado
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tab-referencias" role="tab">
-                    3. Referencias/Observaciones
-                </a>
-            </li>
-        </ul>
-    </div>
-    <div class="card-body">
-        <div class="tab-content">
-            <!-- DATOS DEL MOVIMIENTO -->
-            <div class="tab-pane fade show active" id="tab-datos" role="tabpanel">
-                <div class="row g-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Fecha</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Tipo</label>
-                        <select class="form-control">
-                            <option>Ingreso</option>
-                            <option>Salida</option>
-                            <option>Ajuste</option>
-                            <option>Devolución</option>
-                            <option>Transferencia</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Producto</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Proveedor</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Cantidad</label>
-                        <input type="number" class="form-control">
-                    </div>
-                </div>
+  <div class="card-header pb-1">
+    <h6>Registrar movimiento</h6>
+    <ul class="nav nav-tabs mt-2" id="movTabs" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#tab-datos" role="tab">
+          1. Datos del movimiento
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#tab-avanzado" role="tab">
+          2. Control avanzado
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#tab-referencias" role="tab">
+          3. Referencias/Observaciones
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card-body">
+    <!-- SIN SweetAlert: validaciones Bootstrap -->
+    <form id="form-mov" class="needs-validation" novalidate>
+      <div class="tab-content">
+        <!-- DATOS DEL MOVIMIENTO -->
+        <div class="tab-pane fade show active" id="tab-datos" role="tabpanel">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label">Fecha</label>
+              <input id="movFecha" type="date" class="form-control" required>
+              <div class="invalid-feedback">Este campo es obligatorio.</div>
             </div>
-            <!-- CONTROL AVANZADO -->
-            <div class="tab-pane fade" id="tab-avanzado" role="tabpanel">
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <label class="form-label">Lote</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Serie</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Fecha vencimiento</label>
-                        <input type="date" class="form-control">
-                    </div>
-                </div>
+            <div class="col-md-3">
+              <label class="form-label">Tipo</label>
+              <select id="movTipo" class="form-control" required>
+                <option value="">Seleccione...</option>
+                <option>Ingreso</option>
+                <option>Salida</option>
+                <option>Ajuste</option>
+                <option>Devolución</option>
+                <option>Transferencia</option>
+              </select>
+              <div class="invalid-feedback">Selecciona el tipo de movimiento.</div>
             </div>
-            <!-- REFERENCIAS/OBSERVACIONES -->
-            <div class="tab-pane fade" id="tab-referencias" role="tabpanel">
-                <div class="mb-2">
-                    <label class="form-label">Doc. Referencia</label>
-                    <input type="text" class="form-control" placeholder="DL-101">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Motivo (ajustes/devoluciones)</label>
-                    <input type="text" class="form-control">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label">Observaciones</label>
-                    <textarea class="form-control" rows="2"
-                        placeholder="Notas de operación, recibo, daño, etc."></textarea>
-                </div>
+            <div class="col-md-3">
+              <label class="form-label">Producto</label>
+              <input id="movProducto" type="text" class="form-control" required>
+              <div class="invalid-feedback">Este campo es obligatorio.</div>
             </div>
+            <div class="col-md-3">
+              <label class="form-label">Proveedor</label>
+              <input id="movProveedor" type="text" class="form-control">
+              <div class="form-text">Requerido en Ingreso y Devolución.</div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cantidad</label>
+              <input id="movCantidad" type="number" class="form-control" step="0.01" min="0" data-nonneg required>
+              <div class="invalid-feedback">Ingresa una cantidad mayor o igual a 0.</div>
+            </div>
+          </div>
         </div>
-        <div class="mt-3">
-            <button type="button" class="btn btn-primary" onclick="guardarMovimiento()">Guardar</button>
-            <button type="button" class="btn btn-light">Limpiar</button>
+
+        <!-- CONTROL AVANZADO -->
+        <div class="tab-pane fade" id="tab-avanzado" role="tabpanel">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Lote</label>
+              <input id="movLote" type="text" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Serie</label>
+              <input id="movSerie" type="text" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Fecha vencimiento</label>
+              <input id="movVenc" type="date" class="form-control">
+              <div class="form-text">Si se informa, no puede estar vencida para Ingreso/Transferencia.</div>
+            </div>
+          </div>
         </div>
+
+        <!-- REFERENCIAS/OBSERVACIONES -->
+        <div class="tab-pane fade" id="tab-referencias" role="tabpanel">
+          <div class="mb-2">
+            <label class="form-label">Doc. Referencia</label>
+            <input id="movDoc" type="text" class="form-control" placeholder="DL-101">
+            <div class="form-text">Solo letras, números y guiones.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Motivo (ajustes/devoluciones)</label>
+            <input id="movMotivo" type="text" class="form-control">
+            <div class="form-text">Obligatorio en Ajuste o Devolución.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Observaciones</label>
+            <textarea id="movObs" class="form-control" rows="2" placeholder="Notas de operación, recibo, daño, etc."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn btn-light" id="btn-limpiar">Limpiar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- BUSCADOR AJAX (ubicado JUSTO arriba de la tabla de Movimientos) -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-6">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input id="tx-search" type="text" class="form-control" placeholder="Buscar (producto, SKU, tipo o proveedor)" autocomplete="off">
+        </div>
+        <div class="form-text">Se mostrarán como máximo 10 resultados.</div>
+      </div>
     </div>
+    <ul id="tx-results" class="list-group list-group-flush mt-2"></ul>
+  </div>
 </div>
 
 <div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <div>Movimientos</div>
-        <button class="btn btn-outline-secondary btn-sm">Exportar a Excel</button>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>Movimientos</div>
+    <button class="btn btn-outline-secondary btn-sm">Exportar a Excel</button>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle text-center">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Folio</th>
+            <th>Producto</th>
+            <th>Proveedor</th>
+            <th>Bodega</th>
+            <th>Cantidad</th>
+            <th>Usuario</th>
+            <th>Serie</th>
+            <th>Lote</th>
+            <th>Venc.</th>
+            <th>Doc Ref</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimientos %}
+          <tr>
+            <td>{{ m.fecha }}</td>
+            <td>{{ m.tipo }}</td>
+            <td>{{ m.folio }}</td>
+            <td>{{ m.producto }}</td>
+            <td>{{ m.proveedor }}</td>
+            <td>{{ m.bodega }}</td>
+            <td>{{ m.cantidad }}</td>
+            <td>{{ m.usuario }}</td>
+            <td>{{ m.serie }}</td>
+            <td>{{ m.lote }}</td>
+            <td>{{ m.venc }}</td>
+            <td>{{ m.doc_ref }}</td>
+            <td>
+              <button class="btn btn-sm btn-warning" disabled><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped align-middle text-center">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Tipo</th>
-                        <th>Folio</th>
-                        <th>Producto</th>
-                        <th>Proveedor</th>
-                        <th>Bodega</th>
-                        <th>Cantidad</th>
-                        <th>Usuario</th>
-                        <th>Serie</th>
-                        <th>Lote</th>
-                        <th>Venc.</th>
-                        <th>Doc Ref</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in movimientos %}
-                    <tr>
-                        <td>{{ m.fecha }}</td>
-                        <td>{{ m.tipo }}</td>
-                        <td>{{ m.folio }}</td>
-                        <td>{{ m.producto }}</td>
-                        <td>{{ m.proveedor }}</td>
-                        <td>{{ m.bodega }}</td>
-                        <td>{{ m.cantidad }}</td>
-                        <td>{{ m.usuario }}</td>
-                        <td>{{ m.serie }}</td>
-                        <td>{{ m.lote }}</td>
-                        <td>{{ m.venc }}</td>
-                        <td>{{ m.doc_ref }}</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="editarMovimiento('{{ m.folio }}')"><i
-                                    class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-danger" onclick="eliminarMovimiento('{{ m.folio }}')"><i
-                                    class="bi bi-trash"></i></button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+  </div>
 </div>
 
+<!-- ============== SCRIPTS ============== -->
 <script>
-    function guardarMovimiento() {
-        Swal.fire({
-            title: 'Guardar transacción',
-            text: '¿Deseas guardar este movimiento?',
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#c11b17',
-            confirmButtonText: 'Sí, guardar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Movimiento guardado', 'Los datos fueron almacenados correctamente.', 'success');
-            }
-        });
+  // Evitar negativos y que "baje de 0" en inputs con data-nonneg
+  (function(){
+    const nonnegs = document.querySelectorAll('input[type="number"][data-nonneg]');
+    function clamp(el){
+      let v = el.value;
+      if (v === '') return;
+      let num = Number(v);
+      if (isNaN(num) || num < 0) {
+        el.value = 0;
+      }
     }
-    function editarMovimiento(folio) {
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: 'Vas a editar el movimiento folio ' + folio,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#c11b17',
-            confirmButtonText: 'Sí, editar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Redirigiendo...', '', 'info');
-            }
-        });
+    nonnegs.forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (['-','e','E','+'].includes(e.key)) e.preventDefault();
+      });
+      el.addEventListener('input', () => clamp(el));
+      el.addEventListener('blur', () => clamp(el));
+    });
+  })();
+
+  // Debounce + Ajax search (máx 10) justo sobre la tabla
+  (function(){
+    const $q = document.getElementById('tx-search');
+    const $ul = document.getElementById('tx-results');
+    if (!$q || !$ul) return;
+    let timer;
+
+    function render(items){
+      $ul.innerHTML = "";
+      if (!items.length){
+        $ul.innerHTML = `<li class="list-group-item small text-muted">Sin resultados</li>`;
+        return;
+      }
+      items.slice(0,10).forEach(r => {
+        const li = document.createElement('li');
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.innerHTML = `
+          <div>
+            <div class="fw-semibold">${r.producto}</div>
+            <div class="small text-muted">${r.fecha} · ${r.tipo} · ${r.proveedor || '—'}</div>
+          </div>
+          <span class="badge bg-secondary rounded-pill">${r.cantidad} ${r.uom || ''}</span>`;
+        $ul.appendChild(li);
+      });
     }
-    function eliminarMovimiento(folio) {
-        Swal.fire({
-            title: 'Advertencia',
-            text: '¿Quieres eliminar el movimiento folio ' + folio + '? Esta acción es irreversible.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#c11b17',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Eliminado', 'Movimiento ' + folio + ' eliminado.', 'success');
-            }
-        });
+
+    async function search(q){
+      try{
+        const url = new URL("{% url 'transactional:search' %}", window.location.origin);
+        url.searchParams.set('q', q);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        render(data.results || []);
+      }catch(e){
+        render([]);
+      }
     }
+
+    $q.addEventListener('input', () => {
+      clearTimeout(timer);
+      const val = $q.value.trim();
+      if (!val){ render([]); return; }
+      timer = setTimeout(() => search(val), 250);
+    });
+  })();
+
+  // Validaciones Bootstrap (sin SweetAlert)
+  (function(){
+    const form = document.getElementById('form-mov');
+    if (!form) return;
+    const fecha = document.getElementById('movFecha');
+    const tipo = document.getElementById('movTipo');
+    const proveedor = document.getElementById('movProveedor');
+    const cantidad = document.getElementById('movCantidad');
+    const fvenc = document.getElementById('movVenc');
+
+    function yyyymmdd(d){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const a = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${a}`;
+    }
+
+    form.addEventListener('submit', (ev) => {
+      let ok = true;
+
+      if (!form.checkValidity()){
+        ok = false;
+      }
+
+      // cantidad >= 0
+      const cantNum = parseFloat(cantidad.value || '0');
+      if (isNaN(cantNum) || cantNum < 0){
+        cantidad.setCustomValidity('X');
+        ok = false;
+      } else {
+        cantidad.setCustomValidity('');
+      }
+
+      // proveedor requerido para Ingreso/Devolución
+      const t = (tipo.value || '').trim();
+      if ((t === 'Ingreso' || t === 'Devolución') && !(proveedor.value || '').trim()){
+        proveedor.setCustomValidity('X');
+        ok = false;
+      } else {
+        proveedor.setCustomValidity('');
+      }
+
+      // fecha no futura
+      const fv = (fecha.value || '').trim();
+      if (fv && fv > yyyymmdd(new Date())){
+        fecha.setCustomValidity('X');
+        ok = false;
+      } else {
+        fecha.setCustomValidity('');
+      }
+
+      // vencimiento, si hay y tipo es Ingreso/Transferencia: no pasada
+      const venc = (fvenc.value || '').trim();
+      if (venc && (t === 'Ingreso' || t === 'Transferencia') && venc < yyyymmdd(new Date())){
+        fvenc.setCustomValidity('X');
+        ok = false;
+      } else {
+        fvenc.setCustomValidity('');
+      }
+
+      if (!ok){
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    });
+
+    document.getElementById('btn-limpiar').addEventListener('click', () => {
+      form.reset();
+      form.classList.remove('was-validated');
+      [fecha,tipo,proveedor,cantidad,fvenc].forEach(el => el && el.setCustomValidity(''));
+    });
+  })();
 </script>
-
-<!-- ============== AGREGADO: SweetAlert2 + Validaciones en español (sin cambiar tu HTML) ============== -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    (function () {
-        // Utilidad: obtener input/select por el texto de su <label>
-        function campo(etiqueta, scopeSel) {
-            const scope = document.querySelector(scopeSel || 'body');
-            const labels = scope.querySelectorAll('label.form-label');
-            etiqueta = (etiqueta || '').toLowerCase().trim();
-            for (const l of labels) {
-                const txt = (l.textContent || '').toLowerCase().trim();
-                if (txt === etiqueta || txt.includes(etiqueta)) {
-                    const cont = l.closest('div');
-                    if (cont) {
-                        const inp = cont.querySelector('input,select,textarea');
-                        if (inp) return inp;
-                    }
-                }
-            }
-            return null;
-        }
-
-        function yyyymmdd(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
-
-        // Reglas de validación de negocio mínimas (basadas en lo presente en el template)
-        function validarMovimiento() {
-            const errs = [];
-
-            const fecha = campo('Fecha', '#tab-datos');
-            const tipo = campo('Tipo', '#tab-datos');
-            const prod = campo('Producto', '#tab-datos');
-            const prov = campo('Proveedor', '#tab-datos');
-            const cant = campo('Cantidad', '#tab-datos');
-
-            const lote = campo('Lote', '#tab-avanzado');
-            const serie = campo('Serie', '#tab-avanzado');
-            const fvenc = campo('Fecha vencimiento', '#tab-avanzado');
-
-            const docRef = campo('Doc. Referencia', '#tab-referencias');
-            const motivo = campo('Motivo', '#tab-referencias');
-            const obs = campo('Observaciones', '#tab-referencias');
-
-            // Fecha requerida, no futura
-            const hoy = new Date();
-            const hoyStr = yyyymmdd(hoy);
-            const fechaVal = (fecha?.value || '').trim();
-            if (!fechaVal) errs.push('El campo “Fecha” es obligatorio.');
-            else if (fechaVal > hoyStr) errs.push('La “Fecha” no puede estar en el futuro.');
-
-            // Tipo requerido
-            const tipoVal = (tipo?.value || '').trim();
-            if (!tipoVal) errs.push('Selecciona el “Tipo” de movimiento.');
-
-            // Producto y cantidad
-            const prodVal = (prod?.value || '').trim();
-            if (!prodVal) errs.push('El campo “Producto” es obligatorio.');
-
-            const cantNum = parseFloat(cant?.value || '0');
-            if (!(cantNum > 0)) errs.push('La “Cantidad” debe ser mayor a 0.');
-
-            // Proveedor requerido para Ingreso (regla común)
-            if (tipoVal === 'Ingreso') {
-                const provVal = (prov?.value || '').trim();
-                if (!provVal) errs.push('Para un “Ingreso”, el campo “Proveedor” es obligatorio.');
-            }
-
-            // Motivo requerido para Ajuste/Devolución (según etiqueta)
-            const motivoVal = (motivo?.value || '').trim();
-            if ((tipoVal === 'Ajuste' || tipoVal === 'Devolución') && !motivoVal) {
-                errs.push('Para “Ajuste/Devolución”, ingresa un “Motivo”.');
-            }
-
-            // Fecha de vencimiento: si se informa, no puede ser pasada para Ingreso/Transferencia
-            const fv = (fvenc?.value || '').trim();
-            if (fv && (tipoVal === 'Ingreso' || tipoVal === 'Transferencia') && fv < hoyStr) {
-                errs.push('La “Fecha vencimiento” no puede estar vencida para Ingreso/Transferencia.');
-            }
-
-            // Doc. Ref formato opcional (alfa-num y -/_)
-            const dr = (docRef?.value || '').trim();
-            if (dr && !/^[\w\-]+$/i.test(dr)) {
-                errs.push('“Doc. Referencia” solo debe contener letras, números, guiones o guión bajo.');
-            }
-
-            // Observaciones: límite sugerido
-            const obsVal = (obs?.value || '').trim();
-            if (obsVal.length > 500) {
-                errs.push('“Observaciones” no puede superar 500 caracteres.');
-            }
-
-            return errs;
-        }
-
-        // Envolvemos tu guardarMovimiento(): validamos primero, luego llamamos a tu confirmación original
-        const _guardarMov = window.guardarMovimiento;
-        window.guardarMovimiento = function () {
-            const errs = validarMovimiento();
-            if (errs.length) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Revisa el formulario',
-                    html: '<ul style="text-align:left;margin-left:1rem;">' + errs.map(e => `<li>${e}</li>`).join('') + '</ul>',
-                    confirmButtonText: 'Entendido'
-                });
-                return;
-            }
-            _guardarMov && _guardarMov();
-        };
-    })();
-</script>
-<!-- ============== /AGREGADO ============== -->
-
 {% endblock %}

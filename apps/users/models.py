@@ -1,3 +1,4 @@
+# apps/users/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Upper
@@ -51,6 +52,18 @@ class Usuario(AbstractUser):
 
     # Puedes mantener este boolean si lo necesitas aparte del 'estado'
     activo = models.BooleanField("Activo", default=True)
+
+    # --- NUEVOS CAMPOS (para invitación/cambio forzado) ---
+    invite_code = models.CharField(
+        max_length=12,
+        blank=True,
+        null=True,
+        help_text="Código de verificación para primer acceso"
+    )
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Forzar cambio de contraseña al iniciar"
+    )
 
     class Meta:
         verbose_name = "Usuario"

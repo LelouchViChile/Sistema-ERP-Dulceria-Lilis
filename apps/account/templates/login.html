@@ -26,9 +26,14 @@
                     <input type="text" name="username" id="username" class="form-control" required>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-1">
                     <label for="password" class="form-label">Contraseña</label>
                     <input type="password" name="password" id="password" class="form-control" required>
+                </div>
+
+                <!-- Enlaces de ayuda -->
+                <div class="d-flex justify-content-between mt-2">
+                    <a href="{% url 'password_reset_request' %}" class="small text-decoration-none">¿Olvidaste tu contraseña?</a>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 mt-3">Ingresar</button>

@@ -1,3 +1,4 @@
+# apps/users/apps.py
 from django.apps import AppConfig
 
 class UsersConfig(AppConfig):
@@ -5,6 +6,10 @@ class UsersConfig(AppConfig):
     name = 'apps.users'
 
     def ready(self):
-        # Aquí podrías importar señales si las usas (ejemplo: from . import signals)
-        # Pero NUNCA importar modelos aquí directamente.
-        pass
+        # Si usas señales, impórtalas aquí (sin modelos).
+        try:
+            from .admin_invite_action import inject_admin_action
+            inject_admin_action()
+        except Exception:
+            # No romper el arranque si algo falla al registrar la acción
+            pass

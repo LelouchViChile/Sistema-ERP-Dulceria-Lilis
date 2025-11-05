@@ -61,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "apps.account.middleware.ForcePasswordChangeMiddleware",
 ]
 
 ROOT_URLCONF = 'lilis_erp.urls'
@@ -156,3 +157,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 HANDLER403 = "lilis_erp.views.handler403"
 
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "erpdulceria@gmail.com"          
+EMAIL_HOST_PASSWORD = "kkprkdpvjskveuve"        
+DEFAULT_FROM_EMAIL = "Dulcería Lilis ERP <erpdulceria@gmail.com>"
