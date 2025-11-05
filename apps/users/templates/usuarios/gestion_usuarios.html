@@ -1,430 +1,435 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% load static %}
-{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block title %}Gestión de Usuarios | Dulcería Lilis ERP{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div style="max-width: 1400px;">
+<div class="container-fluid px-3 px-md-4">
 
-        <!-- Encabezado -->
-        <div class="d-flex justify-content-between align-items-center border-bottom border-danger border-2 pb-3 mb-4">
-            <div class="d-flex align-items-center gap-2">
-                <h4 class="fw-bold m-0 text-danger">
-                    <i class="bi bi-people-fill me-2"></i>Gestión de Usuarios
-                </h4>
-            </div>
-
-            <!-- Buscador + Orden + Exportar -->
-            <form method="get" class="d-flex gap-2 align-items-center">
-                <div class="input-group input-group-sm shadow-sm" style="width: 320px;">
-                    <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..."
-                           value="{{ query|default:'' }}">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
-
-                <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
-                    <!-- OJO: espacios alrededor del == -->
-                    <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
-                    <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Usuario (A-Z)</option>
-                    <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>Usuario (Z-A)</option>
-                    <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Nombre (A-Z)</option>
-                </select>
-
-                <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
-                   href="{% url 'gestion_usuarios' %}?q={{ query }}&sort={{ sort_by }}&export=xlsx">
-                    <i class="bi bi-file-earmark-excel me-2"></i>Exportar
-                </a>
-            </form>
-        </div>
-
-        <div class="d-flex gap-2">
-            <!-- Panel izquierdo - Formulario -->
-            <div style="width: 320px; flex-shrink: 0">
-                <div class="bg-light p-3 rounded-3 border border-danger shadow-sm">
-                    <h6 class="fw-bold mb-3 text-danger d-flex align-items-center">
-                        <i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario
-                    </h6>
-                    <form id="userForm" class="row g-2">
-                        {% csrf_token %}
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Username*</label>
-                            <input type="text" class="form-control form-control-sm" id="username" required placeholder="ej: jperez">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Email*</label>
-                            <input type="email" class="form-control form-control-sm" id="email" required placeholder="ej: juan.perez@empresa.cl">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Nombre*</label>
-                            <input type="text" class="form-control form-control-sm" id="nombre" required placeholder="ej: Juan">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Apellido*</label>
-                            <input type="text" class="form-control form-control-sm" id="apellido" required placeholder="ej: Pérez">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Contraseña*</label>
-                            <input type="password" class="form-control form-control-sm" id="password" required placeholder="Segura (8+)">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Confirmar*</label>
-                            <input type="password" class="form-control form-control-sm" id="password2" required placeholder="Confirmar">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Teléfono*</label>
-                            <input type="tel" class="form-control form-control-sm" id="telefono" pattern="[\+]?[0-9]{9,12}" required placeholder="+56912345678">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Rol*</label>
-                            <select class="form-select form-select-sm" id="rol" required>
-                                <option value="">Seleccione un rol</option>
-                                <option value="ADMIN">ADMIN</option>
-                                <option value="COMPRAS">COMPRAS</option>
-                                <option value="INVENTARIO">INVENTARIO</option>
-                                <option value="PRODUCCION">PRODUCCION</option>
-                                <option value="VENTAS">VENTAS</option>
-                                <option value="FINANZAS">FINANZAS</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Estado*</label>
-                            <select class="form-select form-select-sm" id="estado" required>
-                                <option value="">Seleccione un estado</option>
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                                <option value="bloqueado">Bloqueado</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">MFA habilitado*</label>
-                            <select class="form-select form-select-sm" id="mfa" required>
-                                <option value="">Seleccione una opción</option>
-                                <option value="Si">Sí</option>
-                                <option value="No">No</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Último acceso</label>
-                            <input type="datetime-local" class="form-control form-control-sm" id="ultimo_acceso">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small mb-1">Sesiones activas</label>
-                            <input type="number" class="form-control form-control-sm" id="sesiones" min="0" placeholder="ej: 1">
-                        </div>
-                        <div class="col-12 mt-2">
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-danger btn-sm flex-grow-1">Guardar</button>
-                                <button type="reset" class="btn btn-outline-danger btn-sm px-3">Limpiar</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Panel derecho - Tabla -->
-            <div class="flex-grow-1">
-                <div class="bg-white p-3 rounded-3 border border-danger shadow-sm d-flex flex-column">
-                    <div class="flex-grow-1">
-                        <table class="table table-hover align-middle mb-0 small" style="min-width: max-content">
-                            <thead class="table-light text-danger sticky-top bg-white">
-                                <tr>
-                                    <th style="width: 80px">Username</th>
-                                    <th style="width: 170px">Email</th>
-                                    <th style="width: 80px">Nombre</th>
-                                    <th style="width: 90px">Apellido</th>
-                                    <th style="width: 120px">Teléfono</th>
-                                    <th style="width: 90px">Rol</th>
-                                    <th style="width: 80px">Estado</th>
-                                    <th style="width: 50px">MFA</th>
-                                    <th style="width: 130px">Último acceso</th>
-                                    <th class="text-center" style="width: 70px">Sesiones</th>
-                                    <th style="width: 90px">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for usuario in page_obj.object_list %}
-                                <tr>
-                                    <td>{{ usuario.username }}</td>
-                                    <td>{{ usuario.email }}</td>
-                                    <td>{{ usuario.first_name }}</td>
-                                    <td>{{ usuario.last_name }}</td>
-                                    <td>{{ usuario.telefono }}</td>
-                                    <td>{{ usuario.rol }}</td>
-                                    <td>
-                                        {% if usuario.estado == 'activo' %}
-                                            <span class="badge bg-success-subtle text-success">Activo</span>
-                                        {% elif usuario.estado == 'inactivo' %}
-                                            <span class="badge bg-warning-subtle text-warning">Inactivo</span>
-                                        {% else %}
-                                            <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{% if usuario.mfa_habilitado %}✅{% else %}❌{% endif %}</td>
-                                    <td>{{ usuario.last_login|date:"d/m/Y H:i" }}</td>
-                                    <td class="text-center">-</td>
-                                    <td class="text-center">
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <button class="btn btn-warning btn-sm" onclick="editarUsuario('{{ usuario.id }}')" title="Editar">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </button>
-                                            <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('{{ usuario.id }}')" title="Eliminar">
-                                                <i class="bi bi-trash3-fill"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="11" class="text-center text-muted py-3">No hay usuarios registrados.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {% if page_obj.paginator.num_pages > 1 %}
-                    <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
-                        <small class="text-danger">
-                            Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios
-                        </small>
-                        <nav aria-label="Navegación">
-                            <ul class="pagination pagination-sm mb-0">
-                                {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </a>
-                                </li>
-                                {% endif %}
-
-                                {% for num in page_obj.paginator.page_range %}
-                                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
-                                    <a class="page-link border-danger {% if page_obj.number == num %}bg-danger border-danger{% else %}text-danger{% endif %}"
-                                       href="?page={{ num }}&q={{ query }}&sort={{ sort_by }}">{{ num }}</a>
-                                </li>
-                                {% endfor %}
-
-                                {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </a>
-                                </li>
-                                {% endif %}
-                            </ul>
-                        </nav>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Título -->
+    <div class="d-flex align-items-center gap-2 mt-2 mb-3">
+        <h4 class="m-0 text-danger fw-bold">
+            <i class="bi bi-people-fill me-2"></i>Gestión de Usuarios
+        </h4>
+        <div class="flex-grow-1">
+            <hr class="border-top border-2 border-danger my-0" />
         </div>
     </div>
-</div>
-{% endblock %}
 
-{% block extra_js %}
-{{ block.super }}
+<!-- Controles búsqueda + export -->
+<div class="d-flex justify-content-end align-items-center mb-3 gap-2">
+    <form method="get" class="d-flex gap-2">
+        <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
+            <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..."
+                value="{{ query }}">
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+
+    <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
+    <!-- prettier-ignore-start -->
+    <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
+        <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Usuario (A-Z)</option>
+        <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>Usuario (Z-A)</option>
+        <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Nombre (A-Z)</option>
+    </select>
+    <!-- prettier-ignore-end -->
+    <!-- ======================================================= -->
+
+    <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
+        href="{% url 'gestion_usuarios' %}?q={{ query }}&sort={{ sort_by }}&export=xlsx">
+        <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+    </a>
+    </form>
+    </div>
+<!-- GRID: izquierda (form) + derecha (tabla) -->
+<div class="row g-3 align-items-start">
+    <!-- Izquierda -->
+    <div class="col-12 col-lg-4 col-xxl-3">
+        <div class="card border border-danger shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+                    <i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario
+                </h6>
+<form id="formUsuario" method="post" action="{% url 'crear_usuario' %}" class="row g-3" novalidate>
+    {% csrf_token %}
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="username">Username*</label>
+        <input type="text" id="username" name="username" class="form-control form-control-sm" required>
+        <div class="invalid-feedback">Ingresa un username válido (3–30, letras/números .-_).</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="email">Email*</label>
+        <input type="email" id="email" name="email" class="form-control form-control-sm" required>
+        <div class="invalid-feedback">Ingresa un email válido.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="nombre">Nombre*</label>
+        <input type="text" id="nombre" name="first_name" class="form-control form-control-sm" required>
+        <div class="invalid-feedback">Ingresa el nombre.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="apellido">Apellido*</label>
+        <input type="text" id="apellido" name="last_name" class="form-control form-control-sm" required>
+        <div class="invalid-feedback">Ingresa el apellido.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="password">Contraseña*</label>
+        <input type="password" id="password" name="password" class="form-control form-control-sm" required
+            minlength="8">
+        <div class="invalid-feedback">Mínimo 8 caracteres, con mayúscula, minúscula y número.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="password2">Confirmar*</label>
+        <input type="password" id="password2" name="password2" class="form-control form-control-sm" required
+            minlength="8">
+        <div class="invalid-feedback">Debe coincidir con la contraseña.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="telefono">Teléfono*</label>
+        <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+569..."
+            required>
+        <div class="invalid-feedback">Formato permitido: +, números, espacios y () - (mín. 6).</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="rol">Rol*</label>
+        <select id="rol" name="rol" class="form-select form-select-sm" required>
+            <option value="">Seleccione...</option>
+            <option value="ADMIN">Administrador</option>
+            <option value="COMPRAS">Operador de Compras</option>
+            <option value="INVENTARIO">Operador de Inventario</option>
+            <option value="PRODUCCION">Operador de Producción</option>
+            <option value="VENTAS">Operador de Ventas</option>
+            <option value="FINANZAS">Analista Financiero</option>
+        </select>
+        <div class="invalid-feedback">Selecciona un rol.</div>
+    </div>
+
+    <div class="col-6">
+        <label class="form-label small mb-1" for="estado">Estado*</label>
+        <select id="estado" name="estado" class="form-select form-select-sm" required>
+            <option value="activo" selected>Activo</option>
+            <option value="inactivo">Inactivo</option>
+            <option value="bloqueado">Bloqueado</option>
+        </select>
+        <div class="invalid-feedback">Selecciona un estado.</div>
+    </div>
+
+    <div class="col-12">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="mfa_habilitado" name="mfa_habilitado">
+            <label class="form-check-label" for="mfa_habilitado">Habilitar MFA</label>
+        </div>
+    </div>
+
+    <div class="col-12 mt-1 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-danger flex-grow-1">
+            <i class="bi bi-check-lg me-1"></i>Guardar
+        </button>
+        <button type="button" id="btnLimpiar" class="btn btn-sm btn-outline-danger px-3">
+            <i class="bi bi-eraser me-1"></i>Limpiar
+        </button>
+    </div>
+</form>
+</div>
+</div>
+</div>
+
+<!-- Derecha -->
+<div class="col-12 col-lg-8 col-xxl-9">
+    <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nombre</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>MFA</th>
+                            <th>Último Acceso</th>
+                            <th>Sesiones</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in page_obj.object_list %}
+                        <tr>
+                            <td class="fw-medium">{{ usuario.username }}</td>
+                            <td>{{ usuario.first_name }} {{ usuario.last_name }}</td>
+                            <td>{{ usuario.telefono }}</td>
+                            <td>{{ usuario.email }}</td>
+                            <td>{{ usuario.rol }}</td>
+                            <td>
+                                {% if usuario.estado == 'activo' %}
+                                <span class="badge bg-success-subtle text-success">Activo</span>
+                                {% elif usuario.estado == 'inactivo' %}
+                                <span class="badge bg-warning-subtle text-warning">Inactivo</span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
+                                {% endif %}
+                            </td>
+                            <td>{% if usuario.mfa_habilitado %}✅ Sí{% else %}❌ No{% endif %}</td>
+                            <td>{{ usuario.last_login|date:"d/m/Y H:i" }}</td>
+                            <td>-</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" onclick="editarUsuario('{{ usuario.id }}')"
+                                    title="Editar">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('{{ usuario.id }}')"
+                                    title="Eliminar">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-3">No hay usuarios registrados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+          <!-- ======== ZONA B: NO FORMATEAR / NO SELECCIONAR ======== -->
+          <!-- prettier-ignore-start -->
+          <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+            <small class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios</small>
+            <nav aria-label="Paginación de usuarios">
+              <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a>
+                </li>
+                {% endif %}
+                <li class="page-item active">
+                  <span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a>
+                </li>
+                {% endif %}
+              </ul>
+            </nav>
+          </div>
+          <!-- prettier-ignore-end -->
+          <!-- ======================================================= -->
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SweetAlert solo para crear/editar/eliminar -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // === CSRF ===
+    // ---- util CSRF
     function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
     }
-    const CSRF_TOKEN = getCookie('csrftoken');
 
-    // === Validación y alta ===
-    document.getElementById('userForm').addEventListener('submit', async (e) => {
+    // ---- validadores simples
+    const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
+    const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const reTel = /^[0-9+()\-\s]{6,30}$/;
+    const strongPass = (s) => /[a-z]/.test(s) && /[A-Z]/.test(s) && /\d/.test(s) && s.length >= 8;
+
+    function markValidity(el, ok) {
+        if (ok) {
+            el.classList.remove('is-invalid');
+            el.classList.add('is-valid');
+        } else {
+            el.classList.remove('is-valid');
+            el.classList.add('is-invalid');
+        }
+    }
+
+    // blur/keyup por campo
+    (function attachFieldValidation() {
+        const u = document.getElementById('username');
+        const e = document.getElementById('email');
+        const n = document.getElementById('nombre');
+        const a = document.getElementById('apellido');
+        const p1 = document.getElementById('password');
+        const p2 = document.getElementById('password2');
+        const t = document.getElementById('telefono');
+        const r = document.getElementById('rol');
+        const es = document.getElementById('estado');
+
+        if (!u) return;
+
+        u.addEventListener('input', () => markValidity(u, reUser.test((u.value || '').trim())));
+        e.addEventListener('input', () => markValidity(e, reMail.test((e.value || '').trim())));
+        n.addEventListener('input', () => markValidity(n, (n.value || '').trim().length > 0));
+        a.addEventListener('input', () => markValidity(a, (a.value || '').trim().length > 0));
+        t.addEventListener('input', () => markValidity(t, reTel.test((t.value || '').trim())));
+        r.addEventListener('change', () => markValidity(r, (r.value || '') !== ''));
+        es.addEventListener('change', () => markValidity(es, (es.value || '') !== ''));
+
+        p1.addEventListener('input', () => markValidity(p1, strongPass(p1.value || '')));
+        p2.addEventListener('input', () => markValidity(p2, (p2.value || '') === (p1.value || '') && (p2.value || '').length >= 8));
+    })();
+
+    // enviar
+    document.getElementById('formUsuario')?.addEventListener('submit', function (e) {
         e.preventDefault();
+        const fd = new FormData(this);
 
-        const required = ['username','email','nombre','apellido','password','password2','telefono','rol','estado','mfa'];
-        const errors = [];
+        const checks = [
+            ['username', (v) => reUser.test(v.trim())],
+            ['email', (v) => reMail.test(v.trim())],
+            ['first_name', (v) => v.trim().length > 0],
+            ['last_name', (v) => v.trim().length > 0],
+            ['password', (v) => strongPass(v)],
+            ['password2', (v) => v.length >= 8 && v === fd.get('password')],
+            ['telefono', (v) => reTel.test(v.trim())],
+            ['rol', (v) => !!v],
+            ['estado', (v) => !!v],
+        ];
 
-        for (const id of required) {
-            const el = document.getElementById(id);
-            if (!el.value.trim()) {
-                el.classList.add('is-invalid');
-                errors.push(`El campo ${id} es obligatorio`);
-            } else {
-                el.classList.remove('is-invalid');
-            }
+        let ok = true;
+        for (const [name, fn] of checks) {
+            const el = document.querySelector(`[name="${name}"]`);
+            const val = fd.get(name) || '';
+            const pass = fn(val);
+            markValidity(el, pass);
+            if (!pass) ok = false;
         }
+        if (!ok) return;
 
-        const email = document.getElementById('email').value.trim();
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            document.getElementById('email').classList.add('is-invalid');
-            errors.push('El email no tiene un formato válido');
-        }
+        Swal.showLoading();
 
-        const tel = document.getElementById('telefono').value.trim();
-        if (tel && !/^\+?[0-9]{9,12}$/.test(tel)) {
-            document.getElementById('telefono').classList.add('is-invalid');
-            errors.push('El teléfono debe contener entre 9 y 12 dígitos');
-        }
-
-        const p1 = document.getElementById('password').value;
-        const p2 = document.getElementById('password2').value;
-        if (p1.length < 8) errors.push('La contraseña debe tener al menos 8 caracteres');
-        if (p1 !== p2) errors.push('Las contraseñas no coinciden');
-
-        if (errors.length) {
-            Swal.fire({title:'Error de validación', html:errors.join('<br>'), icon:'error'});
-            return;
-        }
-
-        const fd = new FormData();
-        fd.append('username', document.getElementById('username').value.trim());
-        fd.append('email', document.getElementById('email').value.trim());
-        fd.append('first_name', document.getElementById('nombre').value.trim());
-        fd.append('last_name', document.getElementById('apellido').value.trim());
-        fd.append('telefono', tel);
-        fd.append('password', p1);
-        fd.append('password2', p2);
-        fd.append('rol', document.getElementById('rol').value);
-        fd.append('estado', document.getElementById('estado').value);
-        fd.append('mfa_habilitado', document.getElementById('mfa').value);
-
-        try {
-            const res = await fetch("{% url 'crear_usuario' %}", {
-                method: 'POST',
-                headers: {'X-CSRFToken': CSRF_TOKEN},
-                body: fd
-            });
-            const data = await res.json();
-            if (data.status === 'ok') {
-                Swal.fire({icon:'success',title:data.message,timer:1400,showConfirmButton:false})
-                    .then(()=>location.reload());
-            } else {
-                Swal.fire({icon:'error',title:'No se pudo guardar',text:data.message||'Error desconocido'});
-            }
-        } catch {
-            Swal.fire({icon:'error',title:'Error de red',text:'Inténtalo nuevamente.'});
-        }
+        fetch("{% url 'crear_usuario' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: fd
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false })
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo crear.' });
+                }
+            })
+            .catch(() => Swal.fire({ icon: 'error', title: 'Error de red', text: 'Inténtalo otra vez.' }));
     });
 
-    // === Editar ===
-    async function editarUsuario(id) {
-        try {
-            const res = await fetch(`/users/editar/${id}/`, {method:'GET', headers:{'X-CSRFToken': CSRF_TOKEN}});
-            const payload = await res.json();
-            if (payload.status !== 'ok') throw new Error('No se pudo cargar el usuario');
+    // limpiar
+    document.getElementById('btnLimpiar')?.addEventListener('click', () => {
+        const f = document.getElementById('formUsuario');
+        f.reset();
+        f.querySelectorAll('.is-valid,.is-invalid').forEach(el => {
+            el.classList.remove('is-valid', 'is-invalid');
+        });
+    });
 
-            const u = payload.user;
-
-            const { value: result } = await Swal.fire({
-                title: 'Editar Usuario',
-                html: `
-                    <input id="e_username" class="swal2-input" placeholder="Username" value="${u.username}">
-                    <input id="e_first" class="swal2-input" placeholder="Nombre" value="${u.first_name}">
-                    <input id="e_last" class="swal2-input" placeholder="Apellido" value="${u.last_name}">
-                    <input id="e_email" class="swal2-input" placeholder="Email" value="${u.email}">
-                    <input id="e_tel" class="swal2-input" placeholder="Teléfono" value="${u.telefono||''}">
-                    <select id="e_rol" class="swal2-input">
-                        <option value="ADMIN" ${u.rol==='ADMIN'?'selected':''}>ADMIN</option>
-                        <option value="COMPRAS" ${u.rol==='COMPRAS'?'selected':''}>COMPRAS</option>
-                        <option value="INVENTARIO" ${u.rol==='INVENTARIO'?'selected':''}>INVENTARIO</option>
-                        <option value="PRODUCCION" ${u.rol==='PRODUCCION'?'selected':''}>PRODUCCION</option>
-                        <option value="VENTAS" ${u.rol==='VENTAS'?'selected':''}>VENTAS</option>
-                        <option value="FINANZAS" ${u.rol==='FINANZAS'?'selected':''}>FINANZAS</option>
-                    </select>
-                    <select id="e_estado" class="swal2-input">
-                        <option value="activo" ${u.estado==='activo'?'selected':''}>activo</option>
-                        <option value="inactivo" ${u.estado==='inactivo'?'selected':''}>inactivo</option>
-                        <option value="bloqueado" ${u.estado==='bloqueado'?'selected':''}>bloqueado</option>
-                    </select>
-                    <input id="e_pwd" type="password" class="swal2-input" placeholder="Nueva contraseña (opcional)">
-                `,
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'Guardar',
-                cancelButtonText: 'Cancelar',
-                preConfirm: () => {
-                    const email = document.getElementById('e_email').value.trim();
-                    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                        Swal.showValidationMessage('Email inválido');
-                        return false;
+    // EDITAR
+    function editarUsuario(id) {
+        fetch(`/users/editar/${id}/`)
+            .then(res => res.json())
+            .then(data => {
+                Swal.fire({
+                    title: 'Editar Usuario',
+                    html: `
+            <input id="edit_username" class="swal2-input" placeholder="Username" value="${data.username || ''}">
+            <input id="edit_first" class="swal2-input" placeholder="Nombre" value="${data.first_name || ''}">
+            <input id="edit_email" class="swal2-input" placeholder="Email" value="${data.email || ''}">
+            <input id="edit_last" class="swal2-input" placeholder="Apellido" value="${data.last_name || ''}">
+            <input id="edit_tel" class="swal2-input" placeholder="Teléfono" value="${data.telefono || ''}">
+            <select id="edit_rol" class="swal2-select" style="width:100%;margin-bottom:1rem;">
+              <option value="ADMIN" ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+              <option value="COMPRAS" ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option>
+              <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option>
+              <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option>
+              <option value="VENTAS" ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option>
+              <option value="FINANZAS" ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option>
+            </select>
+            <select id="edit_estado" class="swal2-select" style="width:100%;">
+              <option value="activo" ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>
+              <option value="inactivo" ${data.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
+              <option value="bloqueado" ${data.estado === 'bloqueado' ? 'selected' : ''}>Bloqueado</option>
+            </select>
+          `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        const fd = new FormData();
+                        fd.append('username', document.getElementById('edit_username').value);
+                        fd.append('email', document.getElementById('edit_email').value);
+                        fd.append('first_name', document.getElementById('edit_first').value);
+                        fd.append('last_name', document.getElementById('edit_last').value);
+                        fd.append('telefono', document.getElementById('edit_tel').value);
+                        fd.append('rol', document.getElementById('edit_rol').value);
+                        fd.append('estado', document.getElementById('edit_estado').value);
+                        return fetch(`/users/editar/${id}/`, {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                            body: fd
+                        }).then(r => r.json());
                     }
-                    const pwd = document.getElementById('e_pwd').value;
-                    if (pwd && pwd.length < 8) {
-                        Swal.showValidationMessage('La nueva contraseña debe tener al menos 8 caracteres');
-                        return false;
+                }).then(result => {
+                    if (result.value && result.value.status === 'ok') {
+                        Swal.fire({ icon: 'success', title: 'Actualizado correctamente', timer: 1200, showConfirmButton: false })
+                            .then(() => location.reload());
                     }
-                    return {
-                        username: document.getElementById('e_username').value.trim(),
-                        first_name: document.getElementById('e_first').value.trim(),
-                        last_name: document.getElementById('e_last').value.trim(),
-                        email: email,
-                        telefono: document.getElementById('e_tel').value.trim(),
-                        rol: document.getElementById('e_rol').value,
-                        estado: document.getElementById('e_estado').value,
-                        password: pwd
-                    };
-                }
+                });
             });
-
-            if (!result) return;
-
-            const fd = new FormData();
-            Object.entries(result).forEach(([k,v])=> fd.append(k, v));
-
-            const r2 = await fetch(`/users/editar/${id}/`, {
-                method: 'POST',
-                headers: {'X-CSRFToken': CSRF_TOKEN},
-                body: fd
-            });
-            const j = await r2.json();
-
-            if (j.status === 'ok') {
-                Swal.fire({icon:'success',title:'Actualizado correctamente',timer:1200,showConfirmButton:false})
-                    .then(()=>location.reload());
-            } else {
-                Swal.fire({icon:'error',title:'No se pudo actualizar',text:j.message||'Error desconocido'});
-            }
-
-        } catch (e) {
-            Swal.fire({icon:'error',title:'Error',text:e.message||'No se pudo editar'});
-        }
     }
+    window.editarUsuario = editarUsuario;
 
-    // === Eliminar ===
+    // ELIMINAR
     function eliminarUsuario(id) {
         Swal.fire({
-            title: '¿Eliminar usuario?',
-            text: 'No podrás revertir esta acción',
+            title: '¿Estás seguro?',
+            text: '¡No podrás revertir esta acción!',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Eliminar',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar'
-        }).then(async (res) => {
+        }).then((res) => {
             if (!res.isConfirmed) return;
-            try {
-                const r = await fetch(`/users/eliminar/${id}/`, {
-                    method: 'POST',
-                    headers: {'X-CSRFToken': CSRF_TOKEN}
+            fetch(`/users/eliminar/${id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        Swal.fire('¡Eliminado!', data.message, 'success').then(() => location.reload());
+                    }
                 });
-                const j = await r.json();
-                if (j.status === 'ok') {
-                    Swal.fire({icon:'success',title:'Eliminado',timer:1000,showConfirmButton:false})
-                        .then(()=>location.reload());
-                } else {
-                    Swal.fire({icon:'error',title:'No se pudo eliminar',text:j.message||'Error desconocido'});
-                }
-            } catch {
-                Swal.fire({icon:'error',title:'Error de red',text:'Inténtalo nuevamente.'});
-            }
         });
     }
+    window.eliminarUsuario = eliminarUsuario;
 </script>
 {% endblock %}
