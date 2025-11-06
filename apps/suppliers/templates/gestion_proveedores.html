@@ -1,375 +1,343 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Proveedores{% endblock %}
+{% block title %}Gestión de Proveedores | Dulcería Lilis ERP{% endblock %}
 
 {% block content %}
-<h5 class="fw-bold mt-3">Gestión Proveedores</h5>
+<div class="container-fluid px-3 px-md-4">
 
-<div class="card shadow-sm mb-4">
-  <div class="card-header pb-1">
-    <h6>Formulario de Proveedor</h6>
-
-    <ul class="nav nav-tabs mt-2" role="tablist" id="provTabs">
-      <li class="nav-item">
-        <a class="nav-link active" data-bs-toggle="tab" href="#tab-ident" role="tab">
-          1. Identificación y contacto
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#tab-dir" role="tab">
-          2. Dirección y comercial
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#tab-rel" role="tab" id="tabRelBtn">
-          3. Relación con productos
-        </a>
-      </li>
-    </ul>
+  <!-- Título -->
+  <div class="d-flex align-items-center gap-2 mt-2 mb-3">
+    <h4 class="m-0 text-danger fw-bold">
+      <i class="bi bi-truck me-2"></i>Gestión de Proveedores
+    </h4>
+    <div class="flex-grow-1">
+      <hr class="border-top border-2 border-danger my-0" />
+    </div>
   </div>
 
-  <div class="card-body">
-    <div class="tab-content">
-      <!-- ✅ TAB 1 -->
-      <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
-        <div class="row g-2">
-          <div class="col-md-3">
-            <label class="form-label">RUT/NIF</label>
-            <input type="text" class="form-control" id="f_rut" autocomplete="off">
-            <div class="invalid-feedback">RUT/NIF obligatorio y válido.</div>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Nombre fantasía (opcional)</label>
-            <input type="text" class="form-control" id="f_fantasia" autocomplete="off">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Razón social</label>
-            <input type="text" class="form-control" id="f_razon" autocomplete="off">
-            <div class="invalid-feedback">Razón social obligatoria.</div>
-          </div>
+  <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
+    <form method="get" class="d-flex gap-2">
+      <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
+        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar proveedor..." value="{{ query }}">
+        <button type="submit" class="btn btn-danger">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
 
-          <div class="col-md-6">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" id="f_email" autocomplete="off">
-            <div class="invalid-feedback">Email obligatorio y válido.</div>
+      <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
+      <!-- prettier-ignore-start -->
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
+        <option value="username" {% if sort_by == 'username' %}selected{% endif %}>RUT/NIF (A-Z)</option>
+        <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>RUT/NIF (Z-A)</option>
+        <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Razón Social (A-Z)</option>
+      </select>
+      <!-- prettier-ignore-end -->
+      <!-- ======================================================= -->
+
+      <!-- NUEVO: filtro ver -->
+      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="activos" {% if ver == 'activos' %}selected{% endif %}>Sólo activos</option>
+        <option value="inactivos" {% if ver == 'inactivos' %}selected{% endif %}>Sólo inactivos</option>
+        <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
+      </select>
+
+      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
+         href="{% url 'gestion_usuarios' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}&export=xlsx">
+        <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+      </a>
+    </form>
+  </div>
+
+  <div class="row g-3 align-items-start">
+
+    <!-- Formulario con pestañas -->
+    <div class="col-12 col-lg-4 col-xxl-3">
+      <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <i class="bi bi-person-plus-fill me-2"></i>Nuevo Proveedor
+          </h6>
+
+          <form id="form-prov" class="row g-3 needs-validation" novalidate>
+            <!-- NAV TABS -->
+            <ul class="nav nav-tabs mb-3" id="provTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active text-danger fw-semibold" id="tab-ident" data-bs-toggle="tab"
+                        data-bs-target="#pane-ident" type="button" role="tab">Datos Generales</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link text-danger fw-semibold" id="tab-dir" data-bs-toggle="tab"
+                        data-bs-target="#pane-dir" type="button" role="tab">Dirección</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link text-danger fw-semibold" id="tab-rel" data-bs-toggle="tab"
+                        data-bs-target="#pane-rel" type="button" role="tab">Relación</button>
+              </li>
+            </ul>
+
+            <!-- CONTENIDO TABS -->
+            <div class="tab-content" id="provTabsContent">
+
+              <!-- TAB 1 IDENTIFICACIÓN Y CONTACTO -->
+              <div class="tab-pane fade show active" id="pane-ident" role="tabpanel">
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label small mb-1">RUT/NIF <span class="text-danger">*</span></label>
+                    <input type="text" id="f_rut" class="form-control form-control-sm" autocomplete="off" required>
+                    <div class="invalid-feedback">RUT/NIF obligatorio y válido.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Nombre fantasía (opcional)</label>
+                    <input type="text" id="f_fantasia" class="form-control form-control-sm" autocomplete="off">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Razón social <span class="text-danger">*</span></label>
+                    <input type="text" id="f_razon" class="form-control form-control-sm" autocomplete="off" required>
+                    <div class="invalid-feedback">Razón social obligatoria.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Email <span class="text-danger">*</span></label>
+                    <input type="email" id="f_email" class="form-control form-control-sm" autocomplete="off" required>
+                    <div class="invalid-feedback">Email obligatorio y válido.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Teléfono <span class="text-danger">*</span></label>
+                    <input type="text" id="f_fono" class="form-control form-control-sm" autocomplete="off" required>
+                    <div class="invalid-feedback">Teléfono obligatorio y válido.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Sitio web</label>
+                    <input type="text" id="f_web" class="form-control form-control-sm" placeholder="https://…" autocomplete="off">
+                    <div class="invalid-feedback">Debe comenzar con http:// o https://</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 2 DIRECCIÓN Y COMERCIAL -->
+              <div class="tab-pane fade" id="pane-dir" role="tabpanel">
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Plazos de pago (días)</label>
+                    <input type="number" id="f_plazo" class="form-control form-control-sm" min="0" max="365" step="1" inputmode="numeric">
+                    <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Moneda</label>
+                    <select id="f_moneda" class="form-select form-select-sm">
+                      <option>CLP</option>
+                      <option>USD</option>
+                      <option>EUR</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Descuento (%)</label>
+                    <input type="number" id="f_desc" class="form-control form-control-sm" min="0" max="100" step="0.01" inputmode="decimal">
+                    <div class="invalid-feedback">Debe estar entre 0% y 100%.</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 3 RELACIÓN CON PRODUCTOS -->
+              <div class="tab-pane fade" id="pane-rel" role="tabpanel">
+                <div class="row g-3">
+                  <div class="col-12 d-flex align-items-center gap-2">
+                    <input type="checkbox" id="rel_pref" class="form-check-input">
+                    <label class="form-label small mb-0" for="rel_pref">Proveedor preferente</label>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Lead time (días)</label>
+                    <input type="number" id="rel_lead" class="form-control form-control-sm" min="0" max="365" step="1" inputmode="numeric">
+                    <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Costo asociado</label>
+                    <input type="number" id="rel_costo" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+                    <div class="invalid-feedback">No puede ser negativo.</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small mb-1">Producto (buscar por SKU o nombre)</label>
+                    <input type="text" id="rel_product_search" class="form-control form-control-sm" placeholder="Ej: DUL-001 o Gomitas…" autocomplete="off">
+                    <div class="invalid-feedback">Indique un producto existente (SKU o nombre).</div>
+                  </div>
+                  <div class="col-12">
+                    <button type="button" class="btn btn-sm btn-primary" id="btnGuardarRelacion">Guardar relación</button>
+                    <p class="text-muted small mt-2">Usa “Proveedor preferente”, “Lead time (días)” y “Costo asociado” y luego guarda la relación.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-danger flex-grow-1" id="btnGuardarProveedor">
+                <i class="bi bi-check-lg me-1"></i>Guardar
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger px-3" id="btnLimpiar">
+                <i class="bi bi-eraser me-1"></i>Limpiar
+              </button>
+            </div>
+
+            <div id="provMsg" class="small mt-2"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla Proveedores -->
+    <div class="col-12 col-lg-8 col-xxl-9">
+      <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="m-0">Proveedores</h6>
+            <div class="input-group input-group-sm" style="max-width: 320px;">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="provSearch" class="form-control" placeholder="Buscar por RUT/NIF o razón social"
+                     autocomplete="off" data-url="{% url 'suppliers:search' %}">
+            </div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Teléfono</label>
-            <input type="text" class="form-control" id="f_fono" autocomplete="off">
-            <div class="invalid-feedback">Teléfono obligatorio y válido.</div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Sitio web</label>
-            <input type="text" class="form-control" id="f_web" placeholder="https://…" autocomplete="off">
-            <div class="invalid-feedback">Debe comenzar con http:// o https://</div>
+          <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+            <table class="table table-striped align-middle text-center mb-0">
+              <thead>
+                <tr>
+                  <th>RUT/NIF</th>
+                  <th>Razón social</th>
+                  <th>Estado</th>
+                  <th>Email</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="provTbody">
+                {% for p in proveedores %}
+                <tr>
+                  <td>{{ p.rut }}</td>
+                  <td>{{ p.razon_social }}</td>
+                  <td>
+                    {% if p.estado == "Activo" %}
+                      <span class="badge bg-success">ACTIVO</span>
+                    {% elif p.estado == "Bloqueado" or p.estado == "Inactivo" %}
+                      <span class="badge bg-danger">{{ p.estado|upper }}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ p.estado|upper }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ p.email }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-warning btnEditarProv" data-id="{{ p.id }}"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger btnEliminarProv" data-id="{{ p.id }}"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted">Sin resultados</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-
-      <!-- ✅ TAB 2 -->
-      <div class="tab-pane fade" id="tab-dir" role="tabpanel">
-        <div class="row g-2">
-          <h6 class="fw-bold mt-2">Condiciones comerciales</h6>
-
-          <div class="col-md-4">
-            <label class="form-label">Plazos de pago (días)</label>
-            <input type="number" class="form-control num-no-neg" min="0" max="365" step="1" inputmode="numeric" id="f_plazo">
-            <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Moneda</label>
-            <select class="form-control" id="f_moneda">
-              <option>CLP</option>
-              <option>USD</option>
-              <option>EUR</option>
-            </select>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Descuento (%)</label>
-            <input type="number" class="form-control num-no-neg" min="0" max="100" step="0.01" inputmode="decimal" id="f_desc">
-            <div class="invalid-feedback">Debe estar entre 0% y 100%.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ✅ TAB 3 -->
-      <div class="tab-pane fade" id="tab-rel" role="tabpanel">
-        <h6 class="fw-bold">Relación con productos</h6>
-
-        <div class="row g-2">
-          <div class="col-md-4 d-flex align-items-center">
-            <label class="form-label mb-0">Proveedor preferente</label>
-            <input type="checkbox" class="form-check-input ms-2" id="rel_pref">
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Lead time (días)</label>
-            <input type="number" class="form-control num-no-neg" min="0" max="365" step="1" inputmode="numeric" id="rel_lead">
-            <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Costo asociado</label>
-            <input type="number" class="form-control num-no-neg" min="0" step="0.01" inputmode="decimal" id="rel_costo">
-            <div class="invalid-feedback">No puede ser negativo.</div>
-          </div>
-        </div>
-
-        <div class="row g-2 mt-2">
-          <div class="col-md-8">
-            <label class="form-label">Producto (buscar por SKU o nombre)</label>
-            <input type="text" class="form-control" id="rel_product_search" placeholder="Ej: DUL-001 o Gomitas…" autocomplete="off">
-            <div class="invalid-feedback">Indique un producto existente (SKU o nombre).</div>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label d-none d-md-block">&nbsp;</label>
-            <button type="button" class="btn btn-primary w-100" id="btnGuardarRelacion">Guardar relación</button>
-          </div>
-        </div>
-
-        <p class="text-muted small mt-2">
-          Usa “Proveedor preferente”, “Lead time (días)” y “Costo asociado” y luego guarda la relación.
-        </p>
-      </div>
     </div>
 
-    <div class="mt-3 d-flex align-items-center gap-3">
-      <button type="button" class="btn btn-primary" id="btnGuardarProveedor">Guardar</button>
-      <button type="button" class="btn btn-light" id="btnLimpiar">Limpiar</button>
-      <span id="provMsg" class="small d-none"></span>
-    </div>
   </div>
 </div>
 
-<!-- ================= Tabla de Proveedores ================= -->
-<div class="card shadow-sm mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center gap-2">
-    <div>Proveedores</div>
-    <div class="input-group input-group-sm" style="max-width: 320px;">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="text" class="form-control" id="provSearch"
-             placeholder="Buscar por RUT/NIF o razón social"
-             autocomplete="off"
-             data-url="{% url 'suppliers:search' %}">
-    </div>
-  </div>
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-striped align-middle text-center">
-        <thead>
-          <tr>
-            <th>RUT/NIF</th>
-            <th>Razón social</th>
-            <th>Estado</th>
-            <th>Email</th>
-            <th class="text-center">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="provTbody">
-          {% for p in proveedores %}
-          <tr>
-            <td>{{ p.rut }}</td>
-            <td>{{ p.razon_social }}</td>
-            <td>
-              {% if p.estado == "Activo" %}
-                <span class="badge bg-success">ACTIVO</span>
-              {% elif p.estado == "Bloqueado" or p.estado == "Inactivo" %}
-                <span class="badge bg-danger">{{ p.estado|upper }}</span>
-              {% else %}
-                <span class="badge bg-secondary">{{ p.estado|upper }}</span>
-              {% endif %}
-            </td>
-            <td>{{ p.email }}</td>
-            <td>
-              <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
-              <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="5" class="text-muted">Sin resultados</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- ====== Relaciones proveedor–producto (OCULTO al inicio) ====== -->
-<div class="card shadow-sm d-none" id="relCard">
-  <div class="card-header d-flex align-items-center gap-2">
-    <div class="me-auto">Relaciones proveedor–producto</div>
-
-    <div class="input-group input-group-sm" style="max-width: 360px;">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="text" class="form-control" id="relSearch"
-             placeholder="Buscar por RUT/NIF, razón social, SKU o producto…"
-             autocomplete="off"
-             data-url="{% url 'suppliers:relations_search' %}">
-    </div>
-
-    <a class="btn btn-outline-secondary btn-sm ms-2" id="relExportBtn"
-       href="{% url 'suppliers:relations_export' %}">
-      Exportar a Excel
-    </a>
-  </div>
-
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-striped align-middle text-center">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Proveedor</th>
-            <th>RUT/NIF</th>
-            <th>Producto</th>
-            <th>SKU</th>
-            <th>Preferente</th>
-            <th>Lead time (d)</th>
-            <th>Costo</th>
-          </tr>
-        </thead>
-        <tbody id="relTbody">
-          <tr><td colspan="8" class="text-muted">Escribe para buscar…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- =================== JS (validación + AJAX) =================== -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  // CSRF desde cookie
-  function getCookie(name) {
-    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return m ? m.pop() : '';
-  }
-  const CSRF = getCookie('csrftoken');
+(function(){
+  const CSRF = (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[])[2] || '';
 
-  // Bloquear negativos
-  document.querySelectorAll('.num-no-neg').forEach(el => {
-    el.addEventListener('keydown', (ev) => {
-      if (['e','E','+','-'].includes(ev.key)) ev.preventDefault();
-    });
-    el.addEventListener('input', () => {
-      const min = Number(el.getAttribute('min') ?? 0);
-      const val = Number(el.value);
-      if (Number.isFinite(val) && val < min) el.value = min;
-    });
-  });
-
-  // Helper de error inline
-  function setInvalid(el, msg) {
-    if (!el) return;
+  // =====================================================
+  // ===============  HELPER FUNCTIONS  ==================
+  // =====================================================
+  function setInvalid(el, msg){
+    if(!el) return;
     const fb = el.parentElement.querySelector('.invalid-feedback');
-    if (msg) {
+    if(msg){
       el.classList.add('is-invalid');
-      if (fb) fb.textContent = msg;
+      if(fb) fb.textContent = msg;
     } else {
       el.classList.remove('is-invalid');
     }
   }
 
-  // Validaciones front rápidas
-  function basicSupplierFrontValidate() {
+  function switchToTabOf(element){
+    const pane = element.closest('.tab-pane');
+    if(pane && !pane.classList.contains('active')){
+      const trigger = document.querySelector(`[data-bs-target="#${pane.id}"]`);
+      if(trigger) new bootstrap.Tab(trigger).show();
+    }
+  }
+
+  // =====================================================
+  // ===============  VALIDACIÓN GLOBAL  =================
+  // =====================================================
+  function validateSupplier(){
     let ok = true;
+    const campos = document.querySelectorAll('#form-prov input, #form-prov select');
+    let primerError = null;
 
-    const rut = document.getElementById('f_rut');
-    const razon = document.getElementById('f_razon');
-    const email = document.getElementById('f_email');
-    const fono = document.getElementById('f_fono');
-    const web  = document.getElementById('f_web');
-    const plazo = document.getElementById('f_plazo');
-    const desc  = document.getElementById('f_desc');
+    campos.forEach(el=>{
+      const id = el.id;
+      const val = el.value.trim();
+      let valido = true;
+      let msg = '';
 
-    // RUT
-    const rutVal = rut.value.trim();
-    if (!/^[0-9kK.\-]{7,20}$/.test(rutVal)) {
-      setInvalid(rut, 'RUT/NIF obligatorio y válido.');
-      ok = false;
-    } else setInvalid(rut, null);
+      switch(id){
+        case 'f_rut':
+          valido = /^[0-9kK.\-]{7,20}$/.test(val);
+          msg = 'RUT/NIF obligatorio y válido.';
+          break;
+        case 'f_razon':
+          valido = !!val;
+          msg = 'Razón social obligatoria.';
+          break;
+        case 'f_email':
+          valido = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val);
+          msg = 'Email obligatorio y válido.';
+          break;
+        case 'f_fono':
+          valido = /^[0-9+()\-\s]{6,30}$/.test(val);
+          msg = 'Teléfono obligatorio y válido.';
+          break;
+        case 'f_web':
+          valido = !val || /^https?:\/\/.+/i.test(val);
+          msg = 'Debe comenzar con http:// o https://';
+          break;
+        case 'f_plazo':
+          valido = !val || (Number(val)>=0 && Number(val)<=365);
+          msg = 'Debe estar entre 0 y 365 días.';
+          break;
+        case 'f_desc':
+          valido = !val || (Number(val)>=0 && Number(val)<=100);
+          msg = 'Debe estar entre 0% y 100%.';
+          break;
+      }
 
-    // Razón
-    if (!razon.value.trim()) { setInvalid(razon, 'Razón social obligatoria.'); ok = false; }
-    else setInvalid(razon, null);
+      if(!valido){
+        setInvalid(el,msg);
+        if(!primerError) primerError = el;
+        ok = false;
+      } else setInvalid(el,null);
+    });
 
-    // Email
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())) {
-      setInvalid(email, 'Email obligatorio y válido.');
-      ok = false;
-    } else setInvalid(email, null);
-
-    // Teléfono (OBLIGATORIO)
-    const fonoVal = fono.value.trim();
-    if (!/^[0-9+()\-\s]{6,30}$/.test(fonoVal)) {
-      setInvalid(fono, 'Teléfono obligatorio y válido.');
-      ok = false;
-    } else setInvalid(fono, null);
-
-    // Web (opcional, si viene que sea http/https)
-    const webVal = web.value.trim();
-    if (webVal && !/^https?:\/\/.+/i.test(webVal)) {
-      setInvalid(web, 'Debe comenzar con http:// o https://');
-      ok = false;
-    } else setInvalid(web, null);
-
-    // Plazo 0-365
-    const plazoNum = Number(plazo.value || '0');
-    if (!Number.isFinite(plazoNum) || plazoNum < 0 || plazoNum > 365) {
-      setInvalid(plazo, 'Debe estar entre 0 y 365 días.');
-      ok = false;
-    } else setInvalid(plazo, null);
-
-    // Descuento 0-100
-    const descNum = Number(desc.value || '0');
-    if (!Number.isFinite(descNum) || descNum < 0 || descNum > 100) {
-      setInvalid(desc, 'Debe estar entre 0% y 100%.');
-      ok = false;
-    } else setInvalid(desc, null);
+    if(primerError){
+      switchToTabOf(primerError);
+      primerError.focus();
+    }
 
     return ok;
   }
 
-  function basicRelationFrontValidate() {
-    let ok = true;
-    const rut = document.getElementById('f_rut');
-    const prod = document.getElementById('rel_product_search');
-    const lead = document.getElementById('rel_lead');
-    const costo = document.getElementById('rel_costo');
+  // =====================================================
+  // ===============  GUARDAR PROVEEDOR  =================
+  // =====================================================
+  document.getElementById('btnGuardarProveedor')?.addEventListener('click', async ()=>{
+    const msg = document.getElementById('provMsg');
+    msg.className='small mt-2';
+    msg.textContent='';
 
-    if (!rut.value.trim()) { setInvalid(rut, 'Debe indicar RUT/NIF del proveedor.'); ok = false; }
-    else setInvalid(rut, null);
-
-    if (!prod.value.trim()) { setInvalid(prod, 'Indique un producto (SKU o nombre).'); ok = false; }
-    else setInvalid(prod, null);
-
-    const leadNum = Number(lead.value || '0');
-    if (!Number.isFinite(leadNum) || leadNum < 0 || leadNum > 365) {
-      setInvalid(lead, 'Debe estar entre 0 y 365 días.');
-      ok = false;
-    } else setInvalid(lead, null);
-
-    const costoNum = Number(costo.value || '0');
-    if (!Number.isFinite(costoNum) || costoNum < 0) {
-      setInvalid(costo, 'No puede ser negativo.');
-      ok = false;
-    } else setInvalid(costo, null);
-
-    return ok;
-  }
-
-  // -------- Guardar Proveedor (AJAX) --------
-  const btnGuardar = document.getElementById('btnGuardarProveedor');
-  const provMsg = document.getElementById('provMsg');
-
-  btnGuardar?.addEventListener('click', async () => {
-    provMsg.className = 'small d-none';
-    provMsg.textContent = '';
-
-    if (!basicSupplierFrontValidate()) {
-      provMsg.className = 'small text-danger';
-      provMsg.textContent = 'Revisa los campos resaltados.';
+    if(!validateSupplier()){
+      msg.classList.add('text-danger');
+      msg.textContent='Revisa los campos resaltados.';
       return;
     }
 
@@ -382,207 +350,214 @@
       sitio_web: document.getElementById('f_web').value.trim(),
       plazos_pago_dias: document.getElementById('f_plazo').value.trim(),
       moneda: document.getElementById('f_moneda').value.trim(),
-      descuento_porcentaje: document.getElementById('f_desc').value.trim(),
+      descuento_porcentaje: document.getElementById('f_desc').value.trim()
     };
 
-    const resp = await fetch("{% url 'suppliers:create' %}", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-      body: JSON.stringify(payload)
-    });
+    try{
+      const resp = await fetch("{% url 'suppliers:create' %}",{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'X-CSRFToken':CSRF,
+          'X-Requested-With':'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
 
-    const data = await resp.json();
+      if(!resp.ok || !data.ok){
+        msg.classList.add('text-danger');
+        msg.textContent = (data.errors && data.errors.__all__) || 'Revisa los campos resaltados.';
+        return;
+      }
 
-    if (!resp.ok || !data.ok) {
-      const errs = (data && data.errors) || {};
-      if (errs.rut_nif) setInvalid(document.getElementById('f_rut'), errs.rut_nif);
-      if (errs.razon_social) setInvalid(document.getElementById('f_razon'), errs.razon_social);
-      if (errs.email) setInvalid(document.getElementById('f_email'), errs.email);
-      if (errs.telefono) setInvalid(document.getElementById('f_fono'), errs.telefono || 'Teléfono obligatorio y válido.');
-      if (errs.sitio_web) setInvalid(document.getElementById('f_web'), errs.sitio_web);
-      if (errs.plazos_pago_dias) setInvalid(document.getElementById('f_plazo'), errs.plazos_pago_dias);
-      if (errs.descuento_porcentaje) setInvalid(document.getElementById('f_desc'), errs.descuento_porcentaje);
-
-      provMsg.className = 'small text-danger';
-      provMsg.textContent = errs.__all__ || 'Revisa los campos resaltados.';
-      return;
+      msg.classList.add('text-success');
+      msg.textContent='Proveedor guardado correctamente.';
+      setTimeout(()=>location.reload(),1000);
+    }catch(err){
+      msg.classList.add('text-danger');
+      msg.textContent='Error al guardar proveedor.';
+      console.error(err);
     }
-
-    provMsg.className = 'small text-success';
-    provMsg.textContent = 'Proveedor guardado correctamente.';
   });
 
-  // Limpiar
-  document.getElementById('btnLimpiar')?.addEventListener('click', () => {
-    document.querySelectorAll('input,select').forEach(el => {
-      if (el.type === 'checkbox') el.checked = false; else el.value = '';
+  // =====================================================
+  // ===============  LIMPIAR FORMULARIO  ================
+  // =====================================================
+  document.getElementById('btnLimpiar')?.addEventListener('click', ()=>{
+    document.querySelectorAll('#form-prov input,#form-prov select').forEach(el=>{
+      if(el.type==='checkbox') el.checked=false;
+      else el.value='';
       el.classList.remove('is-invalid');
     });
-    provMsg.className = 'small d-none';
-    provMsg.textContent = '';
+    const msg=document.getElementById('provMsg');
+    msg.textContent='';
+    msg.className='small mt-2 d-none';
   });
 
-  // -------- Mostrar/ocultar bloque de Relaciones --------
-  const relCard = document.getElementById('relCard');
-  const tabRelBtn = document.getElementById('tabRelBtn');
-  tabRelBtn?.addEventListener('shown.bs.tab', () => {
-    relCard?.classList.remove('d-none');
-  });
-  document.getElementById('provTabs')?.addEventListener('shown.bs.tab', (e) => {
-    if (e.target.getAttribute('href') !== '#tab-rel') {
-      relCard?.classList.add('d-none');
-    }
-  });
+  // =====================================================
+  // ===============  BUSCADOR + PAGINADOR  ==============
+  // =====================================================
+  const input=document.getElementById('provSearch');
+  const tbody=document.getElementById('provTbody');
+  if(input && tbody){
+    let ctrl=null, timer=null, currentPage=1;
 
-  // -------- Guardar relación (AJAX) --------
-  document.getElementById('btnGuardarRelacion')?.addEventListener('click', async () => {
-    if (!basicRelationFrontValidate()) return;
-
-    const payload = {
-      rut_nif: document.getElementById('f_rut').value.trim(),
-      sku_or_name: document.getElementById('rel_product_search').value.trim(),
-      preferente: document.getElementById('rel_pref').checked,
-      lead_time_dias: document.getElementById('rel_lead').value.trim(),
-      costo: document.getElementById('rel_costo').value.trim(),
-      minimo_lote: 0,
-      descuento_porcentaje: document.getElementById('f_desc').value.trim() || 0
-    };
-
-    const resp = await fetch("{% url 'suppliers:relations_create' %}", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok || !data.ok) {
-      const errs = (data && data.errors) || {};
-      if (errs.rut_nif) setInvalid(document.getElementById('f_rut'), errs.rut_nif);
-      if (errs.sku_or_name) setInvalid(document.getElementById('rel_product_search'), errs.sku_or_name);
-      if (errs.lead_time_dias) setInvalid(document.getElementById('rel_lead'), errs.lead_time_dias);
-      if (errs.costo) setInvalid(document.getElementById('rel_costo'), errs.costo);
-      return;
+    async function loadPage(q,page=1){
+      if(ctrl) ctrl.abort();
+      ctrl = new AbortController();
+      try{
+        const resp = await fetch(`${input.dataset.url}?q=${encodeURIComponent(q||'')}&page=${page}`,{
+          signal: ctrl.signal, headers:{'X-Requested-With':'XMLHttpRequest'}
+        });
+        if(!resp.ok) throw new Error();
+        const data = await resp.json();
+        render(data.results||[], data.page_count || 1, data.current_page || 1, q);
+      }catch(e){
+        render([],1,1,q);
+      }
     }
 
-    const btn = document.getElementById('btnGuardarRelacion');
-    const old = btn.textContent;
-    btn.textContent = 'Guardado ✓';
-    setTimeout(() => btn.textContent = old, 1200);
-  });
-
-  // -------- Buscador AJAX Proveedores (10) --------
-  (function(){
-    const input = document.getElementById('provSearch');
-    const tbody = document.getElementById('provTbody');
-    if (!input || !tbody) return;
-
-    const url = input.dataset.url;
-    let ctrl = null, t = null;
-
-    function render(items){
-      if (!items || !items.length) {
+    function render(items,totalPages,current,q){
+      if(!items?.length){
         tbody.innerHTML = `<tr><td colspan="5" class="text-muted">Sin resultados</td></tr>`;
+        document.getElementById('provPaginator').innerHTML='';
         return;
       }
-      tbody.innerHTML = items.map(p => `
+
+      tbody.innerHTML = items.map(p=>`
         <tr>
-          <td>${p.rut ?? ''}</td>
-          <td>${p.razon_social ?? ''}</td>
-          <td>${
-            (p.estado ?? '').toUpperCase() === 'ACTIVO'
-            ? '<span class="badge bg-success">ACTIVO</span>'
-            : '<span class="badge bg-secondary">'+(p.estado ?? '').toUpperCase()+'</span>'
-          }</td>
-          <td>${p.email ?? ''}</td>
+          <td>${p.rut||''}</td>
+          <td>${p.razon_social||''}</td>
+          <td>${p.estado==='Activo'
+              ?'<span class="badge bg-success">ACTIVO</span>'
+              :'<span class="badge bg-secondary">'+(p.estado||'').toUpperCase()+'</span>'}</td>
+          <td>${p.email||''}</td>
           <td>
-            <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning btnEditarProv" data-id="${p.id}"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger btnEliminarProv" data-id="${p.id}"><i class="bi bi-trash"></i></button>
           </td>
-        </tr>
-      `).join('');
-    }
+        </tr>`).join('');
 
-    async function search(q){
-      if (ctrl) ctrl.abort();
-      ctrl = new AbortController();
-      const params = new URLSearchParams({ q: q || '' });
-      const resp = await fetch(`${url}?${params.toString()}`, {
-        signal: ctrl.signal, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
-      if (!resp.ok) { render([]); return; }
-      const data = await resp.json();
-      render(data.results || []);
-    }
-
-    input.addEventListener('input', () => {
-      clearTimeout(t);
-      t = setTimeout(() => search(input.value.trim()).catch(()=>render([])), 250);
-    });
-
-    // AUTO-CARGA INICIAL: llena la tabla con los primeros 10 de BD
-    document.addEventListener('DOMContentLoaded', () => {
-      search('').catch(()=>render([]));
-    });
-  })();
-
-  // -------- Buscador AJAX Relaciones (10) + Export sync --------
-  (function(){
-    const input = document.getElementById('relSearch');
-    const exportBtn = document.getElementById('relExportBtn');
-    const tbody = document.getElementById('relTbody');
-    if (!input || !tbody) return;
-
-    const url = input.dataset.url;
-    let ctrl = null, t = null;
-
-    function render(items){
-      if (!items || !items.length) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-muted">Sin resultados</td></tr>`;
-        return;
+      // PAGINADOR
+      let html='';
+      for(let i=1;i<=totalPages;i++){
+        html += `<li class="page-item ${i===current?'active':''}">
+                   <a class="page-link" href="#" data-page="${i}">${i}</a>
+                 </li>`;
       }
-      tbody.innerHTML = items.map(r => `
-        <tr>
-          <td>${r.id ?? ''}</td>
-          <td>${r.proveedor ?? ''}</td>
-          <td>${r.rut ?? ''}</td>
-          <td>${r.producto ?? ''}</td>
-          <td>${r.sku ?? ''}</td>
-          <td>${r.preferente ? 'Sí' : 'No'}</td>
-          <td>${r.lead_time ?? 0}</td>
-          <td>${r.costo ?? 0}</td>
-        </tr>
-      `).join('');
-    }
+      document.getElementById('provPaginator').innerHTML=html;
 
-    async function search(q){
-      if (ctrl) ctrl.abort();
-      ctrl = new AbortController();
-      const params = new URLSearchParams({ q: q || '' });
-      const resp = await fetch(`${url}?${params.toString()}`, {
-        signal: ctrl.signal, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      tbody.querySelectorAll('.btnEditarProv').forEach(btn=>btn.addEventListener('click',()=>editarProveedor(btn.dataset.id)));
+      tbody.querySelectorAll('.btnEliminarProv').forEach(btn=>btn.addEventListener('click',()=>eliminarProveedor(btn.dataset.id)));
+
+      document.querySelectorAll('#provPaginator a').forEach(a=>{
+        a.addEventListener('click',e=>{
+          e.preventDefault();
+          loadPage(q, Number(a.dataset.page));
+        });
       });
-      if (!resp.ok) { render([]); return; }
-      const data = await resp.json();
-      render(data.results || []);
     }
 
-    input.addEventListener('input', () => {
-      clearTimeout(t);
-      const q = input.value.trim();
-      const base = exportBtn.getAttribute('href').split('?')[0];
-      exportBtn.setAttribute('href', q ? `${base}?q=${encodeURIComponent(q)}` : base);
-      t = setTimeout(() => search(q).catch(()=>render([])), 250);
+    input.addEventListener('input',()=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>loadPage(input.value.trim(),1),250);
+    });
+    document.addEventListener('DOMContentLoaded',()=>loadPage('',1));
+  }
+
+  // =====================================================
+  // ===============  EDITAR PROVEEDOR  ==================
+  // =====================================================
+  async function editarProveedor(id){
+    try{
+      const resp = await fetch(`/proveedores/editar/${id}/`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!resp.ok) throw new Error('No se pudo obtener proveedor');
+      const data=await resp.json();
+
+      const {value: formValues} = await Swal.fire({
+        title:'Editar Proveedor',
+        html:`
+          <input id="edit_rut" class="swal2-input" placeholder="RUT/NIF" value="${data.rut_nif||''}">
+          <input id="edit_razon" class="swal2-input" placeholder="Razón Social" value="${data.razon_social||''}">
+          <input id="edit_email" class="swal2-input" placeholder="Email" value="${data.email||''}">
+          <input id="edit_telefono" class="swal2-input" placeholder="Teléfono" value="${data.telefono||''}">
+          <input id="edit_web" class="swal2-input" placeholder="Sitio web" value="${data.sitio_web||''}">
+        `,
+        showCancelButton:true,
+        confirmButtonText:'Guardar',
+        cancelButtonText:'Cancelar',
+        preConfirm:()=>{
+          return {
+            rut_nif: document.getElementById('edit_rut').value.trim(),
+            razon_social: document.getElementById('edit_razon').value.trim(),
+            email: document.getElementById('edit_email').value.trim(),
+            telefono: document.getElementById('edit_telefono').value.trim(),
+            sitio_web: document.getElementById('edit_web').value.trim()
+          };
+        }
+      });
+
+      if(formValues){
+        const update = await fetch(`/proveedores/editar/${id}/`,{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'X-CSRFToken':CSRF,
+            'X-Requested-With':'XMLHttpRequest'
+          },
+          body: JSON.stringify(formValues)
+        });
+        const result=await update.json();
+        if(result.status==='ok'){
+          Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false})
+            .then(()=>location.reload());
+        }else{
+          Swal.fire({icon:'error',title:'Error',text:result.message||'Error al actualizar proveedor.'});
+        }
+      }
+    }catch(err){
+      Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'});
+      console.error(err);
+    }
+  }
+
+  // =====================================================
+  // ===============  ELIMINAR PROVEEDOR  ================
+  // =====================================================
+  async function eliminarProveedor(id){
+    const confirm = await Swal.fire({
+      title:'¿Eliminar proveedor?',
+      text:'Esta acción no se puede revertir',
+      icon:'warning',
+      showCancelButton:true,
+      confirmButtonColor:'#d33',
+      cancelButtonColor:'#3085d6',
+      confirmButtonText:'Sí, eliminar',
+      cancelButtonText:'Cancelar'
     });
 
-    // AUTO-CARGA INICIAL: mostrar relaciones ni bien se muestre el bloque
-    document.addEventListener('DOMContentLoaded', () => {
-      // precarga datos para que al abrir la pestaña ya estén listos
-      search('').catch(()=>render([]));
-      // también alinear el botón Exportar sin filtro
-      const base = exportBtn.getAttribute('href').split('?')[0];
-      exportBtn.setAttribute('href', base);
-    });
-  })();
+    if(confirm.isConfirmed){
+      try{
+        const resp=await fetch(`/proveedores/eliminar/${id}/`,{
+          method:'POST',
+          headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}
+        });
+        const data=await resp.json();
+        if(data.status==='ok'){
+          Swal.fire('¡Eliminado!',data.message,'success').then(()=>location.reload());
+        }else{
+          Swal.fire({icon:'error',title:'Error',text:data.message||'No se pudo eliminar.'});
+        }
+      }catch(err){
+        Swal.fire({icon:'error',title:'Error',text:'Error al eliminar proveedor.'});
+        console.error(err);
+      }
+    }
+  }
+
+  window.editarProveedor = editarProveedor;
+  window.eliminarProveedor = eliminarProveedor;
+})();
 </script>
 {% endblock %}

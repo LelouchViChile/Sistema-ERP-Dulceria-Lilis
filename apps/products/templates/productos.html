@@ -1,357 +1,382 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Gestión de Productos{% endblock %}
+{% block title %}Gestión de Productos | Dulcería Lilis ERP{% endblock %}
 
 {% block content %}
-<h5 class="fw-bold mt-3">Gestión de Productos</h5>
+<div class="container-fluid px-3 px-md-4">
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header pb-1">
-        <h6>Formulario de Producto</h6>
-        <ul class="nav nav-tabs mt-2" id="proTabs" role="tablist">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#tab-ident" role="tab">
-                    1. Identificación y precios
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tab-stock" role="tab">
-                    2. Stock y control
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tab-rel" role="tab">
-                    3. Relaciones y derivados
-                </a>
-            </li>
-        </ul>
+  <!-- Título -->
+  <div class="d-flex align-items-center gap-2 mt-2 mb-3">
+    <h4 class="m-0 text-danger fw-bold">
+      <i class="bi bi-box-seam-fill me-2"></i>Gestión de Productos
+    </h4>
+    <div class="flex-grow-1">
+      <hr class="border-top border-2 border-danger my-0" />
     </div>
+  </div>
 
-    <div class="card-body">
-        <!-- SIN SweetAlert: validación Bootstrap -->
-        <form id="form-prod" class="needs-validation" novalidate>
-            <div class="tab-content">
-                <!-- Identificación y precios -->
-                <div class="tab-pane fade show active" id="tab-ident" role="tabpanel">
-                    <div class="row g-2">
-                        <div class="col-md-3">
-                            <label class="form-label">SKU</label>
-                            <input type="text" class="form-control" placeholder="SKU-10001" required>
-                            <div class="invalid-feedback">Este campo es obligatorio.</div>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">EAN / UPC</label>
-                            <input type="text" class="form-control" placeholder="7789012345678">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" required>
-                            <div class="invalid-feedback">Este campo es obligatorio.</div>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Descripción</label>
-                            <input type="text" class="form-control">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Categoría</label>
-                            <select class="form-control">
-                                <option>Seleccione...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Marca</label>
-                            <input type="text" class="form-control">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Modelo</label>
-                            <input type="text" class="form-control">
-                        </div>
-                    </div>
+  <!-- Búsqueda / orden / export -->
+  <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
+    <form method="get" class="d-flex gap-2">
+      <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
+        <input type="text" name="q" class="form-control border-danger"
+               placeholder="Buscar producto..." value="{{ query }}">
+        <button type="submit" class="btn btn-danger">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
 
-                    <hr>
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
+        <option value="nombre" {% if sort_by == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
+        <option value="-nombre" {% if sort_by == '-nombre' %}selected{% endif %}>Nombre (Z-A)</option>
+        <option value="categoria" {% if sort_by == 'categoria' %}selected{% endif %}>Categoría (A-Z)</option>
+        <option value="-categoria" {% if sort_by == '-categoria' %}selected{% endif %}>Categoría (Z-A)</option>
+      </select>
 
-                    <div class="row g-2">
-                        <div class="col-md-2">
-                            <label class="form-label">UOM Compra</label>
-                            <select class="form-control" required>
-                                <option value="">Seleccione...</option>
-                                <option value="UN">Unidad</option>
-                                <option value="CAJA">Caja</option>
-                                <option value="KG">Kilogramo</option>
-                                <option value="LT">Litro</option>
-                                <option value="PAQ">Paquete</option>
-                            </select>
-                            <div class="invalid-feedback">Selecciona una unidad de compra.</div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">UOM Venta</label>
-                            <select class="form-control" required>
-                                <option value="">Seleccione...</option>
-                                <option value="UN">Unidad</option>
-                                <option value="CAJA">Caja</option>
-                                <option value="KG">Kilogramo</option>
-                                <option value="LT">Litro</option>
-                                <option value="PAQ">Paquete</option>
-                            </select>
-                            <div class="invalid-feedback">Selecciona una unidad de venta.</div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Factor conversión</label>
-                            <input type="number" class="form-control" value="1" step="1" min="0" data-nonneg required>
-                            <div class="invalid-feedback">Ej.: 12 si 1 CAJA = 12 UN.</div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Costo estándar</label>
-                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Costo promedio</label>
-                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Precio venta</label>
-                            <input type="number" class="form-control" step="1" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">IVA (%)</label>
-                            <input type="number" class="form-control" value="19" step="1" min="0" data-nonneg required>
-                            <div class="invalid-feedback">Indica el IVA.</div>
-                        </div>
-                    </div>
+      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
+         href="{% url 'products:list' %}?q={{ query }}&sort={{ sort_by }}&export=xlsx">
+        <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+      </a>
+    </form>
+  </div>
+
+  <div class="row g-3 align-items-start">
+    <!-- Formulario con pestañas -->
+    <div class="col-12 col-lg-4 col-xxl-3">
+      <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body">
+          <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Producto
+          </h6>
+
+          <!-- Aquí se agrega 'row g-3' para estructura de columnas y espaciado uniforme -->
+          <form id="form-prod" method="post" action="{% url 'products:crear' %}" class="row g-3 needs-validation" novalidate>
+            {% csrf_token %}
+            <!-- NAV TABS -->
+            <ul class="nav nav-tabs mb-3" id="prodTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active text-danger fw-semibold" id="tab-datos" data-bs-toggle="tab"
+                        data-bs-target="#pane-datos" type="button" role="tab">Datos Generales</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link text-danger fw-semibold" id="tab-inv" data-bs-toggle="tab"
+                        data-bs-target="#pane-inv" type="button" role="tab">Inventario</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link text-danger fw-semibold" id="tab-img" data-bs-toggle="tab"
+                        data-bs-target="#pane-img" type="button" role="tab">Multimedia</button>
+              </li>
+            </ul>
+
+            <!-- CONTENIDO TABS -->
+            <div class="tab-content" id="prodTabsContent">
+
+              <!-- DATOS GENERALES -->
+              <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
+                <!-- Aquí agregamos row g-3 para columnas -->
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label small mb-1">SKU</label>
+                    <input type="text" name="sku" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Nombre</label>
+                    <input type="text" name="nombre" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Categoría</label>
+                    <select name="categoria" class="form-select form-select-sm" required>
+                      <option value="">Seleccione...</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Descripción</label>
+                    <textarea name="descripcion" class="form-control form-control-sm" rows="2" required></textarea>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Precio Compra</label>
+                    <input type="number" name="precio_compra" class="form-control form-control-sm" step="0.01" min="0" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Precio Venta</label>
+                    <input type="number" name="precio_venta" class="form-control form-control-sm" step="0.01" min="0" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Unidad de Medida</label>
+                    <input type="text" name="unidad_medida" class="form-control form-control-sm" placeholder="Ej: kg, caja, unidad..." required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Marca</label>
+                    <input type="text" name="marca" class="form-control form-control-sm" required>
+                  </div>
                 </div>
+              </div>
 
-                <!-- Stock y control -->
-                <div class="tab-pane fade" id="tab-stock" role="tabpanel">
-                    <div class="row g-2">
-                        <div class="col-md-3">
-                            <label class="form-label">Stock mínimo</label>
-                            <input type="number" class="form-control" value="0" step="0.001" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Stock máximo</label>
-                            <input type="number" class="form-control" step="0.001" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Punto reorden</label>
-                            <input type="number" class="form-control" step="0.001" min="0" data-nonneg>
-                        </div>
-                        <div class="col-md-3 d-flex align-items-center">
-                            <div class="form-check me-3">
-                                <input class="form-check-input" type="checkbox" id="ctrlLote">
-                                <label class="form-check-label" for="ctrlLote">Control por lote</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="perecible">
-                                <label class="form-check-label" for="perecible">Perecible</label>
-                            </div>
-                        </div>
-                    </div>
+              <!-- INVENTARIO -->
+              <div class="tab-pane fade" id="pane-inv" role="tabpanel">
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Stock Actual</label>
+                    <input type="number" name="stock" class="form-control form-control-sm" readonly>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Stock Mínimo</label>
+                    <input type="number" name="stock_min" class="form-control form-control-sm" min="0" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Stock Máximo</label>
+                    <input type="number" name="stock_max" class="form-control form-control-sm" min="0" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Ubicación en Bodega</label>
+                    <input type="text" name="ubicacion" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Proveedor Principal</label>
+                    <input type="text" name="proveedor" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Última Entrada</label>
+                    <input type="date" name="ultima_entrada" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Estado</label>
+                    <select name="estado" class="form-select form-select-sm" required>
+                      <option value="Activo">Activo</option>
+                      <option value="Inactivo">Inactivo</option>
+                      <option value="Descontinuado">Descontinuado</option>
+                    </select>
+                  </div>
                 </div>
+              </div>
 
-                <!-- Relaciones y derivados -->
-                <div class="tab-pane fade" id="tab-rel" role="tabpanel">
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label class="form-label">Imagen URL</label>
-                            <input type="url" class="form-control">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Ficha técnica URL</label>
-                            <input type="url" class="form-control">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Stock actual</label>
-                            <input type="number" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Alerta bajo stock</label>
-                            <input type="text" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Alerta por vencer</label>
-                            <input type="text" class="form-control" readonly>
-                        </div>
-                    </div>
+              <!-- MULTIMEDIA -->
+              <div class="tab-pane fade" id="pane-img" role="tabpanel">
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Imagen del Producto</label>
+                    <input type="file" name="imagen" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Código de Barras</label>
+                    <input type="text" name="codigo_barras" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1">Notas Internas</label>
+                    <textarea name="notas" class="form-control form-control-sm" rows="2" required></textarea>
+                  </div>
                 </div>
+              </div>
             </div>
 
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <button type="button" class="btn btn-light" id="btn-clear">Limpiar</button>
+            <div class="mt-3 d-flex gap-2">
+              <button type="submit" class="btn btn-sm btn-danger flex-grow-1">
+                <i class="bi bi-check-lg me-1"></i>Guardar
+              </button>
+              <button type="button" id="btn-clear" class="btn btn-sm btn-outline-danger px-3">
+                <i class="bi bi-eraser me-1"></i>Limpiar
+              </button>
             </div>
-        </form>
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-        <div class="mb-2 mb-md-0">Productos</div>
-
-        <div class="d-flex gap-2 w-100 w-md-auto">
-            <!-- Buscador con lupa (Ajax en vivo) -->
-            <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" id="searchProducts"
-                    placeholder="Buscar por SKU, nombre o categoría..." autocomplete="off"
-                    data-url="{% url 'products:search' %}" value="{{ query|default:'' }}">
-            </div>
-
-            <!-- Exportar Excel -->
-            <a class="btn btn-outline-secondary btn-sm"
-                href="{% url 'products:list' %}?export=xlsx{% if query %}&q={{ query|urlencode }}{% endif %}">
-                Exportar a Excel
-            </a>
+          </form>
         </div>
+      </div>
     </div>
 
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped align-middle text-center">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>SKU</th>
-                        <th>Nombre</th>
-                        <th>Categoría</th>
-                        <th>Stock</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="productsTbody">
-                    {% for p in productos %}
-                    <tr>
-                        <td>{{ p.id }}</td>
-                        <td>{{ p.sku }}</td>
-                        <td>{{ p.nombre }}</td>
-                        <td>{{ p.categoria }}</td>
-                        <td>{{ p.stock }}</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" disabled>
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" disabled>
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-muted">Sin resultados</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
+    <!-- Tabla -->
+    <div class="col-12 col-lg-8 col-xxl-9">
+      <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>ID</th>
+                  <th>SKU</th>
+                  <th>Nombre</th>
+                  <th>Categoría</th>
+                  <th>Stock</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in productos %}
+                <tr>
+                  <td>{{ p.id }}</td>
+                  <td>{{ p.sku }}</td>
+                  <td>{{ p.nombre }}</td>
+                  <td>{{ p.categoria }}</td>
+                  <td>{{ p.stock }}</td>
+                  <td class="d-flex gap-1 justify-content-center">
+                    <button class="btn btn-warning btn-sm" onclick="editarProducto({{ p.id }})"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarProducto({{ p.id }})"><i class="bi bi-trash3-fill"></i></button>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Sin resultados</td></tr>
+                {% endfor %}
+              </tbody>
             </table>
-        </div>
+          </div>
 
-        {% if page_obj %}
-        <div class="d-flex justify-content-between align-items-center">
-            <small class="text-muted">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</small>
-            <div>
+          {% if page_obj %}
+          <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+            <small class="text-danger">
+              Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} productos
+            </small>
+            <nav aria-label="Paginación de productos">
+              <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
-                <a class="btn btn-sm btn-outline-secondary"
-                    href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">Anterior</a>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a></li>
                 {% endif %}
+                <li class="page-item active"><span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
                 {% if page_obj.has_next %}
-                <a class="btn btn-sm btn-outline-secondary"
-                    href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}">Siguiente</a>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a></li>
                 {% endif %}
-            </div>
+              </ul>
+            </nav>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
 
-<!-- ============== SCRIPTS ============== -->
+<!-- ========== JS CRUD ========== -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Validaciones Bootstrap y no-negativos
-    (function () {
-        const form = document.getElementById('form-prod');
-        if (!form) return;
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith(name + "=")) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
 
-        // Bloqueo negativos y "bajar bajo 0" en inputs con data-nonneg
-        const nonnegs = form.querySelectorAll('input[type="number"][data-nonneg]');
-        function clamp(el) {
-            let v = el.value;
-            if (v === '') return;
-            let num = Number(v);
-            if (isNaN(num) || num < 0) {
-                el.value = 0;
-            }
-        }
-        nonnegs.forEach(el => {
-            el.addEventListener('keydown', (e) => {
-                if (['-', 'e', 'E', '+'].includes(e.key)) e.preventDefault();
-            });
-            el.addEventListener('input', () => clamp(el));
-            el.addEventListener('blur', () => clamp(el));
+/* -------- Validación visual en el formulario principal -------- */
+function validarFormulario(form) {
+  let ok = true, primerError = null;
+  form.querySelectorAll("input, select, textarea").forEach(el => {
+    if (el.hasAttribute("required")) {
+      const val = el.value.trim();
+      const valido = val !== "" && !(el.type === "number" && isNaN(val));
+      if (!valido) {
+        el.classList.add("is-invalid");
+        if (!primerError) primerError = el;
+        ok = false;
+      } else {
+        el.classList.remove("is-invalid");
+      }
+    }
+  });
+
+  if (primerError) {
+    const tab = primerError.closest(".tab-pane");
+    if (tab && !tab.classList.contains("active")) {
+      const id = tab.id;
+      const trigger = document.querySelector(`[data-bs-target="#${id}"]`);
+      if (trigger) new bootstrap.Tab(trigger).show();
+    }
+    primerError.focus();
+  }
+  return ok;
+}
+
+document.getElementById("form-prod")?.addEventListener("submit", e => {
+  const form = e.target;
+  if (!validarFormulario(form)) e.preventDefault();
+});
+
+document.getElementById("btn-clear")?.addEventListener("click", () => {
+  const f = document.getElementById("form-prod");
+  f.reset();
+  f.querySelectorAll(".is-invalid").forEach(e => e.classList.remove("is-invalid"));
+});
+
+/* -------- FUNCIÓN EDITAR PRODUCTO -------- */
+function editarProducto(id) {
+  fetch(`/productos/editar/${id}/`)
+    .then(response => {
+      console.log('Response:', response);
+      return response.json();
+    })
+    .then(data => {
+      console.log('Data:', data);
+      if (data) {
+        Swal.fire({
+          title: "Editar Producto",
+          html: `
+            <input id="edit_sku" class="swal2-input" placeholder="SKU" value="${data.sku || ''}">
+            <input id="edit_nombre" class="swal2-input" placeholder="Nombre" value="${data.nombre || ''}">
+            <input id="edit_precio_venta" class="swal2-input" placeholder="Precio Venta" value="${data.precio_venta || 0}">
+            <input id="edit_marca" class="swal2-input" placeholder="Marca" value="${data.marca || ''}">
+          `,
+          showCancelButton: true,
+          confirmButtonText: "Guardar",
+          cancelButtonText: "Cancelar",
+          preConfirm: () => {
+            const fd = new FormData();
+            fd.append("sku", document.getElementById("edit_sku").value);
+            fd.append("nombre", document.getElementById("edit_nombre").value);
+            fd.append("precio_venta", document.getElementById("edit_precio_venta").value);
+            fd.append("marca", document.getElementById("edit_marca").value);
+            return fetch(`/productos/editar/${id}/`, {
+              method: "POST",
+              headers: { "X-CSRFToken": getCookie("csrftoken") },
+              body: fd
+            }).then(r => r.json());
+          }
+        }).then(res => {
+          if (res.value?.status === "ok") {
+            Swal.fire({ icon: "success", title: "Actualizado", timer: 1200, showConfirmButton: false })
+              .then(() => location.reload());
+          } else if (res.value?.status === "error") {
+            Swal.fire({ icon: "error", title: "Error", text: res.value.message });
+          }
         });
+      }
+    })
+    .catch(error => {
+      console.log('Error:', error);
+      Swal.fire({ icon: "error", title: "Error al cargar datos", text: "No se pudo obtener la información del producto." });
+    });
+}
+window.editarProducto = editarProducto;
 
-        form.addEventListener('submit', function (event) {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        }, false);
-
-        document.getElementById('btn-clear').addEventListener('click', () => {
-            form.reset();
-            form.classList.remove('was-validated');
-        });
-    })();
-
-    // Buscador en vivo (AJAX) productos
-    (function () {
-        const input = document.getElementById('searchProducts');
-        const tbody = document.getElementById('productsTbody');
-        if (!input || !tbody) return;
-
-        const url = input.dataset.url;
-        let abortCtrl = null;
-        let timer = null;
-
-        function render(items) {
-            if (!items || !items.length) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Sin resultados</td></tr>`;
-                return;
-            }
-            tbody.innerHTML = items.slice(0, 10).map(p => `
-        <tr>
-          <td>${p.id ?? ''}</td>
-          <td>${p.sku ?? ''}</td>
-          <td>${p.nombre ?? ''}</td>
-          <td>${p.categoria ?? ''}</td>
-          <td>${p.stock ?? 0}</td>
-          <td>
-            <button class="btn btn-sm btn-warning" disabled><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-danger" disabled><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>
-      `).join('');
-        }
-
-        async function doSearch(q) {
-            if (abortCtrl) abortCtrl.abort();
-            abortCtrl = new AbortController();
-
-            const params = new URLSearchParams({ q: q || '' });
-            const resp = await fetch(`${url}?${params.toString()}`, {
-                method: 'GET',
-                signal: abortCtrl.signal,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            if (!resp.ok) { render([]); return; }
-            const data = await resp.json();
-            render(data.results || []);
-        }
-
-        function onInput() {
-            const q = input.value.trim();
-            clearTimeout(timer);
-            timer = setTimeout(() => doSearch(q).catch(() => render([])), 250);
-        }
-
-        input.addEventListener('input', onInput);
-    })();
+function eliminarProducto(id){
+  Swal.fire({
+    title:"¿Eliminar producto?",
+    text:"Esta acción no se puede revertir",
+    icon:"warning",
+    showCancelButton:true,
+    confirmButtonColor:"#d33",
+    cancelButtonColor:"#3085d6",
+    confirmButtonText:"Sí, eliminar",
+    cancelButtonText:"Cancelar"
+  }).then(res=>{
+    if(!res.isConfirmed)return;
+    fetch(`/productos/eliminar/${id}/`,{
+      method:"POST",
+      headers:{ "X-CSRFToken":getCookie("csrftoken") }
+    }).then(r=>r.json()).then(data=>{
+      if(data.status==="ok"){
+        Swal.fire("¡Eliminado!",data.message,"success").then(()=>location.reload());
+      }else{
+        Swal.fire({icon:"error",title:"Error",text:data.message});
+      }
+    });
+  });
+}
+window.eliminarProducto = eliminarProducto;
 </script>
 {% endblock %}

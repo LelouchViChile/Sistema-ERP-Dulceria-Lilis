@@ -9,4 +9,7 @@ urlpatterns = [
 
     # Buscador AJAX (JSON, máx. 10 resultados)
     path('search/', views.search_products, name='search'),
+    path('crear/', views.crear_producto, name='crear'),
+    path('editar/<int:prod_id>/', views.editar_producto, name='editar'),
+    path('eliminar/<int:prod_id>/', views.eliminar_producto, name='eliminar'),
 ]

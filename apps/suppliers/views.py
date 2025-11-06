@@ -348,3 +348,55 @@ def relations_export(request):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
+
+# ---------------------- EDITAR Y ELIMINAR ----------------------
+
+@login_required
+@require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+def editar_proveedor(request, supplier_id):
+    try:
+        proveedor = Proveedor.objects.get(id=supplier_id)
+    except Proveedor.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "id": proveedor.id,
+            "rut_nif": proveedor.rut_nif,
+            "razon_social": proveedor.razon_social,
+            "nombre_fantasia": proveedor.nombre_fantasia or "",
+            "email": proveedor.email,
+            "telefono": proveedor.telefono or "",
+            "sitio_web": proveedor.sitio_web or "",
+            "plazos_pago_dias": proveedor.plazos_pago_dias or 0,
+            "moneda": proveedor.moneda or "CLP",
+            "descuento_porcentaje": proveedor.descuento_porcentaje or 0,
+        })
+
+    elif request.method == "POST":
+        data = request.POST
+        proveedor.rut_nif = data.get("rut_nif", proveedor.rut_nif)
+        proveedor.razon_social = data.get("razon_social", proveedor.razon_social)
+        proveedor.nombre_fantasia = data.get("nombre_fantasia", proveedor.nombre_fantasia)
+        proveedor.email = data.get("email", proveedor.email)
+        proveedor.telefono = data.get("telefono", proveedor.telefono)
+        proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web)
+        proveedor.plazos_pago_dias = data.get("plazos_pago_dias", proveedor.plazos_pago_dias)
+        proveedor.moneda = data.get("moneda", proveedor.moneda)
+        proveedor.descuento_porcentaje = data.get("descuento_porcentaje", proveedor.descuento_porcentaje)
+        proveedor.save()
+        return JsonResponse({"status": "ok", "message": "Proveedor actualizado correctamente"})
+    else:
+        return JsonResponse({"status": "error", "message": "Método no permitido"}, status=405)
+
+
+@login_required
+@require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+@require_POST
+def eliminar_proveedor(request, supplier_id):
+    try:
+        proveedor = Proveedor.objects.get(id=supplier_id)
+        proveedor.delete()
+        return JsonResponse({"status": "ok", "message": "Proveedor eliminado correctamente"})
+    except Proveedor.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)

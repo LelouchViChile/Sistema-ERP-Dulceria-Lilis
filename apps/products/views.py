@@ -4,6 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from datetime import datetime
+from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 
 from lilis_erp.roles import require_roles
 
@@ -186,3 +189,100 @@ def search_products(request):
 
     qs = qs.order_by("id")[:10]
     return JsonResponse({"results": _qs_to_dicts(qs)})
+
+@login_required
+@require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
+@transaction.atomic
+def crear_producto(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
+
+    sku = (request.POST.get("sku") or "").strip()
+    nombre = (request.POST.get("nombre") or "").strip()
+    categoria_id = request.POST.get("categoria") or None
+    descripcion = (request.POST.get("descripcion") or "").strip()
+    precio_compra = request.POST.get("precio_compra") or 0
+    precio_venta = request.POST.get("precio_venta") or 0
+    unidad = (request.POST.get("unidad_medida") or "").strip()
+    marca = (request.POST.get("marca") or "").strip()
+
+    if not all([sku, nombre, precio_venta]):
+        return JsonResponse({"status": "error", "message": "SKU, nombre y precio de venta son obligatorios."})
+
+    if Product.objects.filter(sku=sku).exists():
+        return JsonResponse({"status": "error", "message": "El SKU ya existe."})
+
+    try:
+        producto = Product.objects.create(
+            sku=sku,
+            nombre=nombre,
+            categoria_id=categoria_id or None,
+            descripcion=descripcion,
+            precio_compra=precio_compra or 0,
+            precio_venta=precio_venta or 0,
+            unidad_medida=unidad,
+            marca=marca,
+            stock=0,
+        )
+        return JsonResponse({"status": "ok", "message": "Producto creado correctamente."})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"No se pudo crear: {e}"}, status=500)
+
+
+@login_required
+@csrf_exempt
+def eliminar_producto(request, prod_id):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
+
+    producto = get_object_or_404(Product, id=prod_id)
+    producto.delete()
+    return JsonResponse({"status": "ok", "message": "Producto eliminado correctamente."})
+
+
+@login_required
+@require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
+@csrf_exempt
+@login_required
+@csrf_exempt
+def editar_producto(request, prod_id):
+    producto = get_object_or_404(Product, id=prod_id)
+
+    if request.method == "GET":
+        # Solo devolvemos los campos que realmente existen en el modelo
+        return JsonResponse({
+            "id": producto.id,
+            "sku": producto.sku,
+            "nombre": producto.nombre,
+            "categoria": producto.categoria_id or "",
+            "descripcion": producto.descripcion or "",
+            "precio_venta": producto.precio_venta or 0,
+            "marca": producto.marca or "",
+        })
+
+    if request.method == "POST":
+        sku = (request.POST.get("sku") or "").strip()
+        nombre = (request.POST.get("nombre") or "").strip()
+        categoria_id = request.POST.get("categoria") or None
+        descripcion = (request.POST.get("descripcion") or "").strip()
+        precio_venta = request.POST.get("precio_venta") or 0
+        marca = (request.POST.get("marca") or "").strip()
+
+        if not all([sku, nombre]):
+            return JsonResponse({"status": "error", "message": "SKU y nombre son obligatorios."})
+
+        if Product.objects.filter(sku=sku).exclude(id=producto.id).exists():
+            return JsonResponse({"status": "error", "message": "El SKU ya existe."})
+
+        # Actualizamos solo los campos existentes
+        producto.sku = sku
+        producto.nombre = nombre
+        producto.categoria_id = categoria_id or None
+        producto.descripcion = descripcion
+        producto.precio_venta = precio_venta
+        producto.marca = marca
+        producto.save()
+
+        return JsonResponse({"status": "ok", "message": "Producto actualizado correctamente."})
+
+    return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
