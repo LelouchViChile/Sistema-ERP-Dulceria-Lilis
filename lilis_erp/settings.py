@@ -29,7 +29,20 @@ SECRET_KEY = 'django-insecure-(&au%ml(#0nw-ulsjog4gr8y6vm=5-t+79^esejf+o@v2ir&47
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['3.85.33.49']
+
+ALLOWED_HOSTS = [
+    '3.85.33.49',   # producción (EC2)
+    '127.0.0.1',    # desarrollo local
+    'localhost',    # desarrollo local
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://3.85.33.49',
+    'https://3.85.33.49',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
+
 
 # Configuración de login y logout
 LOGIN_REDIRECT_URL = 'main'       # Redirige aquí después de iniciar sesión
