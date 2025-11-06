@@ -164,8 +164,14 @@ def supplier_list_view(request):
     relations_paginator = Paginator(relations_qs, 10)
     relations_page_obj = relations_paginator.get_page(request.GET.get("page_rel"))
     
+    # 🔹 MEJORA: Capitalizar el estado para que coincida con la lógica de usuarios
+    proveedores_list = []
+    for p in page_obj.object_list:
+        p.estado = p.estado.capitalize() if p.estado else "Inactivo"
+        proveedores_list.append(p)
+
     context = {
-        "proveedores": page_obj.object_list,
+        "proveedores": proveedores_list,
         "page_obj": page_obj,
         "query": query,
         "sort_by": sort_by,
@@ -202,10 +208,7 @@ def create_supplier(request):
     nombre_fantasia = (data.get("nombre_fantasia") or "").strip()
 
     # comerciales
-    try:
-        plazo = int(data.get("plazos_pago_dias") or 0)
-    except Exception:
-        plazo = -1
+    condiciones_pago = (data.get("condiciones_pago") or "").strip()
     moneda = (data.get("moneda") or "CLP").strip()
     try:
         descuento = float(data.get("descuento_porcentaje") or 0)
@@ -222,14 +225,14 @@ def create_supplier(request):
     if not _valid_email(email):
         errors["email"] = "Email obligatorio y válido."
 
-    if telefono and not re.match(r"^[0-9+()\-\s]{6,30}$", telefono):
-        errors["telefono"] = "Formato de teléfono inválido."
+    if not telefono or not re.match(r"^[0-9+()\-\s]{6,30}$", telefono):
+        errors["telefono"] = "Teléfono obligatorio y válido."
 
-    if web and not re.match(r"^https?://", web, flags=re.I):
+    if web and not re.match(r"^https?://.+", web, flags=re.I):
         errors["sitio_web"] = "Debe comenzar con http:// o https://"
 
-    if not (0 <= plazo <= 365):
-        errors["plazos_pago_dias"] = "Plazo de 0 a 365."
+    if not condiciones_pago:
+        errors["condiciones_pago"] = "Las condiciones de pago son obligatorias."
 
     if not (0 <= descuento <= 100):
         errors["descuento_porcentaje"] = "Descuento 0 a 100%."
@@ -253,9 +256,8 @@ def create_supplier(request):
                 "telefono": telefono,
                 "sitio_web": web,
                 "nombre_fantasia": nombre_fantasia,
-                "plazos_pago_dias": plazo,
+                "condiciones_pago": condiciones_pago,
                 "moneda": moneda or "CLP",
-                "descuento_porcentaje": descuento,
                 "activo": True,
             }
         )
@@ -427,7 +429,6 @@ def relations_export(request):
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
-@require_POST
 def editar_proveedor(request, supplier_id):
     try:
         proveedor = Proveedor.objects.get(id=supplier_id)
@@ -435,17 +436,18 @@ def editar_proveedor(request, supplier_id):
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
 
     if request.method == "GET":
+        # 🔹 PASO DE DEPURACIÓN: Verificamos que la petición GET llega aquí.
+        print(f"✅ Obteniendo datos para proveedor ID: {supplier_id}")
+
         return JsonResponse({
             "id": proveedor.id,
             "rut_nif": proveedor.rut_nif,
             "razon_social": proveedor.razon_social,
-            "nombre_fantasia": proveedor.nombre_fantasia or "",
             "email": proveedor.email,
             "telefono": proveedor.telefono or "",
             "sitio_web": proveedor.sitio_web or "",
-            "plazos_pago_dias": proveedor.plazos_pago_dias or 0,
+            "condiciones_pago": proveedor.condiciones_pago or "",
             "moneda": proveedor.moneda or "CLP",
-            "descuento_porcentaje": proveedor.descuento_porcentaje or 0,
         })
 
     elif request.method == "POST":
@@ -457,6 +459,7 @@ def editar_proveedor(request, supplier_id):
             proveedor.email = data.get("email", proveedor.email).strip()
             proveedor.telefono = data.get("telefono", proveedor.telefono).strip()
             proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web).strip()
+            proveedor.condiciones_pago = data.get("condiciones_pago", proveedor.condiciones_pago).strip()
             
             # Validar que no haya duplicados de RUT/NIF
             if Proveedor.objects.filter(rut_nif=proveedor.rut_nif).exclude(id=supplier_id).exists():

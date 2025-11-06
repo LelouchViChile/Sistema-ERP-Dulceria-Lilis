@@ -198,8 +198,8 @@
                   <td>{{ m.bodega_destino.nombre|default:"-" }}</td><td>{{ m.proveedor.razon_social|default:"-" }}</td><td>{{ m.creado_por.username|default:"Sistema" }}</td>
                   <td>{{ m.lote|default:"-" }}</td><td>{{ m.fecha_vencimiento|date:"d/m/Y"|default:"-" }}</td>
                   <td>
-                    <button class="btn btn-sm btn-warning btn-edit-mov" data-id="{{ m.id }}"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-danger btn-del-mov" data-id="{{ m.id }}"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-warning" onclick="editarMovimiento('{{ m.id }}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarMovimiento('{{ m.id }}')"><i class="bi bi-trash"></i></button>
                   </td>
                 </tr>
                 {% empty %}
@@ -288,6 +288,17 @@
     el.textContent = text;
   }
 
+  // Helper para cambiar a la pestaña de un elemento
+  function switchToTabOf(element) {
+    const pane = element.closest('.tab-pane');
+    if (pane && !pane.classList.contains('active')) {
+      const trigger = document.querySelector(`[data-bs-target="#${pane.id}"]`);
+      if (trigger) {
+        new bootstrap.Tab(trigger).show();
+      }
+    }
+  }
+
   // Clamp non-negative inputs
   document.querySelectorAll('input[data-nonneg]').forEach(el=>{
     el.addEventListener('keydown', e => { if(['-','e','E','+'].includes(e.key)) e.preventDefault(); });
@@ -298,76 +309,24 @@
   function validateForm(formEl){
     let ok = true;
     let firstError = null;
-
-    // native required checks
-    formEl.querySelectorAll("[required]").forEach(input=>{
-      const val = (input.value || "").toString().trim();
-      const valid = val !== "" && !(input.type === "number" && isNaN(val));
-      if(!valid){
-        input.classList.add("is-invalid");
-        if(!firstError) firstError = input;
+    formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
+      const val = el.value.trim();
+      const valido = val !== "" && !(el.type === "number" && isNaN(val));
+      if (!valido) {
+        setInvalid(el, el.parentElement.querySelector('.invalid-feedback')?.textContent || 'Este campo es obligatorio.');
+        if (!firstError) firstError = el;
         ok = false;
       } else {
-        input.classList.remove("is-invalid");
+        setInvalid(el, null);
       }
     });
-
-    // specific checks
-    const tipo = document.getElementById("movTipo");
-    const proveedor = document.getElementById("movProveedor");
-    const cantidad = document.getElementById("movCantidad");
-    const fecha = document.getElementById("movFecha");
-    const venc = document.getElementById("movVenc");
-
-    // cantidad >= 0
-    const cnum = parseFloat(cantidad.value || "0");
-    if(isNaN(cnum) || cnum < 0){ setInvalid(cantidad, "Cantidad inválida."); if(!firstError) firstError = cantidad; ok=false; } else setInvalid(cantidad,null);
-
-    // proveedor required on some types
-    const t = (tipo.value || "").trim();
-    if((t === "Ingreso" || t === "Devolución") && !(proveedor.value || "").trim()){
-      setInvalid(proveedor, "Proveedor requerido para este tipo.");
-      if(!firstError) firstError = proveedor;
-      ok = false;
-    } else {
-      setInvalid(proveedor, null);
-    }
-
-    // fecha not future
-    const now = new Date().toISOString().slice(0,10);
-    if(fecha.value && fecha.value > now){ setInvalid(fecha, "Fecha no puede ser futura."); if(!firstError) firstError = fecha; ok=false; } else setInvalid(fecha,null);
-
-    // vencimiento validation
-    if(venc.value && (t === "Ingreso" || t === "Transferencia") && venc.value < now){
-      setInvalid(venc, "Fecha de vencimiento no puede estar vencida.");
-      if(!firstError) firstError = venc;
-      ok = false;
-    } else setInvalid(venc, null);
 
     // focus and open tab of first error
     if(firstError){
-      const tabPane = firstError.closest('.tab-pane');
-      if(tabPane && !tabPane.classList.contains('active')){
-        const id = tabPane.id;
-        const trigger = document.querySelector(`[data-bs-target="#${id}"]`);
-        if(trigger) new bootstrap.Tab(trigger).show();
-      }
+      switchToTabOf(firstError);
       firstError.focus();
     }
-
     return ok;
-  }
-
-  // Attach edit/delete handlers for rows after rendering
-  function attachRowButtons(){
-    document.querySelectorAll('.btn-edit-mov').forEach(btn=>{
-      btn.removeEventListener('click', onEditClick);
-      btn.addEventListener('click', onEditClick);
-    });
-    document.querySelectorAll('.btn-del-mov').forEach(btn=>{
-      btn.removeEventListener('click', onDeleteClick);
-      btn.addEventListener('click', onDeleteClick);
-    });
   }
 
   // ---------- Create transaction (AJAX) ----------
@@ -403,12 +362,12 @@
       const data = await resp.json();
       if(!resp.ok || !data.ok){
         const errs = data.errors || {};
-        // Map errors to fields if available
+        // Mapear errores a campos si están disponibles
         for(const k in errs){
-          const field = document.querySelector(`[name="${k}"],#${k}`);
+          const field = document.querySelector(`[name="${k}"]`);
           if(field) setInvalid(field, errs[k]);
         }
-        showMsg(movMsg, errs.__all__ || 'Error al crear movimiento.', false);
+        showMsg(movMsg, errs.__all__ || 'Revisa los campos con errores.', false);
         return;
       }
 
@@ -424,101 +383,82 @@
   document.getElementById('btn-clear-mov')?.addEventListener('click', ()=>{
     document.getElementById('form-mov').reset();
     document.getElementById('form-mov').classList.remove('was-validated');
-    document.querySelectorAll('#form-mov .is-invalid').forEach(i=>i.classList.remove('is-invalid'));
+    document.querySelectorAll('#form-mov .is-invalid').forEach(i => { i.classList.remove('is-invalid'); });
     document.getElementById('movMsg').textContent = '';
   });
 
-  // ---------- Edit / Delete handlers ----------
-  async function onEditClick(e){
-    const id = e.currentTarget.dataset.id;
-    if(!id) return;
-    // GET data
-    try{
-      const resp = await fetch(`{% url 'transactional:editar' 0 %}`.replace('/0/', `/${id}/`), { headers: {'X-Requested-With': 'XMLHttpRequest'} });
-      if(!resp.ok) throw new Error('No se pudo obtener movimiento');
-      const data = await resp.json();
-      if(!data.ok) throw new Error(data.error || 'Error');
-      // fill modal
-      document.getElementById('editMovId').value = data.movimiento.id;
-      document.getElementById('editFecha').value = data.movimiento.fecha ? data.movimiento.fecha.split('T')[0] : '';
-      document.getElementById('editTipo').value = data.movimiento.tipo || '';
-      document.getElementById('editCantidad').value = data.movimiento.cantidad ?? '';
-      // show modal
-      const modal = new bootstrap.Modal(document.getElementById('editMovModal'));
-      modal.show();
-    }catch(err){
-      console.error(err);
-      Swal.fire({ icon:'error', title:'Error', text: err.message || 'No se pudo obtener movimiento.' });
+  // ---------- EDITAR MOVIMIENTO (SweetAlert) ----------
+  async function editarMovimiento(id) {
+    try {
+      const getResp = await fetch(`/transacciones/editar/${id}/`);
+      if (!getResp.ok) throw new Error('No se pudo obtener el movimiento.');
+      const data = await getResp.json();
+
+      const { value: formValues } = await Swal.fire({
+        title: 'Editar Movimiento',
+        html:
+          `<input id="swal-fecha" type="date" class="swal2-input" value="${data.movimiento.fecha.split('T')[0]}">` +
+          `<input id="swal-tipo" class="swal2-input" placeholder="Tipo" value="${data.movimiento.tipo}">` +
+          `<input id="swal-cantidad" type="number" class="swal2-input" placeholder="Cantidad" value="${data.movimiento.cantidad}">`,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+          return {
+            fecha: document.getElementById('swal-fecha').value,
+            tipo: document.getElementById('swal-tipo').value,
+            cantidad: document.getElementById('swal-cantidad').value
+          };
+        }
+      });
+
+      if (formValues) {
+        const postResp = await fetch(`/transacciones/editar/${id}/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+          body: JSON.stringify(formValues)
+        });
+        const result = await postResp.json();
+        if (result.ok) {
+          Swal.fire('¡Actualizado!', 'El movimiento ha sido actualizado.', 'success').then(() => location.reload());
+        } else {
+          Swal.fire('Error', result.error || 'No se pudo actualizar.', 'error');
+        }
+      }
+    } catch (error) {
+      Swal.fire('Error', error.message || 'Ocurrió un error inesperado.', 'error');
     }
   }
 
-  document.getElementById('form-edit-mov')?.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const id = document.getElementById('editMovId').value;
-    const tipo = document.getElementById('editTipo').value;
-    const fecha = document.getElementById('editFecha').value;
-    const cantidad = document.getElementById('editCantidad').value;
-    // basic validate
-    if(!tipo || !fecha || cantidad === '' || Number.isNaN(Number(cantidad))) {
-      Swal.fire({ icon:'error', title:'Error', text:'Revisa los campos.' });
-      return;
-    }
-    try{
-      const resp = await fetch(`{% url 'transactional:editar' 0 %}`.replace('/0/', `/${id}/`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ tipo, fecha, cantidad })
-      });
-      const data = await resp.json();
-      if(!resp.ok || !data.ok){
-        Swal.fire({ icon:'error', title:'Error', text: data.error || 'No se pudo actualizar.' });
-        return;
-      }
-      // Reload page on success
-      const modalEl = document.getElementById('editMovModal');
-      const modal = bootstrap.Modal.getInstance(modalEl);
-      modal?.hide();
-      Swal.fire({ icon:'success', title:'Actualizado', timer:1000, showConfirmButton:false });
-    }catch(err){
-      console.error(err);
-      Swal.fire({ icon:'error', title:'Error', text:'No se pudo actualizar.' });
-    }
-  });
-
-  async function onDeleteClick(e){
-    const id = e.currentTarget.dataset.id;
-    if(!id) return;
-    const res = await Swal.fire({
+  // ---------- ELIMINAR MOVIMIENTO (SweetAlert) ----------
+  async function eliminarMovimiento(id) {
+    const confirm = await Swal.fire({
       title: '¿Eliminar movimiento?',
-      text: 'Esta acción no se puede revertir',
+      text: "Esta acción no se puede revertir.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Sí, eliminar'
     });
-    if(!res.isConfirmed) return;
-    try{
-      const resp = await fetch(`{% url 'transactional:eliminar' 0 %}`.replace('/0/', `/${id}/`), {
+
+    if (confirm.isConfirmed) {
+      const resp = await fetch(`/transacciones/eliminar/${id}/`, {
         method: 'POST',
-        headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-CSRFToken': CSRF }
       });
       const data = await resp.json();
-      if(!resp.ok || !data.ok){
-        Swal.fire({ icon:'error', title:'Error', text: data.error || 'No se pudo eliminar.' });
-        return;
+      if (data.ok) {
+        Swal.fire('¡Eliminado!', 'El movimiento ha sido eliminado.', 'success').then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.error || 'No se pudo eliminar.', 'error');
       }
-      location.reload();
-      Swal.fire({ icon:'success', title:'Eliminado', timer:1000, showConfirmButton:false });
-    }catch(err){
-      console.error(err);
-      Swal.fire({ icon:'error', title:'Error', text:'No se pudo eliminar.' });
     }
   }
 
-  // wire initial row buttons (for server-rendered rows)
-  attachRowButtons();
+  window.editarMovimiento = editarMovimiento;
+  window.eliminarMovimiento = eliminarMovimiento;
 
 })();
 </script>

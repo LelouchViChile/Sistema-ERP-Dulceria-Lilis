@@ -41,6 +41,7 @@ def gestion_transacciones(request):
     """
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', '-fecha')
+    ver = request.GET.get('ver', 'todos')
     export = request.GET.get('export', '')
 
     valid_sort_fields = ['fecha', '-fecha', 'producto__nombre', '-producto__nombre', 'tipo', '-tipo']
@@ -50,6 +51,14 @@ def gestion_transacciones(request):
     qs = MovimientoInventario.objects.select_related(
         'producto', 'proveedor', 'bodega_origen', 'bodega_destino', 'creado_por'
     ).all()
+
+    # Filtro por tipo de movimiento
+    if ver == 'ingresos':
+        qs = qs.filter(tipo__in=['Ingreso', 'Devolución'])
+    elif ver == 'salidas':
+        qs = qs.filter(tipo='Salida')
+    elif ver == 'ajustes':
+        qs = qs.filter(tipo='Ajuste')
 
     if query:
         qs = qs.filter(_build_transaction_q(query))
@@ -100,7 +109,7 @@ def gestion_transacciones(request):
         wb.save(response)
         return response
 
-    paginator = Paginator(qs, 15)
+    paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     context = {
@@ -108,6 +117,7 @@ def gestion_transacciones(request):
         "page_obj": page_obj,
         "query": query,
         "sort_by": sort_by,
+        "ver": ver,
     }
     return render(request, "gestion_transacciones.html", context)
 
@@ -127,46 +137,67 @@ def crear_transaccion(request):
     # Validaciones básicas
     errors = {}
     tipo = (data.get("tipo") or "").strip()
-    fecha = (data.get("fecha") or "").strip()
-    cantidad = data.get("cantidad")
-    producto_id = data.get("producto_id")
-    proveedor_id = data.get("proveedor_id")
+    fecha_str = (data.get("fecha") or "").strip()
+    cantidad_str = data.get("cantidad")
+    producto_text = (data.get("producto_text") or "").strip()
+    proveedor_text = (data.get("proveedor_text") or "").strip()
 
     if not tipo:
         errors["tipo"] = "Tipo requerido."
-    if not fecha:
+    if not fecha_str:
         errors["fecha"] = "Fecha requerida."
+    if not producto_text:
+        errors["producto_text"] = "Producto requerido."
+
     try:
-        cantidad = float(cantidad)
+        cantidad = float(cantidad_str)
         if cantidad < 0:
-            errors["cantidad"] = "Cantidad no puede ser negativa."
+            errors["cantidad"] = "La cantidad debe ser mayor a cero."
     except Exception:
         errors["cantidad"] = "Cantidad inválida."
+
+    # Validar proveedor para ingresos
+    if tipo == "Ingreso" and not proveedor_text:
+        errors["proveedor_text"] = "Proveedor es requerido para ingresos."
 
     if errors:
         return JsonResponse({"ok": False, "errors": errors}, status=400)
 
-    try:
-        producto = Producto.objects.get(id=producto_id)
-    except Producto.DoesNotExist:
-        return JsonResponse({"ok": False, "errors": {"producto": "Producto no encontrado"}}, status=404)
+    # Buscar producto y proveedor
+    producto = (Producto.objects.filter(sku=producto_text).first() or
+                Producto.objects.filter(nombre__iexact=producto_text).first())
+    if not producto:
+        return JsonResponse({"ok": False, "errors": {"producto_text": "Producto no encontrado."}}, status=400)
 
     proveedor = None
-    if proveedor_id:
-        try:
-            proveedor = Proveedor.objects.get(id=proveedor_id)
-        except Proveedor.DoesNotExist:
-            proveedor = None
+    if proveedor_text:
+        proveedor = (Proveedor.objects.filter(rut_nif=proveedor_text).first() or
+                     Proveedor.objects.filter(razon_social__iexact=proveedor_text).first())
+        if not proveedor and tipo == "Ingreso":
+            return JsonResponse({"ok": False, "errors": {"proveedor_text": "Proveedor no encontrado."}}, status=400)
 
-    mov = MovimientoInventario.objects.create(
-        fecha=fecha,
-        tipo=tipo,
-        producto=producto,
-        proveedor=proveedor,
-        cantidad=cantidad,
-        usuario=request.user
-    )
-    return JsonResponse({"ok": True, "id": mov.id})
+    try:
+        with transaction.atomic():
+            mov = MovimientoInventario.objects.create(
+                fecha=fecha_str,
+                tipo=tipo,
+                producto=producto,
+                proveedor=proveedor,
+                cantidad=cantidad,
+                lote=data.get("lote", ""),
+                serie=data.get("serie", ""),
+                fecha_vencimiento=data.get("vencimiento") or None,
+                doc_ref=data.get("doc_ref", ""),
+                motivo=data.get("motivo", ""),
+                observacion=data.get("observaciones", ""),
+                creado_por=request.user
+            )
+            # Aquí iría la lógica para actualizar el stock del producto si es necesario
+            # producto.stock += cantidad (o -=)
+            # producto.save()
+        return JsonResponse({"ok": True, "id": mov.id})
+    except Exception as e:
+        return JsonResponse({"ok": False, "errors": {"__all__": f"Error inesperado: {e}"}}, status=500)
 
 
 @login_required
@@ -204,6 +235,7 @@ def editar_transaccion(request, mov_id):
 
 @login_required
 @require_roles("ADMIN", "PRODUCCION", "INVENTARIO")
+@require_POST
 def eliminar_transaccion(request, mov_id):
     try:
         MovimientoInventario.objects.get(id=mov_id).delete()

@@ -38,9 +38,9 @@
 
       <!-- NUEVO: filtro ver -->
       <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
         <option value="activos" {% if ver == 'activos' %}selected{% endif %}>Sólo activos</option>
         <option value="inactivos" {% if ver == 'inactivos' %}selected{% endif %}>Sólo inactivos</option>
-        <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm" 
@@ -119,21 +119,20 @@
               <div class="tab-pane fade" id="pane-dir" role="tabpanel">
                 <div class="row g-3">
                   <div class="col-6">
-                    <label class="form-label small mb-1">Plazos de pago (días)</label>
-                    <input type="number" id="f_plazo" class="form-control form-control-sm" min="0" max="365" step="1" inputmode="numeric">
-                    <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
+                    <label class="form-label small mb-1">Condiciones de pago <span class="text-danger">*</span></label>
+                    <input type="text" id="f_condiciones" class="form-control form-control-sm" placeholder="Ej: 30 días" required>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Moneda</label>
-                    <select id="f_moneda" class="form-select form-select-sm">
+                    <label class="form-label small mb-1">Moneda <span class="text-danger">*</span></label>
+                    <select id="f_moneda" class="form-select form-select-sm" required>
                       <option>CLP</option>
                       <option>USD</option>
                       <option>EUR</option>
                     </select>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Descuento (%)</label>
-                    <input type="number" id="f_desc" class="form-control form-control-sm" min="0" max="100" step="0.01" inputmode="decimal">
+                    <label class="form-label small mb-1">Descuento (%) <span class="text-danger">*</span></label>
+                    <input type="number" id="f_desc" class="form-control form-control-sm" min="0" max="100" step="0.01" inputmode="decimal" required>
                     <div class="invalid-feedback">Debe estar entre 0% y 100%.</div>
                   </div>
                 </div>
@@ -147,22 +146,22 @@
                     <label class="form-label small mb-0" for="rel_pref">Proveedor preferente</label>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Lead time (días)</label>
-                    <input type="number" id="rel_lead" class="form-control form-control-sm" min="0" max="365" step="1" inputmode="numeric">
+                    <label class="form-label small mb-1">Lead time (días) <span class="text-danger">*</span></label>
+                    <input type="number" id="rel_lead" class="form-control form-control-sm" min="0" max="365" step="1" inputmode="numeric" required>
                     <div class="invalid-feedback">Debe estar entre 0 y 365 días.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Costo asociado</label>
-                    <input type="number" id="rel_costo" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+                    <label class="form-label small mb-1">Costo asociado <span class="text-danger">*</span></label>
+                    <input type="number" id="rel_costo" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal" required>
                     <div class="invalid-feedback">No puede ser negativo.</div>
                   </div>
                   <div class="col-12">
-                    <label class="form-label small mb-1">Producto (buscar por SKU o nombre)</label>
-                    <input type="text" id="rel_product_search" class="form-control form-control-sm" placeholder="Ej: DUL-001 o Gomitas…" autocomplete="off">
+                    <label class="form-label small mb-1">Producto (buscar por SKU o nombre) <span class="text-danger">*</span></label>
+                    <input type="text" id="rel_product_search" class="form-control form-control-sm" placeholder="Ej: DUL-001 o Gomitas…" autocomplete="off" required>
                     <div class="invalid-feedback">Indique un producto existente (SKU o nombre).</div>
                   </div>
                   <div class="col-12">
-                    <button type="button" class="btn btn-sm btn-primary" id="btnGuardarRelacion">Guardar relación</button>
+                    <button type="button" class="btn btn-sm btn-danger" id="btnGuardarRelacion">Guardar relación</button>
                     <p class="text-muted small mt-2">Usa “Proveedor preferente”, “Lead time (días)” y “Costo asociado” y luego guarda la relación.</p>
                   </div>
                 </div>
@@ -237,8 +236,8 @@
                       </td>
                       <td>{{ p.email }}</td>
                       <td>
-                        <button class="btn btn-sm btn-warning btnEditarProv" data-id="{{ p.id }}"><i class="bi bi-pencil"></i></button>
-                        {% if p.estado == "Activo" %}
+                        <button class="btn btn-sm btn-warning" onclick="editarProveedor('{{ p.id }}')" title="Editar"><i class="bi bi-pencil"></i></button>
+                        {% if p.estado == "Activo" and p.activo %}
                           <button class="btn btn-outline-secondary btn-sm" onclick="desactivarProveedor('{{ p.id }}')" title="Desactivar">
                             <i class="bi bi-person-dash"></i>
                           </button>
@@ -247,7 +246,7 @@
                             <i class="bi bi-person-check"></i>
                           </button>
                         {% endif %}
-                        <button class="btn btn-sm btn-danger btnEliminarProv" data-id="{{ p.id }}" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="eliminarProveedor('{{ p.id }}')" title="Eliminar"><i class="bi bi-trash"></i></button>
                       </td>
                     </tr>
                     {% empty %}
@@ -380,60 +379,27 @@
     }
   }
 
-  function validateSupplier(){
+  function validarFormulario(form) {
     let ok = true;
-    const campos = document.querySelectorAll('#form-prov input, #form-prov select');
     let primerError = null;
-
-    campos.forEach(el=>{
-      const id = el.id;
-      const val = el.value.trim();
-      let valido = true;
-      let msg = '';
-
-      switch(id){
-        case 'f_rut':
-          valido = /^[0-9kK.\-]{7,20}$/.test(val);
-          msg = 'RUT/NIF obligatorio y válido.';
-          break;
-        case 'f_razon':
-          valido = !!val;
-          msg = 'Razón social obligatoria.';
-          break;
-        case 'f_email':
-          valido = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val);
-          msg = 'Email obligatorio y válido.';
-          break;
-        case 'f_fono':
-          valido = /^[0-9+()\-\s]{6,30}$/.test(val);
-          msg = 'Teléfono obligatorio y válido.';
-          break;
-        case 'f_web':
-          valido = !val || /^https?:\/\/.+/i.test(val);
-          msg = 'Debe comenzar con http:// o https://';
-          break;
-        case 'f_plazo':
-          valido = !val || (Number(val)>=0 && Number(val)<=365);
-          msg = 'Debe estar entre 0 y 365 días.';
-          break;
-        case 'f_desc':
-          valido = !val || (Number(val)>=0 && Number(val)<=100);
-          msg = 'Debe estar entre 0% y 100%.';
-          break;
+    form.querySelectorAll("input, select, textarea").forEach(el => {
+      if (el.hasAttribute("required")) {
+        const val = el.value.trim();
+        const valido = val !== "" && !(el.type === "number" && isNaN(val));
+        if (!valido) {
+          el.classList.add("is-invalid");
+          if (!primerError) primerError = el;
+          ok = false;
+        } else {
+          el.classList.remove("is-invalid");
+        }
       }
-
-      if(!valido){
-        setInvalid(el,msg);
-        if(!primerError) primerError = el;
-        ok = false;
-      } else setInvalid(el,null);
     });
 
-    if(primerError){
+    if (primerError) {
       switchToTabOf(primerError);
       primerError.focus();
     }
-
     return ok;
   }
 
@@ -441,11 +407,12 @@
   // ===============  GUARDAR PROVEEDOR  =================
   // =====================================================
   document.getElementById('btnGuardarProveedor')?.addEventListener('click', async ()=>{
+    const form = document.getElementById('form-prov');
     const msg = document.getElementById('provMsg');
     msg.className='small mt-2';
     msg.textContent='';
 
-    if(!validateSupplier()){
+    if(!validarFormulario(form)){
       msg.classList.add('text-danger');
       msg.textContent='Revisa los campos resaltados.';
       return;
@@ -458,7 +425,7 @@
       email: document.getElementById('f_email').value.trim(),
       telefono: document.getElementById('f_fono').value.trim(),
       sitio_web: document.getElementById('f_web').value.trim(),
-      plazos_pago_dias: document.getElementById('f_plazo').value.trim(),
+      condiciones_pago: document.getElementById('f_condiciones').value.trim(),
       moneda: document.getElementById('f_moneda').value.trim(),
       descuento_porcentaje: document.getElementById('f_desc').value.trim()
     };
@@ -476,11 +443,21 @@
       const data = await resp.json();
 
       if(!resp.ok || !data.ok){
+        // 🔹 MEJORA: Mostrar errores específicos del backend
+        const errors = data.errors || {};
+        for (const fieldId in errors) {
+          // Mapeo de nombres de campo del backend a IDs de input del frontend
+          const inputId = { 'rut_nif': 'f_rut', 'razon_social': 'f_razon', 'email': 'f_email', 'telefono': 'f_fono', 'sitio_web': 'f_web', 'condiciones_pago': 'f_condiciones', 'descuento_porcentaje': 'f_desc' }[fieldId];
+          const inputEl = document.getElementById(inputId);
+          if (inputEl) {
+            setInvalid(inputEl, errors[fieldId]);
+            switchToTabOf(inputEl);
+          }
+        }
         msg.classList.add('text-danger');
-        msg.textContent = (data.errors && data.errors.__all__) || 'Revisa los campos resaltados.';
+        msg.textContent = (errors.__all__) || 'Revisa los campos resaltados.';
         return;
       }
-
       msg.classList.add('text-success');
       msg.textContent='Proveedor guardado correctamente.';
       setTimeout(()=>location.reload(),1000);
@@ -522,6 +499,7 @@
           <input id="edit_email" class="swal2-input" placeholder="Email" value="${data.email||''}">
           <input id="edit_telefono" class="swal2-input" placeholder="Teléfono" value="${data.telefono||''}">
           <input id="edit_web" class="swal2-input" placeholder="Sitio web" value="${data.sitio_web||''}">
+          <input id="edit_condiciones" class="swal2-input" placeholder="Condiciones de Pago" value="${data.condiciones_pago||''}">
         `,
         showCancelButton:true,
         confirmButtonText:'Guardar',
@@ -532,7 +510,8 @@
             razon_social: document.getElementById('edit_razon').value.trim(),
             email: document.getElementById('edit_email').value.trim(),
             telefono: document.getElementById('edit_telefono').value.trim(),
-            sitio_web: document.getElementById('edit_web').value.trim()
+            sitio_web: document.getElementById('edit_web').value.trim(),
+            condiciones_pago: document.getElementById('edit_condiciones').value.trim()
           };
         }
       });

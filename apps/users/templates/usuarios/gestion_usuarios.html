@@ -39,9 +39,9 @@
 
       <!-- NUEVO: filtro ver -->
       <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+        <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
         <option value="activos" {% if ver == 'activos' %}selected{% endif %}>Sólo activos</option>
         <option value="inactivos" {% if ver == 'inactivos' %}selected{% endif %}>Sólo inactivos</option>
-        <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
