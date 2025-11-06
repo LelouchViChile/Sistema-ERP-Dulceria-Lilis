@@ -189,6 +189,9 @@
         <div class="card-body">
           <div class="table-responsive">
             <table class="table table-hover table-striped align-middle mb-0">
+              <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+              <i class="bi bi-box-seam-fill me-2"></i>Productos Registrados
+              </h6>
               <thead class="table-light">
                 <tr>
                   <th>ID</th>
@@ -208,8 +211,8 @@
                   <td>{{ p.categoria }}</td>
                   <td>{{ p.stock }}</td>
                   <td class="d-flex gap-1 justify-content-center">
-                    <button class="btn btn-warning btn-sm" onclick="editarProducto({{ p.id }})"><i class="bi bi-pencil-square"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarProducto({{ p.id }})"><i class="bi bi-trash3-fill"></i></button>
+                    <button class="btn btn-warning btn-sm" onclick="editarProducto('{{ p.id }}')"><i class="bi bi-pencil-square"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminarProducto('{{ p.id }}')"><i class="bi bi-trash3-fill"></i></button>
                   </td>
                 </tr>
                 {% empty %}
@@ -315,12 +318,15 @@ function editarProducto(id) {
       if (data) {
         Swal.fire({
           title: "Editar Producto",
-          html: `
-            <input id="edit_sku" class="swal2-input" placeholder="SKU" value="${data.sku || ''}">
-            <input id="edit_nombre" class="swal2-input" placeholder="Nombre" value="${data.nombre || ''}">
-            <input id="edit_precio_venta" class="swal2-input" placeholder="Precio Venta" value="${data.precio_venta || 0}">
-            <input id="edit_marca" class="swal2-input" placeholder="Marca" value="${data.marca || ''}">
-          `,
+          html:
+            `<input id="edit_sku" class="swal2-input" placeholder="SKU" value="${data.sku || ''}">` +
+            `<input id="edit_nombre" class="swal2-input" placeholder="Nombre" value="${data.nombre || ''}">` +
+            `<select id="edit_categoria" class="swal2-input">` +
+              `<option value="">-- Sin Categoría --</option>` +
+              `${(data.categorias || []).map(c => `<option value="${c.id}" ${c.id == data.categoria ? 'selected' : ''}>${c.nombre}</option>`).join('')}` +
+            `</select>` +
+            `<input id="edit_precio_venta" class="swal2-input" placeholder="Precio Venta" value="${data.precio_venta || 0}">` +
+            `<input id="edit_marca" class="swal2-input" placeholder="Marca" value="${data.marca || ''}">`,
           showCancelButton: true,
           confirmButtonText: "Guardar",
           cancelButtonText: "Cancelar",
@@ -328,6 +334,7 @@ function editarProducto(id) {
             const fd = new FormData();
             fd.append("sku", document.getElementById("edit_sku").value);
             fd.append("nombre", document.getElementById("edit_nombre").value);
+            fd.append("categoria", document.getElementById("edit_categoria").value);
             fd.append("precio_venta", document.getElementById("edit_precio_venta").value);
             fd.append("marca", document.getElementById("edit_marca").value);
             return fetch(`/productos/editar/${id}/`, {

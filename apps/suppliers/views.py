@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
+from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 
 from lilis_erp.roles import require_roles
@@ -15,6 +15,7 @@ from lilis_erp.roles import require_roles
 # Ajusta si tus nombres de modelos difieren
 from apps.suppliers.models import Proveedor, ProveedorProducto
 from apps.products.models import Producto
+# No necesitamos importar Usuario aquí; las funciones actúan sobre Proveedor
 
 # Excel
 try:
@@ -84,19 +85,92 @@ def _valid_email(s: str) -> bool:
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
 def supplier_list_view(request):
-    q = (request.GET.get("q") or "").strip()
+    query = request.GET.get('q', '')
+    sort_by = request.GET.get('sort', 'id')
+    ver = request.GET.get('ver', 'activos')
+    export = request.GET.get('export', '')
 
-    qs = Proveedor.objects.all().order_by("id")
-    if q:
-        qs = qs.filter(_build_supplier_q(q))
+    valid_sort_fields = ['id', '-id', 'rut_nif', '-rut_nif', 'razon_social', '-razon_social']
+    if sort_by not in valid_sort_fields:
+        sort_by = 'id'
 
+    qs = Proveedor.objects.all()
+
+    # Filtro de estado/activo
+    if ver == 'inactivos':
+        qs = qs.filter(Q(estado__in=['inactivo', 'bloqueado']) | Q(activo=False))
+    elif ver == 'activos':
+        qs = qs.filter(Q(estado='activo', activo=True))
+    # ver == 'todos' no filtra
+
+    if query:
+        qs = qs.filter(_build_supplier_q(query))
+
+    qs = qs.order_by(sort_by)
+
+    # 🔹 LÓGICA DE EXPORTACIÓN A EXCEL
+    if export == "xlsx":
+        if Workbook is None:
+            return HttpResponse(
+                "Falta dependencia: instala openpyxl (pip install openpyxl)",
+                status=500,
+                content_type="text/plain; charset=utf-8",
+            )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Proveedores"
+        headers = ["ID", "RUT/NIF", "Razón Social", "Nombre Fantasía", "Email", "Teléfono", "Sitio Web",
+                   "Plazos Pago (días)", "Moneda", "Descuento (%)", "Estado", "Activo"]
+        ws.append(headers)
+
+        for p in qs:
+            ws.append([
+                p.id,
+                getattr(p, "rut_nif", ""),
+                getattr(p, "razon_social", ""),
+                getattr(p, "nombre_fantasia", ""),
+                getattr(p, "email", ""),
+                getattr(p, "telefono", ""),
+                getattr(p, "sitio_web", ""),
+                getattr(p, "plazos_pago_dias", 0),
+                getattr(p, "moneda", ""),
+                getattr(p, "descuento_porcentaje", 0),
+                getattr(p, "estado", ""),
+                "Sí" if getattr(p, "activo", False) else "No",
+            ])
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                max_len = max(max_len, len(str(cell.value)) if cell.value else 0)
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        filename = f"proveedores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        return response
+    
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
-
+    
+    # 🔹 NUEVO: Cargar y paginar las relaciones Proveedor-Producto
+    relations_qs = ProveedorProducto.objects.select_related('proveedor', 'producto').order_by('-id')
+    if query: # También filtramos las relaciones si hay una búsqueda
+        relations_qs = relations_qs.filter(_build_relation_q(query))
+        
+    relations_paginator = Paginator(relations_qs, 10)
+    relations_page_obj = relations_paginator.get_page(request.GET.get("page_rel"))
+    
     context = {
-        "proveedores": [_supplier_to_dict(s) for s in page_obj.object_list],
+        "proveedores": page_obj.object_list,
         "page_obj": page_obj,
-        "query": q,
+        "query": query,
+        "sort_by": sort_by,
+        "ver": ver,
+        "relations": relations_page_obj, # 🔹 Añadimos las relaciones al contexto
     }
     return render(request, "gestion_proveedores.html", context)
 
@@ -353,6 +427,7 @@ def relations_export(request):
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+@require_POST
 def editar_proveedor(request, supplier_id):
     try:
         proveedor = Proveedor.objects.get(id=supplier_id)
@@ -374,20 +449,25 @@ def editar_proveedor(request, supplier_id):
         })
 
     elif request.method == "POST":
-        data = request.POST
-        proveedor.rut_nif = data.get("rut_nif", proveedor.rut_nif)
-        proveedor.razon_social = data.get("razon_social", proveedor.razon_social)
-        proveedor.nombre_fantasia = data.get("nombre_fantasia", proveedor.nombre_fantasia)
-        proveedor.email = data.get("email", proveedor.email)
-        proveedor.telefono = data.get("telefono", proveedor.telefono)
-        proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web)
-        proveedor.plazos_pago_dias = data.get("plazos_pago_dias", proveedor.plazos_pago_dias)
-        proveedor.moneda = data.get("moneda", proveedor.moneda)
-        proveedor.descuento_porcentaje = data.get("descuento_porcentaje", proveedor.descuento_porcentaje)
-        proveedor.save()
-        return JsonResponse({"status": "ok", "message": "Proveedor actualizado correctamente"})
-    else:
-        return JsonResponse({"status": "error", "message": "Método no permitido"}, status=405)
+        try:
+            data = json.loads(request.body)
+            # Aquí podrías añadir validaciones más complejas si es necesario
+            proveedor.rut_nif = data.get("rut_nif", proveedor.rut_nif).strip()
+            proveedor.razon_social = data.get("razon_social", proveedor.razon_social).strip()
+            proveedor.email = data.get("email", proveedor.email).strip()
+            proveedor.telefono = data.get("telefono", proveedor.telefono).strip()
+            proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web).strip()
+            
+            # Validar que no haya duplicados de RUT/NIF
+            if Proveedor.objects.filter(rut_nif=proveedor.rut_nif).exclude(id=supplier_id).exists():
+                return JsonResponse({"status": "error", "message": "Ya existe otro proveedor con este RUT/NIF."}, status=400)
+
+            proveedor.save()
+            return JsonResponse({"status": "ok", "message": "Proveedor actualizado correctamente"})
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "JSON inválido"}, status=400)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
 @login_required
@@ -400,3 +480,39 @@ def eliminar_proveedor(request, supplier_id):
         return JsonResponse({"status": "ok", "message": "Proveedor eliminado correctamente"})
     except Proveedor.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
+    
+@login_required
+@require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+@require_POST
+def desactivar_proveedor(request, supplier_id):
+    try:
+        proveedor = Proveedor.objects.get(id=supplier_id)
+    except Proveedor.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
+
+    # Algunos modelos pueden no tener 'estado'; usamos getattr para evitar errores
+    try:
+        proveedor.estado = 'inactivo'
+    except Exception:
+        pass
+    proveedor.activo = False
+    proveedor.save(update_fields=[f for f in ['estado', 'activo'] if hasattr(proveedor, f)])
+    return JsonResponse({'status': 'ok', 'message': 'Proveedor desactivado.'})
+
+
+@login_required
+@require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+@require_POST
+def reactivar_proveedor(request, supplier_id):
+    try:
+        proveedor = Proveedor.objects.get(id=supplier_id)
+    except Proveedor.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
+
+    try:
+        proveedor.estado = 'activo'
+    except Exception:
+        pass
+    proveedor.activo = True
+    proveedor.save(update_fields=[f for f in ['estado', 'activo'] if hasattr(proveedor, f)])
+    return JsonResponse({'status': 'ok', 'message': 'Proveedor reactivado.'})

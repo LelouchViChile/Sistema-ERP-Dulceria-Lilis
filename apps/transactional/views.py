@@ -1,83 +1,116 @@
+from datetime import datetime
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.core.paginator import Paginator
 from lilis_erp.roles import require_roles
 from django.views.decorators.http import require_POST
-import openpyxl
-from django.http import HttpResponse
+import json
 
-from .models import MovimientoInventario  # usa el modelo real
-# Si aun no tienes datos en BD, la vista HTML sigue mostrando el demo
-# pero el endpoint /transactional/search/ ya consultará la BD real.
+from .models import MovimientoInventario, Producto, Proveedor
 
-
-@login_required
-@require_roles("ADMIN", "PRODUCCION")
-def gestion_transacciones(request):
-    """
-    Vista principal de gestión de transacciones (movimientos de inventario).
-    Mantiene la grilla DEMO visual, pero el buscador Ajax sí consulta la BD real.
-    """
-    movimientos_demo = [
-        {
-            "folio": 1001, "fecha": "2025-11-05", "tipo": "Ingreso",
-            "producto": "Cacao 70% 1kg", "proveedor": "CacaoPro",
-            "bodega": "Principal", "cantidad": 50, "usuario": "admin",
-            "serie": "-", "lote": "L001", "venc": "2026-01-15", "doc_ref": "OC-009"
-        },
-        {
-            "folio": 1002, "fecha": "2025-11-05", "tipo": "Salida",
-            "producto": "Chocolate Almendras", "proveedor": "-",
-            "bodega": "Principal", "cantidad": 20, "usuario": "admin",
-            "serie": "-", "lote": "L002", "venc": "2025-12-20", "doc_ref": "VT-045"
-        },
-        {
-            "folio": 1003, "fecha": "2025-11-04", "tipo": "Transferencia",
-            "producto": "Azúcar 25kg", "proveedor": "-",
-            "bodega": "Secundaria → Principal", "cantidad": 25, "usuario": "jefe",
-            "serie": "-", "lote": "-", "venc": "-", "doc_ref": "TR-010"
-        },
-    ]
-    context = {"movimientos": movimientos_demo}
-    return render(request, "gestion_transacciones.html", context)
+try:
+    from openpyxl import Workbook
+    from openpyxl.utils import get_column_letter
+except ImportError:
+    Workbook = None
 
 
-@login_required
-@require_roles("ADMIN", "PRODUCCION", "INVENTARIO", "VENTAS")
-def search_transactions(request):
-    """
-    Endpoint AJAX (JSON): retorna máx. 10 movimientos filtrados por 'q'.
-    Busca por: producto.nombre, producto.sku, tipo, proveedor.razon_social
-    """
-    q = (request.GET.get("q") or "").strip()
+def _build_transaction_q(q: str):
+    """Construye un Q de búsqueda para movimientos de inventario."""
+    q = (q or "").strip()
     if not q:
-        return JsonResponse({"results": []})
-
-    qs = (
-        MovimientoInventario.objects
-        .select_related("producto", "proveedor")
-        .filter(
-            Q(producto__nombre__icontains=q) |
-            Q(producto__sku__icontains=q) |
-            Q(tipo__icontains=q) |
-            Q(proveedor__razon_social__icontains=q)
-        )
-        .order_by("-fecha")[:10]
+        return Q()
+    return (
+        Q(producto__nombre__icontains=q) |
+        Q(producto__sku__icontains=q) |
+        Q(tipo__icontains=q) |
+        Q(proveedor__razon_social__icontains=q) |
+        Q(lote__icontains=q) |
+        Q(serie__icontains=q) |
+        Q(creado_por__username__icontains=q)
     )
 
-    data = []
-    for m in qs:
-        data.append({
-            "id": m.id,
-            "fecha": (m.fecha.date().isoformat() if hasattr(m.fecha, "date") else m.fecha),
-            "tipo": dict(MovimientoInventario.TIPOS).get(m.tipo, m.tipo),
-            "producto": f"{getattr(m.producto, 'sku', '')} - {getattr(m.producto, 'nombre', '')}",
-            "proveedor": getattr(m.proveedor, "razon_social", "") or "—",
-            "cantidad": float(m.cantidad),
-            "uom": getattr(m.producto, "uom_venta", "") or "",
-        })
-    return JsonResponse({"results": data})
+
+@login_required
+@require_roles("ADMIN", "PRODUCCION", "INVENTARIO", "VENTAS", "COMPRAS")
+def gestion_transacciones(request):
+    """
+    Vista para listar, filtrar, ordenar y exportar movimientos de inventario.
+    """
+    query = request.GET.get('q', '')
+    sort_by = request.GET.get('sort', '-fecha')
+    export = request.GET.get('export', '')
+
+    valid_sort_fields = ['fecha', '-fecha', 'producto__nombre', '-producto__nombre', 'tipo', '-tipo']
+    if sort_by not in valid_sort_fields:
+        sort_by = '-fecha'
+
+    qs = MovimientoInventario.objects.select_related(
+        'producto', 'proveedor', 'bodega_origen', 'bodega_destino', 'creado_por'
+    ).all()
+
+    if query:
+        qs = qs.filter(_build_transaction_q(query))
+
+    qs = qs.order_by(sort_by)
+
+    if export == "xlsx":
+        if Workbook is None:
+            return HttpResponse("Falta dependencia: instala openpyxl (pip install openpyxl)", status=500)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Movimientos"
+        headers = [
+            "ID", "Fecha", "Tipo", "Producto", "SKU", "Cantidad", "Bodega Origen", "Bodega Destino",
+            "Proveedor", "Lote", "Serie", "Vencimiento", "Usuario", "Observación"
+        ]
+        ws.append(headers)
+
+        for m in qs:
+            ws.append([
+                m.id,
+                m.fecha.strftime('%Y-%m-%d %H:%M'),
+                m.get_tipo_display(),
+                m.producto.nombre,
+                m.producto.sku,
+                m.cantidad,
+                m.bodega_origen.nombre if m.bodega_origen else "-",
+                m.bodega_destino.nombre if m.bodega_destino else "-",
+                m.proveedor.razon_social if m.proveedor else "-",
+                m.lote or "-",
+                m.serie or "-",
+                m.fecha_vencimiento.strftime('%Y-%m-%d') if m.fecha_vencimiento else "-",
+                m.creado_por.username if m.creado_por else "Sistema",
+                m.observacion
+            ])
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                max_len = max(max_len, len(str(cell.value)) if cell.value else 0)
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        filename = f"movimientos_inventario_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        return response
+
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "movimientos": page_obj.object_list,
+        "page_obj": page_obj,
+        "query": query,
+        "sort_by": sort_by,
+    }
+    return render(request, "gestion_transacciones.html", context)
+
 
 @login_required
 @require_roles("ADMIN", "PRODUCCION", "INVENTARIO")

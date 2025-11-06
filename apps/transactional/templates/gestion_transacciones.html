@@ -40,7 +40,7 @@
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
-         href="{% url 'transactional:export_xlsx' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">
+         href="{% url 'transactional:list' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}&export=xlsx">
         <i class="bi bi-file-earmark-excel me-2"></i>Exportar
       </a>
     </form>
@@ -62,7 +62,7 @@
             <ul class="nav nav-tabs mb-3" id="movTabs" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active text-danger fw-semibold" id="tab-datos" data-bs-toggle="tab"
-                        data-bs-target="#pane-datos" type="button" role="tab">Datos</button>
+                        data-bs-target="#pane-datos" type="button" role="tab">Datos Generales</button>
               </li>
               <li class="nav-item" role="presentation">
                 <button class="nav-link text-danger fw-semibold" id="tab-avanzado" data-bs-toggle="tab"
@@ -176,27 +176,30 @@
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="m-0">Movimientos</h6>
+            <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <i class="bi bi-clipboard-data me-2"></i>Movimientos Registrados
+            </h6>
           </div>
 
           <div class="table-responsive" style="max-height:520px; overflow-y:auto;">
             <table class="table table-hover table-striped align-middle mb-0" id="movTable">
-              <thead class="table-light">
+              <thead class="table-light text-nowrap">
                 <tr>
-                  <th>Fecha</th><th>Tipo</th><th>Folio</th><th>Producto</th><th>Proveedor</th>
-                  <th>Bodega</th><th>Cantidad</th><th>Usuario</th><th>Serie</th><th>Lote</th>
-                  <th>Venc.</th><th>Doc Ref</th><th>Acciones</th>
+                  <th>Fecha</th><th>Tipo</th><th>Producto</th><th>SKU</th><th class="text-center">Cantidad</th>
+                  <th>Bodega Origen</th><th>Bodega Destino</th><th>Proveedor</th><th>Usuario</th><th>Lote</th>
+                  <th>Vencimiento</th><th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="movTbody">
                 {% for m in movimientos %}
-                <tr data-id="{{ m.folio }}">
-                  <td>{{ m.fecha }}</td><td>{{ m.tipo }}</td><td>{{ m.folio }}</td><td>{{ m.producto }}</td>
-                  <td>{{ m.proveedor }}</td><td>{{ m.bodega }}</td><td>{{ m.cantidad }}</td><td>{{ m.usuario }}</td>
-                  <td>{{ m.serie }}</td><td>{{ m.lote }}</td><td>{{ m.venc }}</td><td>{{ m.doc_ref }}</td>
+                <tr data-id="{{ m.id }}">
+                  <td>{{ m.fecha|date:"d/m/Y H:i" }}</td><td>{{ m.get_tipo_display }}</td><td>{{ m.producto.nombre }}</td>
+                  <td>{{ m.producto.sku }}</td><td class="text-center">{{ m.cantidad|floatformat:2 }}</td><td>{{ m.bodega_origen.nombre|default:"-" }}</td>
+                  <td>{{ m.bodega_destino.nombre|default:"-" }}</td><td>{{ m.proveedor.razon_social|default:"-" }}</td><td>{{ m.creado_por.username|default:"Sistema" }}</td>
+                  <td>{{ m.lote|default:"-" }}</td><td>{{ m.fecha_vencimiento|date:"d/m/Y"|default:"-" }}</td>
                   <td>
-                    <button class="btn btn-sm btn-warning btn-edit-mov" data-id="{{ m.folio }}"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-danger btn-del-mov" data-id="{{ m.folio }}"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-warning btn-edit-mov" data-id="{{ m.id }}"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger btn-del-mov" data-id="{{ m.id }}"><i class="bi bi-trash"></i></button>
                   </td>
                 </tr>
                 {% empty %}
@@ -206,17 +209,38 @@
             </table>
           </div>
 
-          <nav id="movPaginator" class="mt-3" aria-label="Paginación">
-            <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
-          </nav>
+          <!-- Paginador -->
+          <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+            <small class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} movimientos</small>
+            <nav aria-label="Paginación de movimientos">
+              <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&laquo;</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Anterior</a>
+                </li>
+                {% endif %}
+                <li class="page-item active">
+                  <span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Siguiente</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&raquo;</a>
+                </li>
+                {% endif %}
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-
-<!-- Embedded initial data for client-side renderer (if needed) -->
-{{ movimientos|json_script:"movimientos-data" }}
 
 <!-- ========== JS ========== -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- opcional para confirmaciones rápidas -->
@@ -334,74 +358,6 @@
     return ok;
   }
 
-  // ---------- Client-side simple paginator ----------
-  const ROWS_PER_PAGE = 8;
-  let currentPage = 1;
-  let currentItems = []; // array of items currently displayed (from search or initial)
-
-  function renderTableRows(items, page=1){
-    const tbody = document.getElementById('movTbody');
-    tbody.innerHTML = '';
-    if(!items || items.length === 0){
-      tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">Sin resultados</td></tr>';
-      document.getElementById('movPaginator').style.display='none';
-      return;
-    }
-    currentItems = items;
-    const start = (page-1) * ROWS_PER_PAGE;
-    const paged = items.slice(start, start + ROWS_PER_PAGE);
-    for(const r of paged){
-      const tr = document.createElement('tr');
-      tr.dataset.id = r.id ?? r.folio ?? '';
-      tr.innerHTML = `
-        <td>${r.fecha ?? ''}</td>
-        <td>${r.tipo ?? ''}</td>
-        <td>${r.folio ?? (r.id ?? '')}</td>
-        <td>${r.producto ?? ''}</td>
-        <td>${r.proveedor ?? ''}</td>
-        <td>${r.bodega ?? ''}</td>
-        <td>${r.cantidad ?? ''}</td>
-        <td>${r.usuario ?? ''}</td>
-        <td>${r.serie ?? ''}</td>
-        <td>${r.lote ?? ''}</td>
-        <td>${r.venc ?? ''}</td>
-        <td>${r.doc_ref ?? ''}</td>
-        <td>
-          <button class="btn btn-sm btn-warning btn-edit-mov" data-id="${r.id ?? r.folio ?? ''}"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger btn-del-mov" data-id="${r.id ?? r.folio ?? ''}"><i class="bi bi-trash"></i></button>
-        </td>`;
-      tbody.appendChild(tr);
-    }
-    renderPaginator(items.length, page);
-    attachRowButtons();
-  }
-
-  function renderPaginator(totalItems, page){
-    const nav = document.getElementById('movPaginator');
-    const ul = nav.querySelector('ul.pagination');
-    const pages = Math.ceil(totalItems / ROWS_PER_PAGE);
-    ul.innerHTML = '';
-    if(pages <= 1){ nav.style.display = 'none'; return; }
-    nav.style.display = '';
-    // previous
-    const liPrev = document.createElement('li'); liPrev.className = 'page-item' + (page === 1 ? ' disabled' : '');
-    liPrev.innerHTML = `<a class="page-link border-danger text-danger" href="#" aria-label="Anterior">&laquo;</a>`;
-    liPrev.onclick = (e) => { e.preventDefault(); if(page>1) { currentPage = page-1; renderTableRows(currentItems, currentPage); } };
-    ul.appendChild(liPrev);
-
-    for(let i=1;i<=pages;i++){
-      const li = document.createElement('li'); li.className = 'page-item' + (i === page ? ' active' : '');
-      li.innerHTML = `<a class="page-link ${i===page?'bg-danger text-white border-danger':'border-danger text-danger'}" href="#">${i}</a>`;
-      li.onclick = (e) => { e.preventDefault(); currentPage = i; renderTableRows(currentItems, currentPage); };
-      ul.appendChild(li);
-    }
-
-    const liNext = document.createElement('li'); liNext.className = 'page-item' + (page === pages ? ' disabled' : '');
-    liNext.innerHTML = `<a class="page-link border-danger text-danger" href="#" aria-label="Siguiente">&raquo;</a>`;
-    liNext.onclick = (e) => { e.preventDefault(); if(page<pages) { currentPage = page+1; renderTableRows(currentItems, currentPage); } };
-    ul.appendChild(liNext);
-  }
-
   // Attach edit/delete handlers for rows after rendering
   function attachRowButtons(){
     document.querySelectorAll('.btn-edit-mov').forEach(btn=>{
@@ -413,64 +369,6 @@
       btn.addEventListener('click', onDeleteClick);
     });
   }
-
-  // ---------- Initial load: take embedded data if available ----------
-  let initial = [];
-  try { initial = JSON.parse(document.getElementById('movimientos-data').textContent || '[]') || []; } catch(e){ initial = []; }
-  // normalize initial array to objects with minimal keys if user uses demo
-  const normalized = initial.map((m, idx) => ({
-    id: m.id ?? m.folio ?? idx+1,
-    fecha: m.fecha,
-    tipo: m.tipo,
-    folio: m.folio ?? (m.id ?? ''),
-    producto: m.producto,
-    proveedor: m.proveedor,
-    bodega: m.bodega || '',
-    cantidad: m.cantidad,
-    usuario: m.usuario || '',
-    serie: m.serie || '',
-    lote: m.lote || '',
-    venc: m.venc || '',
-    doc_ref: m.doc_ref || ''
-  }));
-  renderTableRows(normalized, 1);
-
-  // ---------- Search (AJAX) ----------
-  const searchInput = document.getElementById('tx-search');
-  const searchUrl = "{% url 'transactional:search' %}";
-  const doSearch = debounce(async function(q){
-    if(!q){ renderTableRows(normalized, 1); return; }
-    try{
-      const url = new URL(searchUrl, window.location.origin);
-      url.searchParams.set('q', q);
-      const resp = await fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest'} });
-      if(!resp.ok) { renderTableRows([],1); return; }
-      const data = await resp.json();
-      const rows = (data.results || []).map(r => ({
-        id: r.id,
-        fecha: r.fecha,
-        tipo: r.tipo,
-        folio: r.id,
-        producto: r.producto,
-        proveedor: r.proveedor,
-        bodega: '',
-        cantidad: r.cantidad,
-        usuario: '',
-        serie: '',
-        lote: '',
-        venc: '',
-        doc_ref: ''
-      }));
-      currentPage = 1;
-      renderTableRows(rows, 1);
-    }catch(e){
-      renderTableRows([],1);
-    }
-  }, 250);
-
-  searchInput?.addEventListener('input', (ev) => {
-    doSearch(ev.target.value.trim());
-  });
 
   // ---------- Create transaction (AJAX) ----------
   document.getElementById('form-mov')?.addEventListener('submit', async (ev) => {
@@ -514,31 +412,9 @@
         return;
       }
 
-      // Success: add row to currentItems and re-render first page
-      const newRow = {
-        id: data.id ?? Date.now(),
-        fecha: payload.fecha,
-        tipo: payload.tipo,
-        folio: data.id ?? '',
-        producto: payload.producto_text || '',
-        proveedor: payload.proveedor_text || '',
-        bodega: '',
-        cantidad: payload.cantidad,
-        usuario: '{{ request.user.username|default:"" }}',
-        serie: payload.serie || '',
-        lote: payload.lote || '',
-        venc: payload.vencimiento || '',
-        doc_ref: payload.doc_ref || ''
-      };
-      // prepend to normalized + currentItems
-      normalized.unshift(newRow);
-      currentPage = 1;
-      renderTableRows(normalized, 1);
+      // Success: reload the page to show the new movement
       showMsg(movMsg, 'Movimiento creado correctamente.', true);
-      // reset form
-      form.reset();
-      form.classList.remove('was-validated');
-      setTimeout(()=> movMsg.textContent = '', 2000);
+      setTimeout(()=> location.reload(), 1000);
     }catch(e){
       console.error(e);
       showMsg(movMsg, 'Error al crear movimiento.', false);
@@ -598,16 +474,7 @@
         Swal.fire({ icon:'error', title:'Error', text: data.error || 'No se pudo actualizar.' });
         return;
       }
-      // update row in normalized/currentItems if present
-      for(const arr of [normalized, currentItems]){
-        const idx = arr.findIndex(x => String(x.id) === String(id) || String(x.folio) === String(id));
-        if(idx !== -1){
-          arr[idx].tipo = tipo;
-          arr[idx].fecha = fecha;
-          arr[idx].cantidad = cantidad;
-        }
-      }
-      renderTableRows(currentItems.length ? currentItems : normalized, currentPage);
+      // Reload page on success
       const modalEl = document.getElementById('editMovModal');
       const modal = bootstrap.Modal.getInstance(modalEl);
       modal?.hide();
@@ -642,12 +509,7 @@
         Swal.fire({ icon:'error', title:'Error', text: data.error || 'No se pudo eliminar.' });
         return;
       }
-      // remove from arrays
-      for(const arr of [normalized, currentItems]){
-        const idx = arr.findIndex(x => String(x.id) === String(id) || String(x.folio) === String(id));
-        if(idx !== -1) arr.splice(idx, 1);
-      }
-      renderTableRows(currentItems.length ? currentItems : normalized, 1);
+      location.reload();
       Swal.fire({ icon:'success', title:'Eliminado', timer:1000, showConfirmButton:false });
     }catch(err){
       console.error(err);

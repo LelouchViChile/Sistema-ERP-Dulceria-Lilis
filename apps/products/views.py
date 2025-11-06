@@ -21,7 +21,7 @@ except ImportError:
 # Tu modelo se llama "Producto", lo importamos y lo aliasamos como Product para mantener el resto del código limpio.
 from .models import Producto as Product
 
-
+from .models import Categoria
 # -------- Helpers --------
 ALLOWED_SORT_FIELDS = {"id", "sku", "nombre", "categoria", "stock"}
 
@@ -249,12 +249,15 @@ def editar_producto(request, prod_id):
     producto = get_object_or_404(Product, id=prod_id)
 
     if request.method == "GET":
+        # Obtenemos todas las categorías para pasarlas al modal
+        categorias = list(Categoria.objects.all().values('id', 'nombre'))
         # Solo devolvemos los campos que realmente existen en el modelo
         return JsonResponse({
             "id": producto.id,
             "sku": producto.sku,
             "nombre": producto.nombre,
             "categoria": producto.categoria_id or "",
+            "categorias": categorias, # Enviamos la lista de categorías
             "descripcion": producto.descripcion or "",
             "precio_venta": producto.precio_venta or 0,
             "marca": producto.marca or "",
@@ -274,14 +277,20 @@ def editar_producto(request, prod_id):
         if Product.objects.filter(sku=sku).exclude(id=producto.id).exists():
             return JsonResponse({"status": "error", "message": "El SKU ya existe."})
 
-        # Actualizamos solo los campos existentes
-        producto.sku = sku
-        producto.nombre = nombre
-        producto.categoria_id = categoria_id or None
-        producto.descripcion = descripcion
-        producto.precio_venta = precio_venta
-        producto.marca = marca
-        producto.save()
+        # 🔹 CORRECCIÓN: Actualizar el objeto 'producto' existente en lugar de crear uno nuevo.
+        producto.sku = sku or producto.sku
+        producto.nombre = nombre or producto.nombre
+        if categoria_id: # Solo actualiza si se recibe un ID de categoría
+            producto.categoria_id = categoria_id
+        producto.descripcion = descripcion or producto.descripcion
+        producto.precio_venta = precio_venta or producto.precio_venta
+        producto.marca = marca or producto.marca
+        
+        # 🔹 CORRECCIÓN: Especificar los campos a actualizar para evitar problemas con campos automáticos.
+        update_fields = ['sku', 'nombre', 'descripcion', 'precio_venta', 'marca']
+        if categoria_id:
+            update_fields.append('categoria_id')
+        producto.save(update_fields=update_fields)
 
         return JsonResponse({"status": "ok", "message": "Producto actualizado correctamente."})
 

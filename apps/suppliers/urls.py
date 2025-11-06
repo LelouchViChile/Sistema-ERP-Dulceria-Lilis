@@ -12,4 +12,6 @@ urlpatterns = [
     path("search/", views.search_suppliers, name="search"),
     path("relations/search/", views.relations_search, name="relations_search"),
     path("relations/export/", views.relations_export, name="relations_export"),
+    path('desactivar/<int:supplier_id>/', views.desactivar_proveedor, name='desactivar_proveedor'),
+    path('reactivar/<int:supplier_id>/', views.reactivar_proveedor, name='reactivar_proveedor'),
 ]

@@ -27,10 +27,11 @@
       <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
       <!-- prettier-ignore-start -->
       <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
-        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
-        <option value="username" {% if sort_by == 'username' %}selected{% endif %}>RUT/NIF (A-Z)</option>
-        <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>RUT/NIF (Z-A)</option>
-        <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Razón Social (A-Z)</option>
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+        <option value="rut_nif" {% if sort_by == 'rut_nif' %}selected{% endif %}>RUT/NIF (A-Z)</option>
+        <option value="-rut_nif" {% if sort_by == '-rut_nif' %}selected{% endif %}>RUT/NIF (Z-A)</option>
+        <option value="razon_social" {% if sort_by == 'razon_social' %}selected{% endif %}>Razón Social (A-Z)</option>
+        <option value="-razon_social" {% if sort_by == '-razon_social' %}selected{% endif %}>Razón Social (Z-A)</option>
       </select>
       <!-- prettier-ignore-end -->
       <!-- ======================================================= -->
@@ -42,8 +43,8 @@
         <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
       </select>
 
-      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
-         href="{% url 'gestion_usuarios' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}&export=xlsx">
+      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm" 
+         href="{% url 'suppliers:list' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}&export=xlsx">
         <i class="bi bi-file-earmark-excel me-2"></i>Exportar
       </a>
     </form>
@@ -185,53 +186,154 @@
     </div>
 
     <!-- Tabla Proveedores -->
+
     <div class="col-12 col-lg-8 col-xxl-9">
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body p-3">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="m-0">Proveedores</h6>
-            <div class="input-group input-group-sm" style="max-width: 320px;">
-              <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input type="text" id="provSearch" class="form-control" placeholder="Buscar por RUT/NIF o razón social"
-                     autocomplete="off" data-url="{% url 'suppliers:search' %}">
-            </div>
+            <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <i class="bi bi-truck me-2"></i>Proveedores Registrados
+            </h6>
           </div>
-          <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
-            <table class="table table-striped align-middle text-center mb-0">
-              <thead>
-                <tr>
-                  <th>RUT/NIF</th>
-                  <th>Razón social</th>
-                  <th>Estado</th>
-                  <th>Email</th>
-                  <th class="text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="provTbody">
-                {% for p in proveedores %}
-                <tr>
-                  <td>{{ p.rut }}</td>
-                  <td>{{ p.razon_social }}</td>
-                  <td>
-                    {% if p.estado == "Activo" %}
-                      <span class="badge bg-success">ACTIVO</span>
-                    {% elif p.estado == "Bloqueado" or p.estado == "Inactivo" %}
-                      <span class="badge bg-danger">{{ p.estado|upper }}</span>
-                    {% else %}
-                      <span class="badge bg-secondary">{{ p.estado|upper }}</span>
+          <!-- 🔹 PESTAÑAS PARA TABLAS -->
+          <ul class="nav nav-tabs mb-3" id="tablas-proveedores" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active text-danger fw-semibold" id="tab-lista-prov" data-bs-toggle="tab" data-bs-target="#pane-lista-prov" type="button" role="tab">Proveedores</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link text-danger fw-semibold" id="tab-lista-rel" data-bs-toggle="tab" data-bs-target="#pane-lista-rel" type="button" role="tab">Productos Relacionados</button>
+            </li>
+          </ul>
+
+          <!-- 🔹 CONTENIDO DE PESTAÑAS -->
+          <div class="tab-content" id="tablas-proveedores-content">
+
+            <!-- PESTAÑA 1: TABLA DE PROVEEDORES -->
+            <div class="tab-pane fade show active" id="pane-lista-prov" role="tabpanel">
+              <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                <table class="table table-striped align-middle text-center mb-0">
+                  <thead>
+                    <tr>
+                      <th>RUT/NIF</th>
+                      <th>Razón social</th>
+                      <th>Estado</th>
+                      <th>Email</th>
+                      <th class="text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="provTbody">
+                    {% for p in proveedores %}
+                    <tr>
+                      <td>{{ p.rut_nif }}</td>
+                      <td>{{ p.razon_social }}</td>
+                      <td>
+                        {% if p.estado == "Activo" %}
+                          <span class="badge bg-success">ACTIVO</span>
+                        {% elif p.estado == "Bloqueado" or p.estado == "Inactivo" %}
+                          <span class="badge bg-danger">{{ p.estado|upper }}</span>
+                        {% else %}
+                          <span class="badge bg-secondary">{{ p.estado|upper }}</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ p.email }}</td>
+                      <td>
+                        <button class="btn btn-sm btn-warning btnEditarProv" data-id="{{ p.id }}"><i class="bi bi-pencil"></i></button>
+                        {% if p.estado == "Activo" %}
+                          <button class="btn btn-outline-secondary btn-sm" onclick="desactivarProveedor('{{ p.id }}')" title="Desactivar">
+                            <i class="bi bi-person-dash"></i>
+                          </button>
+                        {% else %}
+                          <button class="btn btn-outline-success btn-sm" onclick="reactivarProveedor('{{ p.id }}')" title="Reactivar">
+                            <i class="bi bi-person-check"></i>
+                          </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-danger btnEliminarProv" data-id="{{ p.id }}" title="Eliminar"><i class="bi bi-trash"></i></button>
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted">Sin resultados</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Paginador Proveedores -->
+              <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+                <small class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} proveedores</small>
+                <nav aria-label="Paginación de proveedores">
+                  <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                      <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&laquo;</a>
+                    </li>
+                    <li class="page-item">
+                      <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Anterior</a>
+                    </li>
                     {% endif %}
-                  </td>
-                  <td>{{ p.email }}</td>
-                  <td>
-                    <button class="btn btn-sm btn-warning btnEditarProv" data-id="{{ p.id }}"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-danger btnEliminarProv" data-id="{{ p.id }}"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-muted">Sin resultados</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                    <li class="page-item active">
+                      <span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                      <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                      <a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </nav>
+              </div>
+            </div>
+
+            <!-- PESTAÑA 2: TABLA DE RELACIONES -->
+            <div class="tab-pane fade" id="pane-lista-rel" role="tabpanel">
+              <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                <table class="table table-striped align-middle text-center mb-0">
+                  <thead>
+                    <tr>
+                      <th>Proveedor</th>
+                      <th>Producto (SKU)</th>
+                      <th>Costo</th>
+                      <th>Lead Time (días)</th>
+                      <th>Preferente</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for rel in relations %}
+                    <tr>
+                      <td>{{ rel.proveedor.razon_social }}</td>
+                      <td>{{ rel.producto.nombre }} ({{ rel.producto.sku }})</td>
+                      <td>${{ rel.costo|floatformat:2 }}</td>
+                      <td>{{ rel.lead_time_dias }}</td>
+                      <td>{% if rel.preferente %}✅ Sí{% else %}❌ No{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted">No hay relaciones de productos.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Paginador Relaciones -->
+              <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
+                <small class="text-danger">Mostrando {{ relations.start_index }} - {{ relations.end_index }} de {{ relations.paginator.count }} relaciones</small>
+                <nav aria-label="Paginación de relaciones">
+                  <ul class="pagination pagination-sm mb-0">
+                    {% if relations.has_previous %}
+                    <li class="page-item"><a class="page-link border-danger text-danger" href="?page_rel=1&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&laquo;</a></li>
+                    <li class="page-item"><a class="page-link border-danger text-danger" href="?page_rel={{ relations.previous_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Anterior</a></li>
+                    {% endif %}
+                    <li class="page-item active"><span class="page-link bg-danger border-danger">{{ relations.number }} / {{ relations.paginator.num_pages }}</span></li>
+                    {% if relations.has_next %}
+                    <li class="page-item"><a class="page-link border-danger text-danger" href="?page_rel={{ relations.next_page_number }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">Siguiente</a></li>
+                    <li class="page-item"><a class="page-link border-danger text-danger" href="?page_rel={{ relations.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&raquo;</a></li>
+                    {% endif %}
+                  </ul>
+                </nav>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -243,33 +345,41 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function(){
+  // ---- util CSRF
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+
+  // La constante CSRF ahora usará la función getCookie
   const CSRF = (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[])[2] || '';
 
   // =====================================================
-  // ===============  HELPER FUNCTIONS  ==================
+  // ===============  VALIDACIÓN GLOBAL  =================
   // =====================================================
-  function setInvalid(el, msg){
-    if(!el) return;
+  // Helper para marcar/desmarcar validez de campos
+  function setInvalid(el, msg) {
+    if (!el) return;
     const fb = el.parentElement.querySelector('.invalid-feedback');
-    if(msg){
+    if (msg) {
       el.classList.add('is-invalid');
-      if(fb) fb.textContent = msg;
+      if (fb) fb.textContent = msg;
     } else {
       el.classList.remove('is-invalid');
     }
   }
 
-  function switchToTabOf(element){
+  // Helper para cambiar a la pestaña de un elemento
+  function switchToTabOf(element) {
     const pane = element.closest('.tab-pane');
-    if(pane && !pane.classList.contains('active')){
+    if (pane && !pane.classList.contains('active')) {
       const trigger = document.querySelector(`[data-bs-target="#${pane.id}"]`);
-      if(trigger) new bootstrap.Tab(trigger).show();
+      if (trigger) new bootstrap.Tab(trigger).show();
     }
   }
 
-  // =====================================================
-  // ===============  VALIDACIÓN GLOBAL  =================
-  // =====================================================
   function validateSupplier(){
     let ok = true;
     const campos = document.querySelectorAll('#form-prov input, #form-prov select');
@@ -396,81 +506,10 @@
   });
 
   // =====================================================
-  // ===============  BUSCADOR + PAGINADOR  ==============
-  // =====================================================
-  const input=document.getElementById('provSearch');
-  const tbody=document.getElementById('provTbody');
-  if(input && tbody){
-    let ctrl=null, timer=null, currentPage=1;
-
-    async function loadPage(q,page=1){
-      if(ctrl) ctrl.abort();
-      ctrl = new AbortController();
-      try{
-        const resp = await fetch(`${input.dataset.url}?q=${encodeURIComponent(q||'')}&page=${page}`,{
-          signal: ctrl.signal, headers:{'X-Requested-With':'XMLHttpRequest'}
-        });
-        if(!resp.ok) throw new Error();
-        const data = await resp.json();
-        render(data.results||[], data.page_count || 1, data.current_page || 1, q);
-      }catch(e){
-        render([],1,1,q);
-      }
-    }
-
-    function render(items,totalPages,current,q){
-      if(!items?.length){
-        tbody.innerHTML = `<tr><td colspan="5" class="text-muted">Sin resultados</td></tr>`;
-        document.getElementById('provPaginator').innerHTML='';
-        return;
-      }
-
-      tbody.innerHTML = items.map(p=>`
-        <tr>
-          <td>${p.rut||''}</td>
-          <td>${p.razon_social||''}</td>
-          <td>${p.estado==='Activo'
-              ?'<span class="badge bg-success">ACTIVO</span>'
-              :'<span class="badge bg-secondary">'+(p.estado||'').toUpperCase()+'</span>'}</td>
-          <td>${p.email||''}</td>
-          <td>
-            <button class="btn btn-sm btn-warning btnEditarProv" data-id="${p.id}"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-danger btnEliminarProv" data-id="${p.id}"><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>`).join('');
-
-      // PAGINADOR
-      let html='';
-      for(let i=1;i<=totalPages;i++){
-        html += `<li class="page-item ${i===current?'active':''}">
-                   <a class="page-link" href="#" data-page="${i}">${i}</a>
-                 </li>`;
-      }
-      document.getElementById('provPaginator').innerHTML=html;
-
-      tbody.querySelectorAll('.btnEditarProv').forEach(btn=>btn.addEventListener('click',()=>editarProveedor(btn.dataset.id)));
-      tbody.querySelectorAll('.btnEliminarProv').forEach(btn=>btn.addEventListener('click',()=>eliminarProveedor(btn.dataset.id)));
-
-      document.querySelectorAll('#provPaginator a').forEach(a=>{
-        a.addEventListener('click',e=>{
-          e.preventDefault();
-          loadPage(q, Number(a.dataset.page));
-        });
-      });
-    }
-
-    input.addEventListener('input',()=>{
-      clearTimeout(timer);
-      timer=setTimeout(()=>loadPage(input.value.trim(),1),250);
-    });
-    document.addEventListener('DOMContentLoaded',()=>loadPage('',1));
-  }
-
-  // =====================================================
   // ===============  EDITAR PROVEEDOR  ==================
   // =====================================================
   async function editarProveedor(id){
-    try{
+    try {
       const resp = await fetch(`/proveedores/editar/${id}/`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
       if(!resp.ok) throw new Error('No se pudo obtener proveedor');
       const data=await resp.json();
@@ -499,7 +538,7 @@
       });
 
       if(formValues){
-        const update = await fetch(`/proveedores/editar/${id}/`,{
+        const resp = await fetch(`/proveedores/editar/${id}/`,{
           method:'POST',
           headers:{
             'Content-Type':'application/json',
@@ -508,15 +547,16 @@
           },
           body: JSON.stringify(formValues)
         });
-        const result=await update.json();
-        if(result.status==='ok'){
+        const result = await resp.json();
+
+        if(resp.ok && result.status === 'ok'){
           Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false})
             .then(()=>location.reload());
         }else{
           Swal.fire({icon:'error',title:'Error',text:result.message||'Error al actualizar proveedor.'});
         }
       }
-    }catch(err){
+    } catch(err) {
       Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'});
       console.error(err);
     }
@@ -558,6 +598,58 @@
 
   window.editarProveedor = editarProveedor;
   window.eliminarProveedor = eliminarProveedor;
+
+    // DESACTIVAR / REACTIVAR
+  function desactivarProveedor(id) {
+    Swal.fire({ title: 'Desactivar usuario', text: '¿Confirmas?', icon: 'warning',
+      showCancelButton: true, confirmButtonText: 'Sí, desactivar'
+    }).then(r => {
+      if (!r.isConfirmed) return;
+      fetch(`/proveedores/desactivar/${id}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+          Swal.fire({ icon: 'success', title: data.message, timer: 1200, showConfirmButton: false })
+            .then(() => location.reload());
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo desactivar.' });
+        }
+      });
+    });
+  }
+  window.desactivarProveedor = desactivarProveedor;
+
+  function reactivarProveedor(id) {
+    fetch(`/proveedores/reactivar/${id}/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+    }).then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        Swal.fire({ icon: 'success', title: data.message, timer: 1200, showConfirmButton: false })
+          .then(() => location.reload());
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo reactivar.' });
+      }
+    });
+  }
+  window.reactivarProveedor = reactivarProveedor;
+
+  // 🔹 SCRIPT PARA MANTENER LA PESTAÑA ACTIVA AL PAGINAR
+  document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const pageRel = params.get('page_rel');
+    const activeTabId = sessionStorage.getItem('activeSupplierTab');
+
+    if (pageRel || activeTabId === '#pane-lista-rel') {
+      const tabTrigger = document.querySelector('button[data-bs-target="#pane-lista-rel"]');
+      if (tabTrigger) new bootstrap.Tab(tabTrigger).show();
+    }
+
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+      tab.addEventListener('shown.bs.tab', event => sessionStorage.setItem('activeSupplierTab', event.target.dataset.bsTarget));
+    });
+  });
 })();
 </script>
 {% endblock %}
