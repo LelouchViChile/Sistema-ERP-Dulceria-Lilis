@@ -6,6 +6,7 @@ from django.db.models import Q
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
+import json
 from django.shortcuts import get_object_or_404
 
 from lilis_erp.roles import require_roles
@@ -167,11 +168,13 @@ def product_list_view(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
+    # 🔹 MEJORA: Pasar las categorías a la plantilla para el formulario de creación
     context = {
         "productos": _qs_to_dicts(page_obj.object_list),
         "page_obj": page_obj,
         "query": query,
         "sort_by": sort_by,
+        "categorias": Categoria.objects.all(),
     }
     return render(request, "productos.html", context)
 
@@ -194,39 +197,119 @@ def search_products(request):
 @require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
 @transaction.atomic
 def crear_producto(request):
+    """
+    Inserta un producto usando la misma lógica de 'transacciones:crear':
+    - Recibe JSON (Content-Type: application/json) o form-url-encoded.
+    - Valida mínimos.
+    - Crea el Producto.
+    - Responde JSON con { ok: True } en éxito.
+    """
     if request.method != "POST":
-        return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
+        return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
 
-    sku = (request.POST.get("sku") or "").strip()
-    nombre = (request.POST.get("nombre") or "").strip()
-    categoria_id = request.POST.get("categoria") or None
-    descripcion = (request.POST.get("descripcion") or "").strip()
-    precio_compra = request.POST.get("precio_compra") or 0
-    precio_venta = request.POST.get("precio_venta") or 0
-    unidad = (request.POST.get("unidad_medida") or "").strip()
-    marca = (request.POST.get("marca") or "").strip()
+    # --- 1) Parseo de datos al estilo transacciones (preferir JSON) ---
+    is_json = request.headers.get("Content-Type", "").startswith("application/json")
+    if is_json:
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            return JsonResponse({"ok": False, "error": "JSON inválido."}, status=400)
+    else:
+        data = request.POST
 
-    if not all([sku, nombre, precio_venta]):
-        return JsonResponse({"status": "error", "message": "SKU, nombre y precio de venta son obligatorios."})
+    # --- 2) Extraer campos del FRONT y mapear a tu MODELO real ---
+    # Campos del form (nombres del template):
+    sku           = (data.get("sku") or "").strip().upper()
+    nombre        = (data.get("nombre") or "").strip()
+    categoria_id  = (data.get("categoria") or "").strip() or None
+    descripcion   = (data.get("descripcion") or "").strip()
+    precio_compra = (data.get("precio_compra") or "").strip()
+    precio_venta  = (data.get("precio_venta") or "").strip()
+    marca         = (data.get("marca") or "").strip()
+    ean_upc       = (data.get("codigo_barras") or "").strip()
+    stock_min     = (data.get("stock_min") or "").strip()
+    stock_max     = (data.get("stock_max") or "").strip()
+    estado        = (data.get("estado") or "Activo").strip()
 
+    # NOTA: el template tiene campos como 'unidad_medida', 'ubicacion', 'proveedor',
+    # 'ultima_entrada', 'imagen', 'notas' que NO existen en el modelo -> los ignoramos
+    # o los mapearías a otros campos si los agregas al modelo en el futuro.
+    #
+    # Mapeo a modelo Producto:
+    # - costo_estandar  <- precio_compra
+    # - precio_venta    <- precio_venta
+    # - stock_minimo    <- stock_min
+    # - stock_maximo    <- stock_max
+    # - activo          <- estado ("Activo" => True, otro => False)
+
+    # --- 3) Validaciones clave (mismo estilo que transacciones) ---
+    if not sku or not nombre:
+        return JsonResponse({"ok": False, "error": "SKU y Nombre son obligatorios."}, status=400)
+    if not categoria_id:
+        return JsonResponse({"ok": False, "error": "Selecciona una Categoría."}, status=400)
+
+    # numéricos
+    def to_decimal(val, default=None):
+        if val in (None, ""):
+            return default
+        try:
+            return float(val)
+        except Exception:
+            return None
+
+    costo_estandar = to_decimal(precio_compra, default=None)
+    precio_venta_f = to_decimal(precio_venta, default=None)
+    stock_minimo   = to_decimal(stock_min,   default=0)
+    stock_maximo   = to_decimal(stock_max,   default=None)
+
+    if precio_venta and precio_venta_f is None:
+        return JsonResponse({"ok": False, "error": "Precio de venta inválido."}, status=400)
+    if precio_compra and costo_estandar is None:
+        return JsonResponse({"ok": False, "error": "Precio de compra inválido."}, status=400)
+    if stock_min and stock_minimo is None:
+        return JsonResponse({"ok": False, "error": "Stock mínimo inválido."}, status=400)
+    if stock_max and stock_maximo is None:
+        return JsonResponse({"ok": False, "error": "Stock máximo inválido."}, status=400)
+
+    # categoría existe?
+    get_object_or_404(Categoria, id=categoria_id)
+
+    # SKU único
     if Product.objects.filter(sku=sku).exists():
-        return JsonResponse({"status": "error", "message": "El SKU ya existe."})
+        return JsonResponse({"ok": False, "error": "El SKU ya existe."}, status=400)
 
+    # Activo desde el estado del form
+    activo = (estado.upper() == "ACTIVO")
+
+    # --- 4) Crear Producto ---
     try:
-        producto = Product.objects.create(
+        prod = Product.objects.create(
             sku=sku,
+            ean_upc=ean_upc or None,
             nombre=nombre,
-            categoria_id=categoria_id or None,
             descripcion=descripcion,
-            precio_compra=precio_compra or 0,
-            precio_venta=precio_venta or 0,
-            unidad_medida=unidad,
-            marca=marca,
-            stock=0,
+            categoria_id=categoria_id,
+            marca=marca or "",
+            # Defaults sensatos para los que no vienen en el form
+            uom_compra="UN",
+            uom_venta="UN",
+            factor_conversion=1,
+            costo_estandar=costo_estandar if costo_estandar is not None else None,
+            precio_venta=precio_venta_f if precio_venta_f is not None else None,
+            impuesto_iva=19,  # puedes exponerlo en el form si quieres
+            stock_minimo=stock_minimo if stock_minimo is not None else 0,
+            stock_maximo=stock_maximo,
+            punto_reorden=None,
+            perecible=False,
+            control_por_lote=False,
+            control_por_serie=False,
+            url_imagen="",            # (el input del template es file; no lo manejamos por JSON)
+            url_ficha_tecnica="",
+            activo=activo,
         )
-        return JsonResponse({"status": "ok", "message": "Producto creado correctamente."})
+        return JsonResponse({"ok": True, "id": prod.id, "message": "Producto creado correctamente."})
     except Exception as e:
-        return JsonResponse({"status": "error", "message": f"No se pudo crear: {e}"}, status=500)
+        return JsonResponse({"ok": False, "error": f"No se pudo crear: {e}"}, status=500)
 
 
 @login_required
@@ -242,8 +325,6 @@ def eliminar_producto(request, prod_id):
 
 @login_required
 @require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
-@csrf_exempt
-@login_required
 @csrf_exempt
 def editar_producto(request, prod_id):
     producto = get_object_or_404(Product, id=prod_id)

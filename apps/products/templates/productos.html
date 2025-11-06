@@ -79,36 +79,47 @@
                   <div class="col-6">
                     <label class="form-label small mb-1">SKU</label>
                     <input type="text" name="sku" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">El SKU es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Nombre</label>
                     <input type="text" name="nombre" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">El nombre es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Categoría</label>
                     <select name="categoria" class="form-select form-select-sm" required>
                       <option value="">Seleccione...</option>
+                      {% for cat in categorias %}
+                      <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                      {% endfor %}
                     </select>
+                    <div class="invalid-feedback">Selecciona una categoría.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Descripción</label>
                     <textarea name="descripcion" class="form-control form-control-sm" rows="2" required></textarea>
+                    <div class="invalid-feedback">La descripción es obligatoria.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Compra</label>
                     <input type="number" name="precio_compra" class="form-control form-control-sm" step="0.01" min="0" required>
+                    <div class="invalid-feedback">El precio de compra es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Venta</label>
                     <input type="number" name="precio_venta" class="form-control form-control-sm" step="0.01" min="0" required>
+                    <div class="invalid-feedback">El precio de venta es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Unidad de Medida</label>
                     <input type="text" name="unidad_medida" class="form-control form-control-sm" placeholder="Ej: kg, caja, unidad..." required>
+                    <div class="invalid-feedback">La unidad de medida es obligatoria.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Marca</label>
                     <input type="text" name="marca" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">La marca es obligatoria.</div>
                   </div>
                 </div>
               </div>
@@ -117,20 +128,19 @@
               <div class="tab-pane fade" id="pane-inv" role="tabpanel">
                 <div class="row g-3">
                   <div class="col-6">
-                    <label class="form-label small mb-1">Stock Actual</label>
-                    <input type="number" name="stock" class="form-control form-control-sm" readonly>
-                  </div>
-                  <div class="col-6">
                     <label class="form-label small mb-1">Stock Mínimo</label>
                     <input type="number" name="stock_min" class="form-control form-control-sm" min="0" required>
+                    <div class="invalid-feedback">El stock mínimo es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Stock Máximo</label>
                     <input type="number" name="stock_max" class="form-control form-control-sm" min="0" required>
+                    <div class="invalid-feedback">El stock máximo es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Ubicación en Bodega</label>
                     <input type="text" name="ubicacion" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">La ubicación es obligatoria.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Proveedor Principal</label>
@@ -139,6 +149,7 @@
                   <div class="col-6">
                     <label class="form-label small mb-1">Última Entrada</label>
                     <input type="date" name="ultima_entrada" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">La fecha es obligatoria.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Estado</label>
@@ -147,6 +158,7 @@
                       <option value="Inactivo">Inactivo</option>
                       <option value="Descontinuado">Descontinuado</option>
                     </select>
+                    <div class="invalid-feedback">El estado es obligatorio.</div>
                   </div>
                 </div>
               </div>
@@ -154,27 +166,30 @@
               <!-- MULTIMEDIA -->
               <div class="tab-pane fade" id="pane-img" role="tabpanel">
                 <div class="row g-3">
-                  <div class="col-6">
+                  <div class="col-12">
                     <label class="form-label small mb-1">Imagen del Producto</label>
                     <input type="file" name="imagen" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">La imagen es obligatoria.</div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-12">
                     <label class="form-label small mb-1">Código de Barras</label>
                     <input type="text" name="codigo_barras" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">El código de barras es obligatorio.</div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-12">
                     <label class="form-label small mb-1">Notas Internas</label>
                     <textarea name="notas" class="form-control form-control-sm" rows="2" required></textarea>
+                    <div class="invalid-feedback">Las notas son obligatorias.</div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="mt-3 d-flex gap-2">
-              <button type="submit" class="btn btn-sm btn-danger flex-grow-1">
+              <button type="button" id="btnGuardarProducto" class="btn btn-sm btn-danger flex-grow-1">
                 <i class="bi bi-check-lg me-1"></i>Guardar
               </button>
-              <button type="button" id="btn-clear" class="btn btn-sm btn-outline-danger px-3">
+              <button type="button" id="btnLimpiar" class="btn btn-sm btn-outline-danger px-3">
                 <i class="bi bi-eraser me-1"></i>Limpiar
               </button>
             </div>
@@ -251,139 +266,214 @@
 <!-- ========== JS CRUD ========== -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== "") {
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.startsWith(name + "=")) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
+/* -------- Validación visual en el formulario principal -------- */
+(function(){
+  // === Igual que Transacciones: CSRF + helpers ===
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith(name + "=")) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
       }
     }
+    return cookieValue;
   }
-  return cookieValue;
-}
+  const CSRF = getCookie("csrftoken");
 
-/* -------- Validación visual en el formulario principal -------- */
-function validarFormulario(form) {
-  let ok = true, primerError = null;
-  form.querySelectorAll("input, select, textarea").forEach(el => {
-    if (el.hasAttribute("required")) {
+  // === Helpers de validación (igual que en proveedores) ===
+  function setInvalid(el, msg) {
+    if (!el) return;
+    const fb = el.parentElement.querySelector('.invalid-feedback');
+    if (msg) {
+      el.classList.add("is-invalid");
+      if (fb) fb.textContent = msg;
+    } else {
+      el.classList.remove("is-invalid");
+      if (fb) fb.textContent = ''; // Limpiar el mensaje cuando es válido
+    }
+  }
+
+  function switchToTabOf(element) {
+    const pane = element.closest('.tab-pane');
+    if (pane && !pane.classList.contains('active')) {
+      const trigger = document.querySelector(`[data-bs-target="#${pane.id}"]`);
+      if (trigger) new bootstrap.Tab(trigger).show();
+    }
+  }
+
+  function validarFormulario(form) {
+    let ok = true;
+    let primerError = null;
+    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => { // Asegurarse de que solo se validan los campos con 'required'
       const val = el.value.trim();
-      const valido = val !== "" && !(el.type === "number" && isNaN(val));
+      const valido = val !== "" && !(el.type === "number" && isNaN(val)); // También valida números
       if (!valido) {
-        el.classList.add("is-invalid");
+        setInvalid(el, el.parentElement.querySelector('.invalid-feedback')?.textContent || 'Este campo es obligatorio.');
         if (!primerError) primerError = el;
         ok = false;
       } else {
-        el.classList.remove("is-invalid");
+        setInvalid(el, null);
       }
+    });
+    if (primerError) {
+      switchToTabOf(primerError);
+      primerError.focus();
     }
-  });
-
-  if (primerError) {
-    const tab = primerError.closest(".tab-pane");
-    if (tab && !tab.classList.contains("active")) {
-      const id = tab.id;
-      const trigger = document.querySelector(`[data-bs-target="#${id}"]`);
-      if (trigger) new bootstrap.Tab(trigger).show();
-    }
-    primerError.focus();
+    return ok;
   }
-  return ok;
-}
 
-document.getElementById("form-prod")?.addEventListener("submit", e => {
-  const form = e.target;
-  if (!validarFormulario(form)) e.preventDefault();
-});
+  const form = document.getElementById("form-prod");
+  if (!form) return;
 
-document.getElementById("btn-clear")?.addEventListener("click", () => {
-  const f = document.getElementById("form-prod");
-  f.reset();
-  f.querySelectorAll(".is-invalid").forEach(e => e.classList.remove("is-invalid"));
-});
-
-/* -------- FUNCIÓN EDITAR PRODUCTO -------- */
-function editarProducto(id) {
-  fetch(`/productos/editar/${id}/`)
-    .then(response => {
-      console.log('Response:', response);
-      return response.json();
-    })
-    .then(data => {
-      console.log('Data:', data);
-      if (data) {
-        Swal.fire({
-          title: "Editar Producto",
-          html:
-            `<input id="edit_sku" class="swal2-input" placeholder="SKU" value="${data.sku || ''}">` +
-            `<input id="edit_nombre" class="swal2-input" placeholder="Nombre" value="${data.nombre || ''}">` +
-            `<select id="edit_categoria" class="swal2-input">` +
-              `<option value="">-- Sin Categoría --</option>` +
-              `${(data.categorias || []).map(c => `<option value="${c.id}" ${c.id == data.categoria ? 'selected' : ''}>${c.nombre}</option>`).join('')}` +
-            `</select>` +
-            `<input id="edit_precio_venta" class="swal2-input" placeholder="Precio Venta" value="${data.precio_venta || 0}">` +
-            `<input id="edit_marca" class="swal2-input" placeholder="Marca" value="${data.marca || ''}">`,
-          showCancelButton: true,
-          confirmButtonText: "Guardar",
-          cancelButtonText: "Cancelar",
-          preConfirm: () => {
-            const fd = new FormData();
-            fd.append("sku", document.getElementById("edit_sku").value);
-            fd.append("nombre", document.getElementById("edit_nombre").value);
-            fd.append("categoria", document.getElementById("edit_categoria").value);
-            fd.append("precio_venta", document.getElementById("edit_precio_venta").value);
-            fd.append("marca", document.getElementById("edit_marca").value);
-            return fetch(`/productos/editar/${id}/`, {
-              method: "POST",
-              headers: { "X-CSRFToken": getCookie("csrftoken") },
-              body: fd
-            }).then(r => r.json());
-          }
-        }).then(res => {
-          if (res.value?.status === "ok") {
-            Swal.fire({ icon: "success", title: "Actualizado", timer: 1200, showConfirmButton: false })
-              .then(() => location.reload());
-          } else if (res.value?.status === "error") {
-            Swal.fire({ icon: "error", title: "Error", text: res.value.message });
-          }
-        });
-      }
-    })
-    .catch(error => {
-      console.log('Error:', error);
-      Swal.fire({ icon: "error", title: "Error al cargar datos", text: "No se pudo obtener la información del producto." });
-    });
-}
-window.editarProducto = editarProducto;
-
-function eliminarProducto(id){
-  Swal.fire({
-    title:"¿Eliminar producto?",
-    text:"Esta acción no se puede revertir",
-    icon:"warning",
-    showCancelButton:true,
-    confirmButtonColor:"#d33",
-    cancelButtonColor:"#3085d6",
-    confirmButtonText:"Sí, eliminar",
-    cancelButtonText:"Cancelar"
-  }).then(res=>{
-    if(!res.isConfirmed)return;
-    fetch(`/productos/eliminar/${id}/`,{
-      method:"POST",
-      headers:{ "X-CSRFToken":getCookie("csrftoken") }
-    }).then(r=>r.json()).then(data=>{
-      if(data.status==="ok"){
-        Swal.fire("¡Eliminado!",data.message,"success").then(()=>location.reload());
-      }else{
-        Swal.fire({icon:"error",title:"Error",text:data.message});
-      }
-    });
+  // (Opcional) impedir caracteres raros en SKU
+  form.querySelector('input[name="sku"]')?.addEventListener('input', (e)=>{
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g,'');
   });
-}
-window.eliminarProducto = eliminarProducto;
+
+  document.getElementById('btnGuardarProducto')?.addEventListener('click', async () => {
+    // Limpiar mensajes previos
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+    if (!validarFormulario(form)) return;
+
+    // === Toma los valores del form (MISMO NOMBRE que en tu HTML) ===
+    const fd = new FormData(form);
+
+    // === Mapeo al payload (misma idea que Transacciones:crear) ===
+    const payload = {
+      sku:           (fd.get("sku") || "").trim(),
+      nombre:        (fd.get("nombre") || "").trim(),
+      categoria:     (fd.get("categoria") || "").trim(),
+      descripcion:   (fd.get("descripcion") || "").trim(),
+      precio_compra: (fd.get("precio_compra") || "").trim(),
+      precio_venta:  (fd.get("precio_venta") || "").trim(),
+      marca:         (fd.get("marca") || "").trim(),
+      codigo_barras: (fd.get("codigo_barras") || "").trim(),
+      stock_min:     (fd.get("stock_min") || "").trim(),
+      stock_max:     (fd.get("stock_max") || "").trim(),
+      estado:        (fd.get("estado") || "Activo").trim(),
+      // Los que no existen en el modelo (imagen/ubicacion/proveedor/...) se ignoran
+    };
+
+    try {
+      // === POST JSON al endpoint (igual que transacciones) ===
+      const resp = await fetch("{% url 'products:crear' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": CSRF,
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        throw new Error(data.error || "Error del servidor. No se pudo crear el producto.");
+      }
+
+      await Swal.fire({icon:'success', title:'Producto creado', timer:1200, showConfirmButton:false});
+      // Limpieza rápida del form
+      form.reset();
+      // Recargar listado para ver el nuevo
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      Swal.fire({icon:'error', title:'Error', text: err.message || 'Error inesperado.'});
+    }
+  });
+
+  document.getElementById('btnLimpiar')?.addEventListener('click', () => {
+    form.reset();
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  });
+
+  /* -------- FUNCIÓN EDITAR PRODUCTO -------- */
+  function editarProducto(id) {
+    fetch(`/productos/editar/${id}/`)
+      .then(response => {
+        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+        return response.json();
+      })
+      .then(data => {
+        if (data) {
+          Swal.fire({
+            title: "Editar Producto",
+            html:
+              `<input id="edit_sku" class="swal2-input" placeholder="SKU" value="${data.sku || ''}">` +
+              `<input id="edit_nombre" class="swal2-input" placeholder="Nombre" value="${data.nombre || ''}">` +
+              `<select id="edit_categoria" class="swal2-input">` +
+                `<option value="">-- Sin Categoría --</option>` +
+                `${(data.categorias || []).map(c => `<option value="${c.id}" ${c.id == data.categoria ? 'selected' : ''}>${c.nombre}</option>`).join('')}` +
+              `</select>` +
+              `<input id="edit_precio_venta" class="swal2-input" placeholder="Precio Venta" value="${data.precio_venta || 0}">` +
+              `<input id="edit_marca" class="swal2-input" placeholder="Marca" value="${data.marca || ''}">`,
+            showCancelButton: true,
+            confirmButtonText: "Guardar",
+            cancelButtonText: "Cancelar",
+            preConfirm: () => {
+              const fd = new FormData();
+              fd.append("sku", document.getElementById("edit_sku").value);
+              fd.append("nombre", document.getElementById("edit_nombre").value);
+              fd.append("categoria", document.getElementById("edit_categoria").value);
+              fd.append("precio_venta", document.getElementById("edit_precio_venta").value);
+              fd.append("marca", document.getElementById("edit_marca").value);
+              return fetch(`/productos/editar/${id}/`, {
+                method: "POST",
+                headers: { "X-CSRFToken": CSRF }, // Usar la constante CSRF
+                body: fd
+              }).then(r => r.json());
+            }
+          }).then(res => {
+            if (res.value?.status === "ok") {
+              Swal.fire({ icon: "success", title: "Actualizado", timer: 1200, showConfirmButton: false })
+                .then(() => location.reload());
+            } else if (res.value?.status === "error") {
+              Swal.fire({ icon: "error", title: "Error", text: res.value.message });
+            }
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({ icon: "error", title: "Error al cargar datos", text: "No se pudo obtener la información del producto." });
+      });
+  }
+
+  function eliminarProducto(id){
+    Swal.fire({
+      title:"¿Eliminar producto?",
+      text:"Esta acción no se puede revertir",
+      icon:"warning",
+      showCancelButton:true,
+      confirmButtonColor:"#d33",
+      cancelButtonColor:"#3085d6",
+      confirmButtonText:"Sí, eliminar",
+      cancelButtonText:"Cancelar"
+    }).then(res=>{
+      if(!res.isConfirmed)return;
+      fetch(`/productos/eliminar/${id}/`,{
+        method:"POST",
+        headers:{ "X-CSRFToken": CSRF } // Usar la constante CSRF
+      }).then(r=>r.json()).then(data=>{
+        if(data.status==="ok"){
+          Swal.fire("¡Eliminado!",data.message,"success").then(()=>location.reload());
+        }else{
+          Swal.fire({icon:"error",title:"Error",text:data.message});
+        }
+      });
+    });
+  }
+
+  // Exponer las funciones al scope global
+  window.editarProducto = editarProducto;
+  window.eliminarProducto = eliminarProducto;
+
+})(); // Fin del IIFE
 </script>
 {% endblock %}
