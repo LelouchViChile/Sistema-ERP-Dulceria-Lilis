@@ -27,9 +27,9 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 SECRET_KEY = 'django-insecure-(&au%ml(#0nw-ulsjog4gr8y6vm=5-t+79^esejf+o@v2ir&47'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['3.85.33.49']
 
 # Configuración de login y logout
 LOGIN_REDIRECT_URL = 'main'       # Redirige aquí después de iniciar sesión
@@ -131,9 +131,9 @@ AUTH_USER_MODEL = 'users.Usuario'
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Santiago'
 
 USE_I18N = True
 
@@ -144,6 +144,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Le decimos a Django que busque archivos estáticos en la carpeta 'static'
 # que está en la raíz del proyecto (BASE_DIR).
