@@ -194,7 +194,7 @@ def search_products(request):
     return JsonResponse({"results": _qs_to_dicts(qs)})
 
 @login_required
-@require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
+@require_roles("ADMIN", "INVENTARIO", "PRODUCCION","VENTAS")
 @transaction.atomic
 def crear_producto(request):
     """
@@ -324,7 +324,7 @@ def eliminar_producto(request, prod_id):
 
 
 @login_required
-@require_roles("ADMIN", "INVENTARIO", "PRODUCCION")
+@require_roles("ADMIN", "INVENTARIO", "PRODUCCION","VENTAS")
 @csrf_exempt
 def editar_producto(request, prod_id):
     producto = get_object_or_404(Product, id=prod_id)
