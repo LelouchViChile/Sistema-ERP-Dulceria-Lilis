@@ -184,7 +184,7 @@
                       <i class="bi bi-pencil-square"></i>
                     </button>
 
-                    {% if usuario.estado == 'activo' and usuario.activo %}
+                    {% if usuario.estado == 'activo' %}
                       <button class="btn btn-outline-secondary btn-sm" onclick="desactivarUsuario('{{ usuario.id }}')" title="Desactivar">
                         <i class="bi bi-person-dash"></i>
                       </button>
@@ -247,6 +247,13 @@
 
 <!-- SweetAlert solo para crear/editar/eliminar/activar/desactivar -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+  .swal-container { text-align: left !important; }
+  .swal-label-input { margin-bottom: 1rem; }
+  .swal-label-input label { display: block; margin-bottom: .25rem; font-size: .9rem; color: #555; }
+  .swal-label-input .swal2-input, .swal-label-input .swal-custom-select { width: 100% !important; margin: 0 !important; }
+  .swal-custom-select { display: block !important; padding: .375rem .75rem; font-size: 1rem; border: 1px solid #d1d1d1; border-radius: .25rem; }
+</style>
 <script>
   // ---- util CSRF
   function getCookie(name) {
@@ -260,6 +267,7 @@
   const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
   const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   const reTel  = /^[0-9+()\-\s]{6,30}$/;
+  const reName = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
   function markValidity(el, ok) {
     if (!el) return;
@@ -279,8 +287,8 @@
 
     u.addEventListener('input', () => markValidity(u, reUser.test((u.value || '').trim())));
     e.addEventListener('input', () => markValidity(e, reMail.test((e.value || '').trim())));
-    n.addEventListener('input', () => markValidity(n, (n.value || '').trim().length > 0));
-    a.addEventListener('input', () => markValidity(a, (a.value || '').trim().length > 0));
+    n.addEventListener('input', () => markValidity(n, reName.test((n.value || '').trim())));
+    a.addEventListener('input', () => markValidity(a, reName.test((a.value || '').trim())));
     t.addEventListener('input', () => markValidity(t, reTel.test((t.value || '').trim())));
     r.addEventListener('change', () => markValidity(r, !!(r.value || '')));
     es.addEventListener('change', () => markValidity(es, !!(es.value || '')));
@@ -294,8 +302,8 @@
     const checks = [
       ['username',  v => reUser.test(v.trim())],
       ['email',     v => reMail.test(v.trim())],
-      ['first_name',v => v.trim().length > 0],
-      ['last_name', v => v.trim().length > 0],
+      ['first_name',v => reName.test(v.trim())],
+      ['last_name', v => reName.test(v.trim())],
       ['telefono',  v => reTel.test(v.trim())],
       ['rol',       v => !!v],
       ['estado',    v => !!v],
@@ -343,26 +351,32 @@
         Swal.fire({
           title: 'Editar Usuario',
           html: `
-            <input id="edit_username" class="swal2-input" placeholder="Username" value="${data.username || ''}">
-            <input id="edit_first"    class="swal2-input" placeholder="Nombre"   value="${data.first_name || ''}">
-            <input id="edit_email"    class="swal2-input" placeholder="Email"    value="${data.email || ''}">
-            <input id="edit_last"     class="swal2-input" placeholder="Apellido" value="${data.last_name || ''}">
-            <input id="edit_tel"      class="swal2-input" placeholder="Teléfono" value="${data.telefono || ''}">
-            <select id="edit_rol" class="swal2-select" style="width:100%;margin-bottom:1rem;">
-              <option value="ADMIN"      ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option>
-              <option value="COMPRAS"    ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option>
-              <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option>
-              <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option>
-              <option value="VENTAS"     ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option>
-              <option value="FINANZAS"   ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option>
-            </select>
-            <select id="edit_estado" class="swal2-select" style="width:100%;">
-              <option value="activo"    ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>
-              <option value="inactivo"  ${data.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
-              <option value="bloqueado" ${data.estado === 'bloqueado' ? 'selected' : ''}>Bloqueado</option>
-            </select>
-          `,
-          showCancelButton: true,
+            <div class="swal-label-input"><label for="edit_username">Username</label><input id="edit_username" class="swal2-input" value="${data.username || ''}"></div>
+            <div class="swal-label-input"><label for="edit_first">Nombre</label><input id="edit_first" class="swal2-input" value="${data.first_name || ''}"></div>
+            <div class="swal-label-input"><label for="edit_last">Apellido</label><input id="edit_last" class="swal2-input" value="${data.last_name || ''}"></div>
+            <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email || ''}"></div>
+            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}"></div>
+            <div class="swal-label-input">
+              <label for="edit_rol">Rol</label>
+              <select id="edit_rol" class="swal-custom-select">
+                <option value="ADMIN"      ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+                <option value="COMPRAS"    ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option>
+                <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option>
+                <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option>
+                <option value="VENTAS"     ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option>
+                <option value="FINANZAS"   ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option>
+              </select>
+            </div>
+            <div class="swal-label-input">
+              <label for="edit_estado">Estado</label>
+              <select id="edit_estado" class="swal-custom-select">
+                <option value="activo"    ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>
+                <option value="inactivo"  ${data.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
+                <option value="bloqueado" ${data.estado === 'bloqueado' ? 'selected' : ''}>Bloqueado</option>
+              </select>
+            </div>`,
+          customClass: { htmlContainer: 'swal-container' },
+          confirmButtonColor: '#d33',
           confirmButtonText: 'Guardar',
           cancelButtonText: 'Cancelar',
           preConfirm: () => {

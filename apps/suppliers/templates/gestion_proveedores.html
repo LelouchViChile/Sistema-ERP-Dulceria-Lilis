@@ -226,18 +226,18 @@
                       <td>{{ p.rut_nif }}</td>
                       <td>{{ p.razon_social }}</td>
                       <td>
-                        {% if p.estado == "Activo" %}
-                          <span class="badge bg-success">ACTIVO</span>
-                        {% elif p.estado == "Bloqueado" or p.estado == "Inactivo" %}
-                          <span class="badge bg-danger">{{ p.estado|upper }}</span>
+                        {% if p.estado == 'Activo' %}
+                        <span class="badge bg-success-subtle text-success">Activo</span>
+                        {% elif p.estado == 'Inactivo' %}
+                        <span class="badge bg-warning-subtle text-warning">Inactivo</span>
                         {% else %}
-                          <span class="badge bg-secondary">{{ p.estado|upper }}</span>
+                        <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
                         {% endif %}
                       </td>
                       <td>{{ p.email }}</td>
                       <td>
                         <button class="btn btn-sm btn-warning" onclick="editarProveedor('{{ p.id }}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                        {% if p.estado == "Activo" and p.activo %}
+                        {% if p.estado == "Activo" %}
                           <button class="btn btn-outline-secondary btn-sm" onclick="desactivarProveedor('{{ p.id }}')" title="Desactivar">
                             <i class="bi bi-person-dash"></i>
                           </button>
@@ -342,6 +342,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+  .swal-container { text-align: left !important; }
+  .swal-label-input { margin-bottom: 1rem; }
+  .swal-label-input label { display: block; margin-bottom: .25rem; font-size: .9rem; color: #555; }
+  .swal-label-input .swal2-input, .swal-label-input .swal-custom-select { width: 100% !important; margin: 0 !important; }
+  .swal-custom-select { display: block !important; padding: .375rem .75rem; font-size: 1rem; border: 1px solid #d1d1d1; border-radius: .25rem; }
+</style>
 <script>
 (function(){
   // ---- util CSRF
@@ -494,14 +501,15 @@
       const {value: formValues} = await Swal.fire({
         title:'Editar Proveedor',
         html:`
-          <input id="edit_rut" class="swal2-input" placeholder="RUT/NIF" value="${data.rut_nif||''}">
-          <input id="edit_razon" class="swal2-input" placeholder="Razón Social" value="${data.razon_social||''}">
-          <input id="edit_email" class="swal2-input" placeholder="Email" value="${data.email||''}">
-          <input id="edit_telefono" class="swal2-input" placeholder="Teléfono" value="${data.telefono||''}">
-          <input id="edit_web" class="swal2-input" placeholder="Sitio web" value="${data.sitio_web||''}">
-          <input id="edit_condiciones" class="swal2-input" placeholder="Condiciones de Pago" value="${data.condiciones_pago||''}">
+          <div class="swal-label-input"><label for="edit_rut">RUT/NIF</label><input id="edit_rut" class="swal2-input" value="${data.rut_nif||''}"></div>
+          <div class="swal-label-input"><label for="edit_razon">Razón Social</label><input id="edit_razon" class="swal2-input" value="${data.razon_social||''}"></div>
+          <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email||''}"></div>
+          <div class="swal-label-input"><label for="edit_telefono">Teléfono</label><input id="edit_telefono" class="swal2-input" value="${data.telefono||''}"></div>
+          <div class="swal-label-input"><label for="edit_web">Sitio Web</label><input id="edit_web" class="swal2-input" value="${data.sitio_web||''}"></div>
+          <div class="swal-label-input"><label for="edit_condiciones">Condiciones de Pago</label><input id="edit_condiciones" class="swal2-input" value="${data.condiciones_pago||''}"></div>
         `,
-        showCancelButton:true,
+        customClass: { htmlContainer: 'swal-container' },
+        confirmButtonColor: '#d33',
         confirmButtonText:'Guardar',
         cancelButtonText:'Cancelar',
         preConfirm:()=>{

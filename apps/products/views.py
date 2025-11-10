@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
+from django.db import transaction, models
 import json
 from django.shortcuts import get_object_or_404
 
@@ -51,12 +51,14 @@ def _qs_to_dicts(qs):
     """
     data = []
     for p in qs:
+        # Calculamos el stock total sumando las cantidades del modelo Stock
+        total_stock = p.stocks.aggregate(total=models.Sum('cantidad'))['total'] or 0
         data.append({
             "id": p.id,
             "sku": getattr(p, "sku", ""),
             "nombre": getattr(p, "nombre", getattr(p, "name", "")),
             "categoria": _display_categoria(p),
-            "stock": getattr(p, "stock", 0),
+            "stock": total_stock,
         })
     return data
 
@@ -139,14 +141,16 @@ def product_list_view(request):
         ws.title = "Productos"
         headers = ["ID", "SKU", "Nombre", "Categoría", "Stock"]
         ws.append(headers)
-
-        for p in qs:
+        
+        # Usamos la misma función _qs_to_dicts para asegurar consistencia de datos
+        productos_data = _qs_to_dicts(qs)
+        for p_data in productos_data:
             ws.append([
-                p.id,
-                getattr(p, "sku", ""),
-                getattr(p, "nombre", getattr(p, "name", "")),
-                _display_categoria(p),
-                getattr(p, "stock", 0),
+                p_data["id"],
+                p_data["sku"],
+                p_data["nombre"],
+                p_data["categoria"],
+                p_data["stock"],
             ])
 
         for col in ws.columns:
@@ -175,6 +179,7 @@ def product_list_view(request):
         "query": query,
         "sort_by": sort_by,
         "categorias": Categoria.objects.all(),
+        "uom_choices": Product.UOMS,  # Pasar las opciones de UoM a la plantilla
     }
     return render(request, "productos.html", context)
 
@@ -227,10 +232,7 @@ def crear_producto(request):
     precio_venta  = (data.get("precio_venta") or "").strip()
     marca         = (data.get("marca") or "").strip()
     ean_upc       = (data.get("codigo_barras") or "").strip()
-    stock_min     = (data.get("stock_min") or "").strip()
-    stock_max     = (data.get("stock_max") or "").strip()
-    estado        = (data.get("estado") or "Activo").strip()
-
+    uom           = (data.get("uom") or "UN").strip() # Leer la unidad de medida
     # NOTA: el template tiene campos como 'unidad_medida', 'ubicacion', 'proveedor',
     # 'ultima_entrada', 'imagen', 'notas' que NO existen en el modelo -> los ignoramos
     # o los mapearías a otros campos si los agregas al modelo en el futuro.
@@ -241,6 +243,10 @@ def crear_producto(request):
     # - stock_minimo    <- stock_min
     # - stock_maximo    <- stock_max
     # - activo          <- estado ("Activo" => True, otro => False)
+    stock_min     = (data.get("stock_min") or "").strip()
+    stock_max     = (data.get("stock_max") or "").strip()
+    estado        = (data.get("estado") or "Activo").strip()
+
 
     # --- 3) Validaciones clave (mismo estilo que transacciones) ---
     if not sku or not nombre:
@@ -290,15 +296,15 @@ def crear_producto(request):
             descripcion=descripcion,
             categoria_id=categoria_id,
             marca=marca or "",
-            # Defaults sensatos para los que no vienen en el form
-            uom_compra="UN",
-            uom_venta="UN",
+            # Usar la UoM del formulario para compra y venta
+            uom_compra=uom,
+            uom_venta=uom,
             factor_conversion=1,
             costo_estandar=costo_estandar if costo_estandar is not None else None,
             precio_venta=precio_venta_f if precio_venta_f is not None else None,
             impuesto_iva=19,  # puedes exponerlo en el form si quieres
             stock_minimo=stock_minimo if stock_minimo is not None else 0,
-            stock_maximo=stock_maximo,
+            stock_maximo=stock_maximo, # Se mantiene la validación de stock_maximo >= stock_minimo en el modelo
             punto_reorden=None,
             perecible=False,
             control_por_lote=False,

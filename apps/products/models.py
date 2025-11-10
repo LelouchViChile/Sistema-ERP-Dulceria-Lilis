@@ -19,7 +19,15 @@ class Categoria(models.Model):
 
 
 class Producto(models.Model):
-    UOMS = (("UN", "Unidad"), ("CAJA", "Caja"), ("KG", "Kilogramos"))
+    UOMS = (
+        ("UN", "Unidad"),
+        ("CAJA", "Caja"),
+        ("KG", "Kilogramos"),
+        ("GR", "Gramos"),
+        ("PQ", "Paquete"),
+        ("DISP", "Display"),
+        ("BOL", "Bolsa"),
+    )
 
     sku = models.CharField("SKU", max_length=50, unique=True, validators=[valida_sku])
     ean_upc = models.CharField("EAN/UPC", max_length=14, blank=True, null=True, unique=True, validators=[valida_ean])

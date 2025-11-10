@@ -80,8 +80,8 @@
                 <div class="row g-2">
                   <div class="col-6">
                     <label class="form-label small">Fecha</label>
-                    <input id="movFecha" name="fecha" type="date" class="form-control form-control-sm" required>
-                    <div class="invalid-feedback">Fecha obligatoria.</div>
+                    <input id="movFecha" name="fecha" type="date" class="form-control form-control-sm" readonly>
+                    <div class="form-text small">Se registrará la fecha actual.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small">Tipo</label>
@@ -244,6 +244,13 @@
 
 <!-- ========== JS ========== -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- opcional para confirmaciones rápidas -->
+<style>
+  .swal-container { text-align: left !important; }
+  .swal-label-input { margin-bottom: 1rem; }
+  .swal-label-input label { display: block; margin-bottom: .25rem; font-size: .9rem; color: #555; }
+  .swal-label-input .swal2-input, .swal-label-input .swal2-select { width: 100% !important; margin: 0 !important; }
+  .swal2-select { display: block !important; }
+</style>
 <script>
 (function(){
   // CSRF token
@@ -298,6 +305,13 @@
       }
     }
   }
+
+  // === Lógica para fechas (no futuro) ===
+  const today = new Date().toISOString().split('T')[0];
+  // Para el formulario de transacciones, se establece la fecha de hoy automáticamente.
+  const movFechaEl = document.getElementById('movFecha');
+  if (movFechaEl) movFechaEl.value = today;
+
 
   // Clamp non-negative inputs
   document.querySelectorAll('input[data-nonneg]').forEach(el=>{
@@ -396,11 +410,13 @@
 
       const { value: formValues } = await Swal.fire({
         title: 'Editar Movimiento',
-        html:
-          `<input id="swal-fecha" type="date" class="swal2-input" value="${data.movimiento.fecha.split('T')[0]}">` +
-          `<input id="swal-tipo" class="swal2-input" placeholder="Tipo" value="${data.movimiento.tipo}">` +
-          `<input id="swal-cantidad" type="number" class="swal2-input" placeholder="Cantidad" value="${data.movimiento.cantidad}">`,
-        focusConfirm: false,
+        html: `
+          <div class="swal-label-input"><label for="swal-fecha">Fecha</label><input id="swal-fecha" type="date" class="swal2-input" value="${data.movimiento.fecha.split('T')[0]}"></div>
+          <div class="swal-label-input"><label for="swal-tipo">Tipo</label><input id="swal-tipo" class="swal2-input" value="${data.movimiento.tipo}"></div>
+          <div class="swal-label-input"><label for="swal-cantidad">Cantidad</label><input id="swal-cantidad" type="number" step="0.01" class="swal2-input" value="${data.movimiento.cantidad}"></div>
+        `,
+        customClass: { htmlContainer: 'swal-container' },
+        confirmButtonColor: '#d33',
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
