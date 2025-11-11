@@ -1,22 +1,24 @@
-// main.js — Búsqueda AJAX robusta con delegación y re-wire automático
+// main.js — Búsqueda AJAX en vivo para formularios GET con [data-live="search"]
+// Reemplaza: <tbody id="list-body"> y <nav id="list-pagination"> con el HTML recibido.
+// Soporta: tecleo (debounced), Enter/submit, cambio de <select>, clicks de paginación y redirección a login.
+
 (function () {
-  function log(){ try{ console.log.apply(console, arguments); }catch(_){} }
+  function log() { try { console.log.apply(console, arguments); } catch (_) {} }
 
-  function debounce(fn, wait){
-    let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,a), wait); };
+  function debounce(fn, wait) {
+    let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
   }
 
-  function serializeForm(form){
+  function serializeForm(form) {
     const fd = new FormData(form);
-    const p = new URLSearchParams();
-    for (const [k,v] of fd.entries()){
-      if (v !== '' && v != null) p.append(k, v); // evita keys vacías
+    const params = new URLSearchParams();
+    for (const [k, v] of fd.entries()) {
+      if (v !== null && v !== undefined && v !== '') params.append(k, v);
     }
-    return p.toString();
+    return params;
   }
 
-  function extractAndSwap(htmlText){
-    // DOM temporal para encontrar #list-body y #list-pagination
+  function extractAndSwap(htmlText) {
     const dom = document.createElement("html");
     dom.innerHTML = htmlText;
 
@@ -27,93 +29,102 @@
     const curPag  = document.querySelector("#list-pagination");
 
     if (newBody && curBody) curBody.innerHTML = newBody.innerHTML;
-    if (newPag  && curPag ) curPag.innerHTML  = newPag.innerHTML;
+    if (newPag && curPag)   curPag.innerHTML  = newPag.innerHTML;
 
-    // tras reemplazar, asegurar wiring (paginación)
+    // Re-engancha paginación cada vez que reemplazamos el HTML
     wirePagination();
   }
 
-  async function doFetch(url, opts = {}){
-    const res = await fetch(url, {
-      method: "GET",
-      credentials: "same-origin",
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-      ...opts
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
+  async function doFetch(url, opts = {}) {
+    const res = await fetch(url, { method: "GET", credentials: "same-origin", redirect: "follow", ...opts });
+    const text = await res.text();
+    return { ok: res.ok, status: res.status, text, finalUrl: res.url };
   }
 
-  async function refreshFromForm(form){
-    const url = form.action || window.location.pathname;
-    const qs  = serializeForm(form);
-    const full = qs ? `${url}?${qs}` : url;
+  function ensureAbsolute(urlLike) {
+    // Convierte acción relativa a absoluta en el mismo origen
+    try { return new URL(urlLike, window.location.origin); }
+    catch { return new URL(window.location.href); }
+  }
 
-    try{
+  async function refreshFromForm(form) {
+    const base = ensureAbsolute(form.action || window.location.pathname);
+    const params = serializeForm(form);
+    base.search = params.toString();
+
+    try {
       document.body.style.cursor = "progress";
-      const html = await doFetch(full);
-      extractAndSwap(html);
-      window.history.replaceState({}, "", full); // actualiza URL sin recargar
-    }catch(e){
+      const { ok, status, text, finalUrl } = await doFetch(base.toString());
+
+      // Si nos mandaron al login, redirige la página completa para mantener la sesión coherente
+      if (finalUrl.includes("/login/")) {
+        window.location.href = finalUrl;
+        return;
+      }
+
+      if (!ok) throw new Error(`HTTP ${status}`);
+      extractAndSwap(text);
+
+      // Actualiza la URL sin recargar
+      window.history.replaceState({}, "", base.toString());
+    } catch (e) {
       log("[live-search] error:", e);
-    }finally{
+    } finally {
       document.body.style.cursor = "";
     }
   }
 
-  // —— wiring principal —— //
-  function setupLiveSearch(root = document){
+  function wirePagination() {
+    const nav = document.querySelector("#list-pagination");
+    if (!nav) return;
+    nav.querySelectorAll("a[href]").forEach(a => {
+      a.addEventListener("click", ev => {
+        ev.preventDefault();
+        const form = document.querySelector('form[data-live="search"]');
+        if (!form) { window.location.href = a.href; return; }
+        // Usa la URL de la página que pidió el link
+        const url = new URL(a.href, window.location.origin);
+        // Conserva también los parámetros del form actual (por si hay filtros)
+        const params = serializeForm(form);
+        url.search = new URLSearchParams({ ...Object.fromEntries(url.searchParams), ...Object.fromEntries(params) }).toString();
+        doFetch(url.toString()).then(({ finalUrl, ok, text }) => {
+          if (finalUrl.includes("/login/")) { window.location.href = finalUrl; return; }
+          if (!ok) return;
+          extractAndSwap(text);
+          window.history.replaceState({}, "", url.toString());
+        }).catch(err => log("[live-search] paginación error:", err));
+      }, { passive: false });
+    });
+  }
+
+  function setupLiveSearch(root = document) {
     const form = root.querySelector('form[data-live="search"]');
-    if (!form) return;
+    if (!form) { log("[live-search] No se encontró form[data-live='search']"); return; }
 
-    // evita doble wiring
-    if (form.__liveReady) return;
-    form.__liveReady = true;
-
-    // 1) Submit (Enter o botón) — siempre AJAX
-    form.addEventListener("submit", ev => {
+    // Submit (Enter / botón)
+    form.addEventListener("submit", function (ev) {
       ev.preventDefault();
       refreshFromForm(form);
     });
 
-    // 2) Delegación de 'input' (sobrevive a cambios)
+    // Tecleo (debounced)
     const debounced = debounce(() => refreshFromForm(form), 300);
-    form.addEventListener("input", ev => {
-      const el = ev.target;
-      if (!el) return;
-      // dispara en text, search, number, email, etc.
-      if (el.matches('input, textarea')) debounced();
+    form.querySelectorAll("input[type='text'], input[type='search']").forEach(inp => {
+      inp.addEventListener("input", debounced);
     });
 
-    // 3) Cambios en select/checkbox/radio
-    form.addEventListener("change", ev => {
+    // Cambios en selects / checkboxes / radios
+    form.addEventListener("change", function (ev) {
       const el = ev.target;
       if (!el) return;
-      if (el.matches('select, input[type="checkbox"], input[type="radio"]')) {
+      const tag = el.tagName;
+      const type = (el.type || "").toLowerCase();
+      if (tag === "SELECT" || type === "checkbox" || type === "radio") {
         refreshFromForm(form);
       }
     });
 
-    // 4) Paginación por delegación
     wirePagination();
-  }
-
-  function wirePagination(){
-    const pag = document.querySelector("#list-pagination");
-    if (!pag || pag.__wired) return;
-    pag.__wired = true;
-
-    pag.addEventListener("click", ev => {
-      const a = ev.target.closest("a[href]");
-      if (!a) return;
-      ev.preventDefault();
-      doFetch(a.href)
-        .then(html => {
-          extractAndSwap(html);
-          window.history.replaceState({}, "", a.href);
-        })
-        .catch(err => log(err));
-    });
   }
 
   document.addEventListener("DOMContentLoaded", () => {
