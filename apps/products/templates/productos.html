@@ -15,11 +15,11 @@
     </div>
   </div>
 
-  <!-- Búsqueda / orden / export -->
+  <!-- 🔍 BUSCADOR Y ORDEN (MODO TRANSACCIONES) -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
     <form method="get" action="{% url 'products:list' %}" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
-        <input type="text" name="q" class="form-control border-danger"
+        <input type="search" name="q" class="form-control border-danger"
                placeholder="Buscar por ID / SKU / Nombre / Categoría / Stock"
                value="{{ query|default:'' }}" autocomplete="off" inputmode="search">
         <button type="submit" class="btn btn-danger">
@@ -27,16 +27,14 @@
         </button>
       </div>
 
-      <!-- onChange dispara envío (lo capta el script AJAX) -->
-      <select name="sort" class="form-select form-select-sm border-danger"
-              onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
-        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por…</option>
+      <select name="sort" class="form-select form-select-sm border-danger">
         <option value="sku" {% if sort_by == 'sku' %}selected{% endif %}>SKU</option>
         <option value="nombre" {% if sort_by == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
         <option value="-nombre" {% if sort_by == '-nombre' %}selected{% endif %}>Nombre (Z-A)</option>
         <option value="categoria" {% if sort_by == 'categoria' %}selected{% endif %}>Categoría (A-Z)</option>
         <option value="-categoria" {% if sort_by == '-categoria' %}selected{% endif %}>Categoría (Z-A)</option>
         <option value="stock" {% if sort_by == 'stock' %}selected{% endif %}>Stock</option>
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
@@ -73,9 +71,7 @@
               </li>
             </ul>
 
-            <!-- CONTENIDO TABS -->
             <div class="tab-content" id="prodTabsContent">
-
               <!-- DATOS GENERALES -->
               <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
                 <div class="row g-3">
@@ -258,23 +254,13 @@
             <nav id="list-pagination" aria-label="Paginación de productos">
               <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
-                <li class="page-item">
-                  <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a>
-                </li>
-                <li class="page-item">
-                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a>
-                </li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a></li>
                 {% endif %}
-                <li class="page-item active">
-                  <span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-                </li>
+                <li class="page-item active"><span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
                 {% if page_obj.has_next %}
-                <li class="page-item">
-                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a>
-                </li>
-                <li class="page-item">
-                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a>
-                </li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a></li>
                 {% endif %}
               </ul>
             </nav>
@@ -515,69 +501,87 @@
 })();
 </script>
 
-<!-- LIVE SEARCH específico de esta plantilla (tecleo, submit y paginación SIN recargar) -->
+<!-- LIVE SEARCH estilo transacciones (Enter deshabilitado) -->
 <script>
-function setupLiveSearch(root = document) {
-  function extractAndSwap(html) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const newBody  = doc.getElementById("list-body");
-    const newPagi  = doc.getElementById("list-pagination");
-    const newLabel = doc.getElementById("list-pagination-label");
-    if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
-    if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
-    if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
-  }
+(function(){
+  function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
 
-  async function doFetch(url) {
-    const r = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" });
-    if (!r.ok) throw new Error("HTTP "+r.status);
-    return r.text();
-  }
+  const form = document.querySelector('form[data-live="search"]');
+  if(!form) return;
 
-  const form = root.querySelector('form[data-live="search"]');
-  if (!form) return;
   const q = form.querySelector('input[name="q"]');
 
-  let timer;
-  q.addEventListener("input", () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      form.dispatchEvent(new Event("submit", { cancelable: true }));
-    }, 300); // ← tecleo sin Enter
+  // 1) Bloquear Enter en TODO el form
+  form.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); }
   });
 
-  form.addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    const url = new URL(form.action || window.location.href, window.location.origin);
-    const fd  = new FormData(form);
+  // 2) Envío on-change para selects (orden)
+  form.addEventListener('change', (e) => {
+    if (e.target.tagName === 'SELECT') {
+      form.dispatchEvent(new Event('submit', { cancelable:true }));
+    }
+  });
 
-    // set params
-    url.search = new URLSearchParams(Array.from(fd.entries()).filter(([k,v]) => v !== "")).toString();
-    // reset page on new query/order
-    url.searchParams.delete("page");
-    // si q vacío => listado inicial (sin q)
+  // 3) Live al teclear
+  const run = debounce(() => {
+    const base = new URL(form.action || window.location.pathname, window.location.origin);
+    base.search = "";
+    const fd = new FormData(form);
     const qVal = (fd.get("q") || "").trim();
-    if (!qVal) { url.searchParams.delete("q"); }
 
-    doFetch(url.toString())
-      .then(html => { extractAndSwap(html); window.history.replaceState({}, "", url.toString()); })
-      .catch(console.error);
-  });
+    if (qVal) {
+      for (const [k,v] of fd.entries()) {
+        if (!v) continue;
+        if (k === "page") continue;
+        base.searchParams.set(k, v);
+      }
+      base.searchParams.set("page", "1");
+    }
+    // si queda vacío, volvemos al listado base (sin q ni page)
+    fetch(base.toString(), {
+      headers:{ "X-Requested-With":"XMLHttpRequest" }, credentials:"same-origin"
+    })
+    .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+    .then(html => {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const newBody  = doc.getElementById("list-body");
+      const newPagi  = doc.getElementById("list-pagination");
+      const newLabel = doc.getElementById("list-pagination-label");
+      if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
+      if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
+      if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
+      window.history.replaceState({}, "", base.toString());
+    })
+    .catch(console.error);
+  }, 300);
 
-  // Paginación por AJAX
-  root.addEventListener("click", (ev) => {
-    const a = ev.target.closest("#list-pagination a.page-link, #list-pagination a");
+  q && q.addEventListener("input", run);
+
+  // 4) Intercepta submit (botón lupa) y reutiliza la misma lógica
+  form.addEventListener("submit", (e)=>{ e.preventDefault(); run(); });
+
+  // 5) Paginación por AJAX
+  document.addEventListener("click", (ev) => {
+    const a = ev.target.closest("#list-pagination a");
     if (!a) return;
     ev.preventDefault();
-    const href = a.getAttribute("href");
-    if (!href) return;
-    doFetch(href)
-      .then(html => { extractAndSwap(html); window.history.replaceState({}, "", href); })
+    fetch(a.href, { headers:{ "X-Requested-With":"XMLHttpRequest" }, credentials:"same-origin" })
+      .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+      .then(html => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const newBody  = doc.getElementById("list-body");
+        const newPagi  = doc.getElementById("list-pagination");
+        const newLabel = doc.getElementById("list-pagination-label");
+        if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
+        if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
+        if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
+        window.history.replaceState({}, "", a.href);
+      })
       .catch(console.error);
   });
-}
-(document.readyState === "loading")
-  ? document.addEventListener("DOMContentLoaded", setupLiveSearch)
-  : setupLiveSearch();
+
+  console.log("[live-search] listo");
+})();
 </script>
 {% endblock %}

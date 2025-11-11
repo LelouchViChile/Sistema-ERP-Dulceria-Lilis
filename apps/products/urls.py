@@ -4,10 +4,7 @@ from . import views
 app_name = 'products'
 
 urlpatterns = [
-    # Listado (HTML)
     path('', views.product_list_view, name='list'),
-
-    # Buscador AJAX (JSON, máx. 10 resultados)
     path('search/', views.search_products, name='search'),
     path('crear/', views.crear_producto, name='crear'),
     path('editar/<int:prod_id>/', views.editar_producto, name='editar'),
