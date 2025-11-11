@@ -17,7 +17,7 @@
 
   <!-- Búsqueda / orden / export -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2">
+    <form method="get" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
         <input type="text" name="q" class="form-control border-danger"
                placeholder="Buscar producto..." value="{{ query }}">
@@ -143,6 +143,16 @@
                     <div class="invalid-feedback">El stock máximo es obligatorio.</div>
                   </div>
                   <div class="col-6">
+                    <label class="form-label small mb-1">Ubicación en Bodega</label>
+                    <select name="ubicacion" class="form-select form-select-sm" required>
+                      <option value="">Seleccione...</option>
+                      {% for bodega in bodegas %}
+                      <option value="{{ bodega.id }}">{{ bodega.nombre }}</option>
+                      {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">La ubicación es obligatoria.</div>
+                  </div>
+                  <div class="col-6">
                     <label class="form-label small mb-1">Proveedor Principal</label>
                     <input type="text" name="proveedor" class="form-control form-control-sm" required>
                   </div>
@@ -217,7 +227,7 @@
                   <th>Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="list-body">
                 {% for p in productos %}
                 <tr>
                   <td>{{ p.id }}</td>
@@ -239,7 +249,7 @@
 
           {% if page_obj %}
           <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
-            <small class="text-danger">
+            <small id="list-pagination-label" class="text-danger">
               Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} productos
             </small>
             <nav aria-label="Paginación de productos">
@@ -397,6 +407,7 @@
       stock_min:     (fd.get("stock_min") || "").trim(),
       stock_max:     (fd.get("stock_max") || "").trim(),
       estado:        (fd.get("estado") || "Activo").trim(),
+      ubicacion:     (fd.get("ubicacion") || "").trim(),
       uom:           (fd.get("uom") || "").trim(),
       // Los que no existen en el modelo (imagen/ubicacion/proveedor/...) se ignoran
     };

@@ -18,7 +18,7 @@
 
   <!-- Controles búsqueda + export + filtro -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2">
+    <form method="get" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
         <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..." value="{{ query }}">
         <button type="submit" class="btn btn-danger">
@@ -160,7 +160,7 @@
                   <th>Acciones</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="list-body">
                 {% for usuario in page_obj.object_list %}
                 <tr>
                   <td class="fw-medium">{{ usuario.username }}</td>
@@ -211,8 +211,8 @@
           <!-- ======== ZONA B: NO FORMATEAR / NO SELECCIONAR ======== -->
           <!-- prettier-ignore-start -->
           <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
-            <small class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios</small>
-            <nav aria-label="Paginación de usuarios">
+            <small id="list-pagination-label" class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios</small>
+            <nav id="list-pagination" aria-label="Paginación de usuarios">
               <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
                 <li class="page-item">

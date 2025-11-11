@@ -22,6 +22,7 @@ except ImportError:
 # Tu modelo se llama "Producto", lo importamos y lo aliasamos como Product para mantener el resto del código limpio.
 from .models import Producto as Product
 
+from apps.transactional.models import Bodega
 from .models import Categoria
 # -------- Helpers --------
 ALLOWED_SORT_FIELDS = {"id", "sku", "nombre", "categoria", "stock"}
@@ -180,6 +181,7 @@ def product_list_view(request):
         "sort_by": sort_by,
         "categorias": Categoria.objects.all(),
         "uom_choices": Product.UOMS,  # Pasar las opciones de UoM a la plantilla
+        "bodegas": Bodega.objects.all(),
     }
     return render(request, "productos.html", context)
 
@@ -232,6 +234,7 @@ def crear_producto(request):
     precio_venta  = (data.get("precio_venta") or "").strip()
     marca         = (data.get("marca") or "").strip()
     ean_upc       = (data.get("codigo_barras") or "").strip()
+    ubicacion_id  = (data.get("ubicacion") or "").strip()
     uom           = (data.get("uom") or "UN").strip() # Leer la unidad de medida
     # NOTA: el template tiene campos como 'unidad_medida', 'ubicacion', 'proveedor',
     # 'ultima_entrada', 'imagen', 'notas' que NO existen en el modelo -> los ignoramos
@@ -253,6 +256,8 @@ def crear_producto(request):
         return JsonResponse({"ok": False, "error": "SKU y Nombre son obligatorios."}, status=400)
     if not categoria_id:
         return JsonResponse({"ok": False, "error": "Selecciona una Categoría."}, status=400)
+    if not ubicacion_id:
+        return JsonResponse({"ok": False, "error": "Selecciona una Ubicación."}, status=400)
 
     # numéricos
     def to_decimal(val, default=None):
@@ -279,6 +284,9 @@ def crear_producto(request):
 
     # categoría existe?
     get_object_or_404(Categoria, id=categoria_id)
+    
+    # bodega existe?
+    get_object_or_404(Bodega, id=ubicacion_id)
 
     # SKU único
     if Product.objects.filter(sku=sku).exists():
