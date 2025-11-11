@@ -1,0 +1,54 @@
+<tbody id="list-body">
+    {% for p in productos %}
+    <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.sku }}</td>
+        <td>{{ p.nombre }}</td>
+        <td>{{ p.categoria }}</td>
+        <td>{{ p.stock }}</td>
+        <td class="text-center">
+            <button class="btn btn-warning btn-sm" data-id="{{ p.id }}" data-bs-toggle="modal"
+                data-bs-target="#modalEditar">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-danger btn-sm" data-id="{{ p.id }}">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="6" class="text-center text-muted">Sin resultados</td>
+    </tr>
+    {% endfor %}
+</tbody>
+
+<nav id="list-pagination" aria-label="Paginación" class="mt-2">
+    {% if page_obj.has_other_pages %}
+    <ul class="pagination justify-content-center pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a href="?page={{ page_obj.previous_page_number }}" class="page-link">&laquo;</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% else %}
+        <li class="page-item"><a href="?page={{ num }}" class="page-link">{{ num }}</a></li>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item"><a href="?page={{ page_obj.next_page_number }}" class="page-link">&raquo;</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+        {% endif %}
+    </ul>
+    {% endif %}
+</nav>
+
+<small id="list-pagination-label" class="text-muted">
+    Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }}
+</small>

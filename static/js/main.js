@@ -1,8 +1,21 @@
 // main.js — Búsqueda AJAX en vivo para formularios GET con [data-live="search"]
-// Reemplaza: <tbody id="list-body"> y <nav id="list-pagination"> con el HTML recibido.
+// Reemplaza: <tbody id="list-body">, <nav id="list-pagination"> y <small id="list-pagination-label">
+// Funciona con input (q), selects, paginación y submit. Si falla AJAX, el form sigue funcionando normal.
 
 (function () {
-  function log() { try { console.log.apply(console, arguments); } catch (_) {} }
+  // ---- Config ----
+  const DEBUG_LIVE = false; // <- pon true si quieres ver logs en consola
+
+  // ---- Utils ----
+  function log() {
+    if (!DEBUG_LIVE) return;
+    try { console.log.apply(console, arguments); } catch (_) {}
+  }
+  function isAbort(err) {
+    return err && (err.name === "AbortError" ||
+                   String(err).includes("AbortError") ||
+                   String(err).includes("signal is aborted"));
+  }
 
   // Evita respuestas que llegan desordenadas
   let currentAbort = null;
@@ -19,102 +32,126 @@
     const fd = new FormData(form);
     const params = new URLSearchParams();
     for (const [k, v] of fd.entries()) {
-      if (v !== null && v !== undefined && v !== "") params.append(k, v);
+      if (v !== null && v !== undefined) params.append(k, String(v));
     }
     return params.toString();
   }
 
-  function extractAndSwap(htmlText) {
+  function extractAndSwap(htmlText, form) {
     const dom = document.createElement("html");
     dom.innerHTML = htmlText;
 
-    const newBody = dom.querySelector("#list-body");
-    const newPag  = dom.querySelector("#list-pagination");
-    const curBody = document.querySelector("#list-body");
-    const curPag  = document.querySelector("#list-pagination");
+    const newBody  = dom.querySelector("#list-body");
+    const newPagi  = dom.querySelector("#list-pagination");
+    const newLabel = dom.querySelector("#list-pagination-label");
 
-    if (newBody && curBody) curBody.innerHTML = newBody.innerHTML;
-    if (newPag && curPag)   curPag.innerHTML  = newPag.innerHTML;
+    const curBody  = document.getElementById("list-body");
+    const curPagi  = document.getElementById("list-pagination");
+    const curLabel = document.getElementById("list-pagination-label");
 
-    // Re-engancha paginación (links <a href="?page=2&...">)
-    if (curPag) {
-      curPag.querySelectorAll("a[href]").forEach(a => {
-        a.addEventListener("click", function (ev) {
-          ev.preventDefault();
-          refreshFromURL(this.href);
-        });
-      });
-    }
+    if (newBody && curBody)   curBody.replaceWith(newBody);
+    if (newPagi && curPagi)   curPagi.replaceWith(newPagi);
+    if (newLabel && curLabel) curLabel.replaceWith(newLabel);
+
+    // Re-engancha paginación
+    wirePagination(form);
   }
 
-  async function doFetch(url) {
+  async function doFetch(url, form) {
     if (currentAbort) currentAbort.abort();
-    currentAbort = new AbortController();
+    const ctrl = new AbortController();
+    currentAbort = ctrl;
 
-    const res = await fetch(url, {
-      method: "GET",
-      credentials: "same-origin",
-      signal: currentAbort.signal
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  }
+    const headers = { "X-Requested-With": "XMLHttpRequest" };
 
-  async function refreshFromURL(full) {
-    try {
-      document.body.style.cursor = "progress";
-      const html = await doFetch(full);
-      extractAndSwap(html);
-      window.history.replaceState({}, "", full);
-    } catch (e) {
-      log("[live-search] error:", e);
-    } finally {
-      document.body.style.cursor = "";
+    const resp = await fetch(url, { headers, signal: ctrl.signal, credentials: "same-origin" });
+    if (!resp.ok) {
+      if (resp.status >= 500) throw new Error("HTTP " + resp.status);
+      // 4xx: seguimos mostrando la respuesta si existe
     }
-  }
-
-  function buildURLFromForm(form) {
-    const url = form.action || window.location.pathname;
-    const qs  = serializeForm(form);
-    return qs ? `${url}?${qs}` : url;
+    const html = await resp.text();
+    extractAndSwap(html, form);
   }
 
   function refreshFromForm(form) {
-    const full = buildURLFromForm(form);
-    return refreshFromURL(full);
+    const base = form.getAttribute("action") || window.location.pathname;
+    const qs   = serializeForm(form);
+    const url  = qs ? `${base}?${qs}` : base;
+    return doFetch(url, form);
   }
 
-  function setupLiveSearch(root = document) {
-    const form = root.querySelector('form[data-live="search"]');
-    if (!form) return;
+  function refreshFromURL(url, form) {
+    return doFetch(url, form);
+  }
 
-    // Submit (Enter / botón)
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      refreshFromForm(form);
+  function wirePagination(form) {
+    const pag = document.getElementById("list-pagination");
+    if (!pag) return;
+
+    pag.querySelectorAll("a.page-link[href]").forEach(a => {
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const url = a.getAttribute("href");
+        if (!url) return;
+        refreshFromURL(url, form)
+          .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
+      }, { once: true }); // se re-engancha tras cada swap
     });
+  }
 
-    const debounced = debounce(() => refreshFromForm(form), 250);
+  function setupLiveSearch(root) {
+    root.querySelectorAll('form[method="get"][data-live="search"]').forEach(form => {
+      // Submit (Enter/botón) sin recargar
+      form.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        refreshFromForm(form)
+          .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
+      });
 
-    // Dispara mientras escribes (incluye backspace)
-    form.querySelectorAll("input[type='text'], input[type='search']").forEach(inp => {
-      inp.addEventListener("input", debounced);
-      inp.addEventListener("keyup", debounced);      // fallback para algunos navegadores
-      inp.addEventListener("search", debounced);     // cuando tocan la “X” para limpiar
-    });
+      // Input de búsqueda
+      const q = form.querySelector('input[name="q"]');
+      if (q) {
+        // Evitar que Enter recargue la página
+        q.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            form.dispatchEvent(new Event("submit", { cancelable: true })); // dispara AJAX
+          }
+        });
 
-    // Cambios en selects/checkbox/radio
-    form.addEventListener("change", function (ev) {
-      const el = ev.target;
-      if (!el) return;
-      if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio") {
-        refreshFromForm(form);
+        const debounced = debounce(() => {
+          if (!q.value) {
+            const base = form.getAttribute("action") || window.location.pathname;
+            const url  = `${base}?q=`;
+            refreshFromURL(url, form)
+              .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
+          } else {
+            refreshFromForm(form)
+              .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
+          }
+        }, 250);
+
+        q.addEventListener("input", debounced);
+        q.addEventListener("search", debounced); // cuando limpian con la “X”
+      }
+
+      // Selects / checkboxes / radio
+      form.querySelectorAll("select, input[type='checkbox'], input[type='radio']").forEach(el => {
+        el.addEventListener("change", () => {
+          refreshFromForm(form)
+            .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
+        });
+      });
+
+      // Paginación inicial
+      wirePagination(form);
+
+      // Si llegamos con q vacía, cargamos lista limpia
+      if (q && !q.value) {
+        refreshFromForm(form)
+          .catch(err => { if (!isAbort(err)) log("[live-search] error:", err?.message || err); });
       }
     });
-
-    // Cargar la lista limpia cuando el q está vacío
-    const q = form.querySelector("[name='q']");
-    if (q && !q.value) refreshFromForm(form);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
