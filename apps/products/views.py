@@ -203,6 +203,8 @@ def product_list_view(request):
         "uom_choices": getattr(Product, "UOMS", []),
         "bodegas": _load_bodegas_safe(),
     }
+    ctx["query"] = query
+    ctx["sort_by"] = sort_by
 
     # 🔧 Si la solicitud viene por AJAX (live-search), devolvemos solo el fragmento HTML necesario
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":

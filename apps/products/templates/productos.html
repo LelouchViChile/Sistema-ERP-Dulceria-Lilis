@@ -27,7 +27,7 @@
         </button>
       </div>
 
-      <select name="sort" class="form-select form-select-sm border-danger">
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="sku" {% if sort_by == 'sku' %}selected{% endif %}>SKU</option>
         <option value="nombre" {% if sort_by == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
         <option value="-nombre" {% if sort_by == '-nombre' %}selected{% endif %}>Nombre (Z-A)</option>
@@ -209,8 +209,8 @@
 
     <!-- Tabla -->
     <div class="col-12 col-lg-8 col-xxl-9">
-      <div class="card border border-danger shadow-sm h-100" id="list-region">
-        <div class="card-body">
+      <div class="card border border-danger shadow-sm h-100">
+        <div class="card-body" id="list-region">
           <div class="table-responsive">
             <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
               <i class="bi bi-box-seam-fill me-2"></i>Productos Registrados
@@ -254,13 +254,13 @@
             <nav id="list-pagination" aria-label="Paginación de productos">
               <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a></li>
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page=1&q={{ query|urlencode }}&sort={{ sort_by }}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query|urlencode }}&sort={{ sort_by }}">Anterior</a></li>
                 {% endif %}
                 <li class="page-item active"><span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
                 {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a></li>
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query|urlencode }}&sort={{ sort_by }}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query|urlencode }}&sort={{ sort_by }}">&raquo;</a></li>
                 {% endif %}
               </ul>
             </nav>
@@ -505,85 +505,96 @@
 
 <!-- LIVE SEARCH estilo transacciones (Enter deshabilitado) -->
 <script>
-(function(){
-  function debounce(fn, wait){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+(function () {
+  function log(){/* console.log.apply(console, arguments); */ }
 
-  const form = document.querySelector('form[data-live="search"]');
-  if(!form) return;
+  function doFetch(url) {
+    return fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    }).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    });
+  }
 
-  const q = form.querySelector('input[name="q"]');
+  function extractAndSwap(html) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    const nextRegion = tmp.querySelector("#list-region");
+    const curRegion  = document.querySelector("#list-region");
+    if (!nextRegion || !curRegion) { window.location.reload(); return; }
+    curRegion.replaceWith(nextRegion);
+    setupLiveSearch(document); // re-atacha eventos tras el swap
+  }
 
-  // 1) Bloquear Enter en TODO el form
-  form.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); }
-  });
-
-  // 2) Envío on-change para selects (orden)
-  form.addEventListener('change', (e) => {
-    if (e.target.tagName === 'SELECT') {
-      form.dispatchEvent(new Event('submit', { cancelable:true }));
-    }
-  });
-
-  // 3) Live al teclear
-  const run = debounce(() => {
+  function urlFromForm(form) {
     const base = new URL(form.action || window.location.pathname, window.location.origin);
     base.search = "";
     const fd = new FormData(form);
-    const qVal = (fd.get("q") || "").trim();
+    const q = (fd.get("q") || "").trim();
 
-    if (qVal) {
-      for (const [k,v] of fd.entries()) {
-        if (!v) continue;
-        if (k === "page") continue;
-        base.searchParams.set(k, v);
-      }
-      base.searchParams.set("page", "1");
+    if (q === "") {
+      fd.delete("q");
     }
-    // si queda vacío, volvemos al listado base (sin q ni page)
-    fetch(base.toString(), {
-      headers:{ "X-Requested-With":"XMLHttpRequest" }, credentials:"same-origin"
-    })
-    .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
-    .then(html => {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      const newBody  = doc.getElementById("list-body");
-      const newPagi  = doc.getElementById("list-pagination");
-      const newLabel = doc.getElementById("list-pagination-label");
-      if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
-      if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
-      if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
-      window.history.replaceState({}, "", base.toString());
-    })
-    .catch(console.error);
-  }, 300);
+    for (const [k, v] of fd.entries()) {
+      if (!v) continue;
+      if (k === "page") continue;
+      base.searchParams.set(k, v);
+    }
+    base.searchParams.set("page", "1");
+    return base.toString();
+  }
 
-  q && q.addEventListener("input", run);
+  function setupLiveSearch(root = document) {
+    const searchForm  = root.querySelector('form[data-live="search"]');
+    if (!searchForm) return;
 
-  // 4) Intercepta submit (botón lupa) y reutiliza la misma lógica
-  form.addEventListener("submit", (e)=>{ e.preventDefault(); run(); });
+    const searchInput = searchForm.querySelector('input[name="q"]');
+    if (searchInput && !searchInput._liveBound) {
+      let debounceTimer;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => searchForm.dispatchEvent(new Event("submit", { cancelable: true })), 400);
+      });
+      searchInput._liveBound = true;
+    }
 
-  // 5) Paginación por AJAX
-  document.addEventListener("click", (ev) => {
-    const a = ev.target.closest("#list-pagination a");
-    if (!a) return;
-    ev.preventDefault();
-    fetch(a.href, { headers:{ "X-Requested-With":"XMLHttpRequest" }, credentials:"same-origin" })
-      .then(r => { if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
-      .then(html => {
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        const newBody  = doc.getElementById("list-body");
-        const newPagi  = doc.getElementById("list-pagination");
-        const newLabel = doc.getElementById("list-pagination-label");
-        if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
-        if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
-        if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
-        window.history.replaceState({}, "", a.href);
-      })
-      .catch(console.error);
-  });
+    if (!searchForm._liveBoundSubmit) {
+      searchForm.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        const url = urlFromForm(this);
+        document.body.style.cursor = "progress";
+        doFetch(url).then(html => {
+          extractAndSwap(html);
+          window.history.replaceState({}, "", url);
+        }).catch(e => log("submit error:", e)).finally(() => { document.body.style.cursor = ""; });
+      });
+      searchForm._liveBoundSubmit = true;
+    }
 
-  console.log("[live-search] listo");
+    if (!root._liveBoundPagination) {
+      root.addEventListener("click", function (ev) {
+        const a = ev.target.closest("#list-pagination a");
+        if (!a || !a.href) return;
+        ev.preventDefault();
+        document.body.style.cursor = "progress";
+        doFetch(a.href).then(html => {
+          extractAndSwap(html);
+          window.history.replaceState({}, "", a.href);
+        }).catch(e => log("pag error:", e)).finally(() => { document.body.style.cursor = ""; });
+      });
+      root._liveBoundPagination = true;
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setupLiveSearch(document));
+  } else {
+    setupLiveSearch(document);
+  }
 })();
 </script>
 {% endblock %}
