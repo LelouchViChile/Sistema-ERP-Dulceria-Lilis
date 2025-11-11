@@ -182,3 +182,5 @@ EMAIL_HOST_PASSWORD = "kkprkdpvjskveuve"
 DEFAULT_FROM_EMAIL = "Dulcería Lilis ERP <erpdulceria@gmail.com>"
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
