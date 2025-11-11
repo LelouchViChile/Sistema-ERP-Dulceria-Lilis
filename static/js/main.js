@@ -1,17 +1,27 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // ===============================
-  // main.js — Búsqueda AJAX en vivo
-  // ===============================
-  // Funciona con <form method="get" data-live="search">
-  // Reemplaza <tbody id="list-body">, <nav id="list-pagination"> y <small id="list-pagination-label">
-  // Vuelve al listado completo (página 1) cuando el campo 'q' queda vacío.
-  // ===============================
-  console.log("[live-search] Inicializando...");
+// main.js — Búsqueda AJAX en vivo para formularios GET con [data-live="search"]
+// Reemplaza: <tbody id="list-body"> y <nav id="list-pagination"> con el HTML recibido.
 
-  // --- Helpers ---
-  function debounce(fn, delay = 300) {
-    let timer;
-    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
+(function () {
+  function log() { try { console.log.apply(console, arguments); } catch (_) {} }
+
+  // Evita respuestas que llegan desordenadas
+  let currentAbort = null;
+
+  function debounce(fn, wait) {
+    let t;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  function serializeForm(form) {
+    const fd = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [k, v] of fd.entries()) {
+      if (v !== null && v !== undefined && v !== "") params.append(k, v);
+    }
+    return params.toString();
   }
 
   function extractAndSwap(htmlText) {
@@ -19,89 +29,96 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.innerHTML = htmlText;
 
     const newBody = dom.querySelector("#list-body");
-    const newPagi = dom.querySelector("#list-pagination");
-    const newLabel = dom.querySelector("#list-pagination-label");
+    const newPag  = dom.querySelector("#list-pagination");
+    const curBody = document.querySelector("#list-body");
+    const curPag  = document.querySelector("#list-pagination");
 
-    if (newBody) document.getElementById("list-body")?.replaceWith(newBody);
-    if (newPagi) document.getElementById("list-pagination")?.replaceWith(newPagi);
-    if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
+    if (newBody && curBody) curBody.innerHTML = newBody.innerHTML;
+    if (newPag && curPag)   curPag.innerHTML  = newPag.innerHTML;
+
+    // Re-engancha paginación (links <a href="?page=2&...">)
+    if (curPag) {
+      curPag.querySelectorAll("a[href]").forEach(a => {
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          refreshFromURL(this.href);
+        });
+      });
+    }
   }
 
   async function doFetch(url) {
-    const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-    const text = await res.text();
-    // Si la sesión expira, el servidor redirige al login.
-    if (res.redirected && res.url.includes("/login")) {
-      window.location.href = res.url;
+    if (currentAbort) currentAbort.abort();
+    currentAbort = new AbortController();
+
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      signal: currentAbort.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  }
+
+  async function refreshFromURL(full) {
+    try {
+      document.body.style.cursor = "progress";
+      const html = await doFetch(full);
+      extractAndSwap(html);
+      window.history.replaceState({}, "", full);
+    } catch (e) {
+      log("[live-search] error:", e);
+    } finally {
+      document.body.style.cursor = "";
     }
-    return { ok: res.ok, status: res.status, text, finalUrl: res.url };
+  }
+
+  function buildURLFromForm(form) {
+    const url = form.action || window.location.pathname;
+    const qs  = serializeForm(form);
+    return qs ? `${url}?${qs}` : url;
+  }
+
+  function refreshFromForm(form) {
+    const full = buildURLFromForm(form);
+    return refreshFromURL(full);
   }
 
   function setupLiveSearch(root = document) {
     const form = root.querySelector('form[data-live="search"]');
-    if (!form) {
-      console.warn("[live-search] No se encontró form[data-live='search']");
-      return;
-    }
+    if (!form) return;
 
-    const performSearch = async (url) => {
-      document.body.style.cursor = "progress";
-      try {
-        const { ok, text } = await doFetch(url);
-        if (ok) {
-          extractAndSwap(text);
-          window.history.replaceState({}, "", url);
-        } else {
-          console.error("[live-search] La respuesta del servidor no fue OK.");
-        }
-      } catch (err) {
-        console.error("[live-search] Error en fetch:", err);
-      } finally {
-        document.body.style.cursor = "auto";
-      }
-    };
-
-    // --- Lógica de eventos ---
-
-    // 1. Búsqueda al escribir (con debounce)
-    const onInput = debounce(() => {
-      const url = new URL(form.action || window.location.href);
-      const fd = new FormData(form);
-      fd.forEach((val, key) => url.searchParams.set(key, val));
-      // Al escribir, siempre se va a la página 1.
-      url.searchParams.delete("page");
-      performSearch(url.toString());
-    }, 350);
-
-    form.querySelector("input[name='q']")?.addEventListener("input", onInput);
-
-    // 2. Búsqueda al cambiar un filtro (select)
-    form.addEventListener("change", (ev) => {
-      if (ev.target.tagName === "SELECT") {
-        form.dispatchEvent(new Event("submit", { cancelable: true }));
-      }
-    });
-
-    // 3. Búsqueda al presionar Enter o el botón de buscar
-    form.addEventListener("submit", (ev) => {
+    // Submit (Enter / botón)
+    form.addEventListener("submit", function (ev) {
       ev.preventDefault();
-      onInput(); // Reutilizamos la misma lógica
+      refreshFromForm(form);
     });
 
-    // 4. Paginación por AJAX
-    root.addEventListener("click", (ev) => {
-      const link = ev.target.closest("#list-pagination a");
-      if (link) {
-        ev.preventDefault();
-        const href = link.getAttribute("href");
-        if (href) {
-          performSearch(href);
-        }
+    const debounced = debounce(() => refreshFromForm(form), 250);
+
+    // Dispara mientras escribes (incluye backspace)
+    form.querySelectorAll("input[type='text'], input[type='search']").forEach(inp => {
+      inp.addEventListener("input", debounced);
+      inp.addEventListener("keyup", debounced);      // fallback para algunos navegadores
+      inp.addEventListener("search", debounced);     // cuando tocan la “X” para limpiar
+    });
+
+    // Cambios en selects/checkbox/radio
+    form.addEventListener("change", function (ev) {
+      const el = ev.target;
+      if (!el) return;
+      if (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "radio") {
+        refreshFromForm(form);
       }
     });
+
+    // Cargar la lista limpia cuando el q está vacío
+    const q = form.querySelector("[name='q']");
+    if (q && !q.value) refreshFromForm(form);
   }
 
-  setupLiveSearch(document);
-  console.log("[live-search] Listo.");
-});
- 
+  document.addEventListener("DOMContentLoaded", () => {
+    setupLiveSearch(document);
+    log("[live-search] listo");
+  });
+})();
