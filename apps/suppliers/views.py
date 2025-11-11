@@ -6,16 +6,15 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from lilis_erp.roles import require_roles
 
-# Ajusta si tus nombres de modelos difieren
+# Modelos
 from apps.suppliers.models import Proveedor, ProveedorProducto
 from apps.products.models import Producto
-# No necesitamos importar Usuario aquí; las funciones actúan sobre Proveedor
 
 # Excel
 try:
@@ -27,57 +26,71 @@ except ImportError:
 
 # -------------------------- Helpers --------------------------
 
-def _supplier_to_dict(s: Proveedor):
-    estado = getattr(s, "estado", "")
-    if not estado:
-        estado = "Activo" if getattr(s, "activo", False) else "Inactivo"
-    return {
-        "id": s.id,
-        "rut": getattr(s, "rut_nif", ""),
-        "razon_social": getattr(s, "razon_social", ""),
-        "estado": estado,
-        "email": getattr(s, "email", ""),
-    }
-
-
-def _rel_to_dict(rel: ProveedorProducto):
-    pvd = rel.proveedor
-    pro = rel.producto
-    return {
-        "id": rel.id,
-        "proveedor": getattr(pvd, "razon_social", ""),
-        "rut": getattr(pvd, "rut_nif", ""),
-        "producto": getattr(pro, "nombre", ""),
-        "sku": getattr(pro, "sku", ""),
-        "preferente": bool(getattr(rel, "preferente", False)),
-        "lead_time": getattr(rel, "lead_time_dias", 0) or 0,
-        "costo": getattr(rel, "costo", 0) or 0,
-        "minimo_lote": getattr(rel, "minimo_lote", 0) or 0,
-        "descuento_porcentaje": getattr(rel, "descuento_porcentaje", 0) or 0,
-    }
-
-
-def _build_supplier_q(q: str):
-    q = (q or "").strip()
-    if not q:
-        return Q()
-    return (Q(rut_nif__icontains=q) |
-            Q(razon_social__icontains=q) |
-            Q(email__icontains=q))
-
-
-def _build_relation_q(q: str):
-    q = (q or "").strip()
-    if not q:
-        return Q()
-    return (Q(proveedor__rut_nif__icontains=q) |
-            Q(proveedor__razon_social__icontains=q) |
-            Q(producto__sku__icontains=q) |
-            Q(producto__nombre__icontains=q))
-
-
 def _valid_email(s: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", s or ""))
+
+def _estado_from_text(q: str):
+    """
+    Normaliza a los estados guardados en BD (minúscula para matchear consistentes).
+    """
+    q = (q or '').strip().lower()
+    mapping = {
+        'activo': 'activo',
+        'inactivo': 'inactivo',
+        'bloqueado': 'bloqueado',
+    }
+    return mapping.get(q)
+
+def _build_supplier_q(q: str) -> Q:
+    """
+    Búsqueda para proveedores:
+    - rut_nif, razon_social, estado, email (requerido)
+    - extras no invasivos (ayudan)
+    """
+    q = (q or "").strip()
+    if not q:
+        return Q()
+
+    expr = (
+        Q(rut_nif__icontains=q) |
+        Q(razon_social__icontains=q) |
+        Q(email__icontains=q) |
+        Q(estado__icontains=q) |
+        # extras útiles
+        Q(nombre_fantasia__icontains=q) |
+        Q(telefono__icontains=q) |
+        Q(direccion__icontains=q) |
+        Q(ciudad__icontains=q) |
+        Q(pais__icontains=q) |
+        Q(contacto_principal_nombre__icontains=q) |
+        Q(contacto_principal_email__icontains=q) |
+        Q(contacto_principal_telefono__icontains=q) |
+        Q(condiciones_pago__icontains=q)
+    )
+
+    # ID exacto si es número
+    try:
+        expr |= Q(id=int(q))
+    except ValueError:
+        pass
+
+    # estado normalizado
+    est = _estado_from_text(q)
+    if est:
+        expr |= Q(estado__iexact=est)
+
+    return expr
+
+def _build_relation_q(q: str) -> Q:
+    q = (q or "").strip()
+    if not q:
+        return Q()
+    return (
+        Q(proveedor__rut_nif__icontains=q) |
+        Q(proveedor__razon_social__icontains=q) |
+        Q(producto__sku__icontains=q) |
+        Q(producto__nombre__icontains=q)
+    )
 
 
 # ---------------------------- Vistas ----------------------------
@@ -96,19 +109,20 @@ def supplier_list_view(request):
 
     qs = Proveedor.objects.all()
 
-    # Filtro de estado/activo
+    # Filtro por estado/activo
     if ver == 'inactivos':
         qs = qs.filter(Q(estado__in=['inactivo', 'bloqueado']) | Q(activo=False))
     elif ver == 'activos':
-        qs = qs.filter(Q(estado='activo', activo=True))
-    # ver == 'todos' no filtra
+        qs = qs.filter(Q(estado__iexact='activo') | Q(activo=True))
+    # 'todos' no filtra
 
+    # Filtro de texto (rut/razon/estado/email y extras)
     if query:
         qs = qs.filter(_build_supplier_q(query))
 
     qs = qs.order_by(sort_by)
 
-    # 🔹 LÓGICA DE EXPORTACIÓN A EXCEL
+    # Export a Excel
     if export == "xlsx":
         if Workbook is None:
             return HttpResponse(
@@ -120,8 +134,10 @@ def supplier_list_view(request):
         wb = Workbook()
         ws = wb.active
         ws.title = "Proveedores"
-        headers = ["ID", "RUT/NIF", "Razón Social", "Nombre Fantasía", "Email", "Teléfono", "Sitio Web",
-                   "Plazos Pago (días)", "Moneda", "Descuento (%)", "Estado", "Activo"]
+        headers = [
+            "ID", "RUT/NIF", "Razón Social", "Nombre Fantasía", "Email", "Teléfono",
+            "Sitio Web", "Plazos Pago (días)", "Moneda", "Descuento (%)", "Estado", "Activo"
+        ]
         ws.append(headers)
 
         for p in qs:
@@ -147,27 +163,28 @@ def supplier_list_view(request):
                 max_len = max(max_len, len(str(cell.value)) if cell.value else 0)
             ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
 
-        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         filename = f"proveedores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         wb.save(response)
         return response
-    
+
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
-    
-    # 🔹 NUEVO: Cargar y paginar las relaciones Proveedor-Producto
+
+    # Relaciones proveedor-producto (filtradas también por q)
     relations_qs = ProveedorProducto.objects.select_related('proveedor', 'producto').order_by('-id')
-    if query: # También filtramos las relaciones si hay una búsqueda
+    if query:
         relations_qs = relations_qs.filter(_build_relation_q(query))
-        
     relations_paginator = Paginator(relations_qs, 10)
     relations_page_obj = relations_paginator.get_page(request.GET.get("page_rel"))
-    
-    # 🔹 MEJORA: Capitalizar el estado para que coincida con la lógica de usuarios
+
+    # Normaliza estado para visual
     proveedores_list = []
     for p in page_obj.object_list:
-        p.estado = p.estado.capitalize() if p.estado else "Inactivo"
+        p.estado = (p.estado or "").capitalize() if p.estado else ("Activo" if getattr(p, "activo", False) else "Inactivo")
         proveedores_list.append(p)
 
     context = {
@@ -176,7 +193,7 @@ def supplier_list_view(request):
         "query": query,
         "sort_by": sort_by,
         "ver": ver,
-        "relations": relations_page_obj, # 🔹 Añadimos las relaciones al contexto
+        "relations": relations_page_obj,
     }
     return render(request, "gestion_proveedores.html", context)
 
@@ -363,20 +380,40 @@ def search_suppliers(request):
     if q:
         qs = qs.filter(_build_supplier_q(q))
     qs = qs.order_by("id")[:10]
-    return JsonResponse({"results": [_supplier_to_dict(s) for s in qs]})
-
+    return JsonResponse({"results": [{
+        "id": s.id,
+        "rut": getattr(s, "rut_nif", ""),
+        "razon_social": getattr(s, "razon_social", ""),
+        "estado": (s.estado or "").capitalize() if s.estado else ("Activo" if getattr(s, "activo", False) else "Inactivo"),
+        "email": getattr(s, "email", ""),
+    } for s in qs]})
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
 def relations_search(request):
     q = (request.GET.get("q") or "").strip()
-    qs = (ProveedorProducto.objects
-          .select_related("proveedor", "producto"))
+    qs = ProveedorProducto.objects.select_related("proveedor", "producto")
     if q:
         qs = qs.filter(_build_relation_q(q))
     qs = qs.order_by("id")[:10]
-    return JsonResponse({"results": [_rel_to_dict(r) for r in qs]})
 
+    def _rel_to_dict(rel: ProveedorProducto):
+        pvd = rel.proveedor
+        pro = rel.producto
+        return {
+            "id": rel.id,
+            "proveedor": getattr(pvd, "razon_social", ""),
+            "rut": getattr(pvd, "rut_nif", ""),
+            "producto": getattr(pro, "nombre", ""),
+            "sku": getattr(pro, "sku", ""),
+            "preferente": bool(getattr(rel, "preferente", False)),
+            "lead_time": getattr(rel, "lead_time_dias", 0) or 0,
+            "costo": getattr(rel, "costo", 0) or 0,
+            "minimo_lote": getattr(rel, "minimo_lote", 0) or 0,
+            "descuento_porcentaje": getattr(rel, "descuento_porcentaje", 0) or 0,
+        }
+
+    return JsonResponse({"results": [_rel_to_dict(r) for r in qs]})
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
@@ -389,8 +426,7 @@ def relations_export(request):
         )
 
     q = (request.GET.get("q") or "").strip()
-    qs = (ProveedorProducto.objects
-          .select_related("proveedor", "producto"))
+    qs = ProveedorProducto.objects.select_related("proveedor", "producto")
     if q:
         qs = qs.filter(_build_relation_q(q))
     qs = qs.order_by("id")
@@ -403,11 +439,19 @@ def relations_export(request):
     ws.append(headers)
 
     for r in qs:
-        d = _rel_to_dict(r)
+        pvd = r.proveedor
+        pro = r.producto
         ws.append([
-            d["id"], d["proveedor"], d["rut"], d["producto"], d["sku"],
-            "Sí" if d["preferente"] else "No",
-            d["lead_time"], d["costo"], d["minimo_lote"], d["descuento_porcentaje"]
+            r.id,
+            getattr(pvd, "razon_social", ""),
+            getattr(pvd, "rut_nif", ""),
+            getattr(pro, "nombre", ""),
+            getattr(pro, "sku", ""),
+            "Sí" if getattr(r, "preferente", False) else "No",
+            getattr(r, "lead_time_dias", 0) or 0,
+            getattr(r, "costo", 0) or 0,
+            getattr(r, "minimo_lote", 0) or 0,
+            getattr(r, "descuento_porcentaje", 0) or 0,
         ])
 
     for col in ws.columns:
@@ -425,7 +469,8 @@ def relations_export(request):
     wb.save(response)
     return response
 
-# ---------------------- EDITAR Y ELIMINAR ----------------------
+
+# ---------------------- EDITAR / ESTADO / ELIMINAR ----------------------
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
@@ -436,9 +481,6 @@ def editar_proveedor(request, supplier_id):
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
 
     if request.method == "GET":
-        # 🔹 PASO DE DEPURACIÓN: Verificamos que la petición GET llega aquí.
-        print(f"✅ Obteniendo datos para proveedor ID: {supplier_id}")
-
         return JsonResponse({
             "id": proveedor.id,
             "rut_nif": proveedor.rut_nif,
@@ -453,15 +495,13 @@ def editar_proveedor(request, supplier_id):
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
-            # Aquí podrías añadir validaciones más complejas si es necesario
             proveedor.rut_nif = data.get("rut_nif", proveedor.rut_nif).strip()
             proveedor.razon_social = data.get("razon_social", proveedor.razon_social).strip()
             proveedor.email = data.get("email", proveedor.email).strip()
             proveedor.telefono = data.get("telefono", proveedor.telefono).strip()
             proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web).strip()
             proveedor.condiciones_pago = data.get("condiciones_pago", proveedor.condiciones_pago).strip()
-            
-            # Validar que no haya duplicados de RUT/NIF
+
             if Proveedor.objects.filter(rut_nif=proveedor.rut_nif).exclude(id=supplier_id).exists():
                 return JsonResponse({"status": "error", "message": "Ya existe otro proveedor con este RUT/NIF."}, status=400)
 
@@ -471,7 +511,6 @@ def editar_proveedor(request, supplier_id):
             return JsonResponse({"status": "error", "message": "JSON inválido"}, status=400)
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
@@ -483,7 +522,7 @@ def eliminar_proveedor(request, supplier_id):
         return JsonResponse({"status": "ok", "message": "Proveedor eliminado correctamente"})
     except Proveedor.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
-    
+
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
 @require_POST
@@ -493,7 +532,6 @@ def desactivar_proveedor(request, supplier_id):
     except Proveedor.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
 
-    # Algunos modelos pueden no tener 'estado'; usamos getattr para evitar errores
     try:
         proveedor.estado = 'inactivo'
     except Exception:
@@ -501,7 +539,6 @@ def desactivar_proveedor(request, supplier_id):
     proveedor.activo = False
     proveedor.save(update_fields=[f for f in ['estado', 'activo'] if hasattr(proveedor, f)])
     return JsonResponse({'status': 'ok', 'message': 'Proveedor desactivado.'})
-
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")

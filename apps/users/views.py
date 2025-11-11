@@ -19,7 +19,6 @@ try:
 except ImportError:
     Workbook = None
 
-
 def _usuarios_to_excel(queryset):
     if Workbook is None:
         return HttpResponse(
@@ -59,6 +58,24 @@ def _usuarios_to_excel(queryset):
     wb.save(response)
     return response
 
+def _rol_from_text(q: str):
+    q = (q or "").strip().lower()
+    mapping = {
+        'administrador': 'ADMIN',
+        'admin': 'ADMIN',
+        'compras': 'COMPRAS',
+        'inventario': 'INVENTARIO',
+        'produccion': 'PRODUCCION',
+        'producción': 'PRODUCCION',
+        'ventas': 'VENTAS',
+        'finanzas': 'FINANZAS',
+        'soporte': 'SOPORTE',
+    }
+    return mapping.get(q)
+
+
+# ====== export a Excel (openpyxl) ======
+
 
 def _es_admin(user):
     return user.is_superuser or getattr(user, "rol", "") == "ADMIN"
@@ -87,21 +104,40 @@ def gestion_usuarios(request):
         usuarios_list = usuarios_list.filter(estado='activo', activo=True)
     # ver == 'todos' no filtra
 
-    if query:
-        usuarios_list = usuarios_list.filter(
-            Q(username__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query)
-        )
+    q = (request.GET.get('q') or '').strip()
+    expr = Q()
+    if q:
+        # username, nombre, apellido, email, teléfono
+        expr |= Q(username__icontains=q)
+        expr |= Q(first_name__icontains=q)
+        expr |= Q(last_name__icontains=q)
+        expr |= Q(email__icontains=q)
+        expr |= Q(telefono__icontains=q)
+
+        # ID exacto si es número
+        try:
+            expr |= Q(id=int(q))
+        except ValueError:
+            pass
+
+        # Rol por etiqueta de texto
+        rol_code = _rol_from_text(q)
+        if rol_code:
+            expr |= Q(rol=rol_code)
+
+        usuarios_list = usuarios_list.filter(expr)
 
     usuarios_list = usuarios_list.order_by(sort_by)
 
     if export == 'xlsx':
         return _usuarios_to_excel(usuarios_list)
-
-    paginator = Paginator(usuarios_list, 10)
+    
+    # forza página 1 si q viene vacío o no viene
     page_number = request.GET.get('page')
+    if q == '' or 'q' not in request.GET:
+        page_number = 1
+    
+    paginator = Paginator(usuarios_list, 10)
     page_obj = paginator.get_page(page_number)
 
     return render(

@@ -17,21 +17,23 @@
 
   <!-- Búsqueda / orden / export -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2" data-live="search">
+    <form method="get" action="{% url 'products:list' %}" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
         <input type="text" name="q" class="form-control border-danger"
-               placeholder="Buscar producto..." value="{{ query }}">
+               placeholder="Buscar por ID / SKU / Nombre / Categoría / Stock" value="{{ query|default:'' }}">
         <button type="submit" class="btn btn-danger">
           <i class="bi bi-search"></i>
         </button>
       </div>
 
-      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
+        <option value="sku" {% if sort_by == 'sku' %}selected{% endif %}>SKU</option>
         <option value="nombre" {% if sort_by == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
         <option value="-nombre" {% if sort_by == '-nombre' %}selected{% endif %}>Nombre (Z-A)</option>
         <option value="categoria" {% if sort_by == 'categoria' %}selected{% endif %}>Categoría (A-Z)</option>
         <option value="-categoria" {% if sort_by == '-categoria' %}selected{% endif %}>Categoría (Z-A)</option>
+        <option value="stock" {% if sort_by == 'stock' %}selected{% endif %}>Stock</option>
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
@@ -50,7 +52,6 @@
             <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Producto
           </h6>
 
-          <!-- Aquí se agrega 'row g-3' para estructura de columnas y espaciado uniforme -->
           <form id="form-prod" method="post" action="{% url 'products:crear' %}" class="row g-3 needs-validation" novalidate>
             {% csrf_token %}
             <!-- NAV TABS -->
@@ -74,7 +75,6 @@
 
               <!-- DATOS GENERALES -->
               <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
-                <!-- Aquí agregamos row g-3 para columnas -->
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label small mb-1">SKU</label>
@@ -133,7 +133,7 @@
               <div class="tab-pane fade" id="pane-inv" role="tabpanel">
                 <div class="row g-3">
                   <div class="col-6">
-                    <label class="form-label small mb-1">Stock Mínimo</label> 
+                    <label class="form-label small mb-1">Stock Mínimo</label>
                     <input type="number" name="stock_min" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
                     <div class="invalid-feedback">El stock mínimo es obligatorio.</div>
                   </div>
@@ -210,13 +210,13 @@
 
     <!-- Tabla -->
     <div class="col-12 col-lg-8 col-xxl-9">
-      <div class="card border border-danger shadow-sm h-100">
+      <div class="card border border-danger shadow-sm h-100" id="list-region">
         <div class="card-body">
           <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle mb-0">
-              <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
               <i class="bi bi-box-seam-fill me-2"></i>Productos Registrados
-              </h6>
+            </h6>
+            <table class="table table-hover table-striped align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>ID</th>
@@ -252,16 +252,26 @@
             <small id="list-pagination-label" class="text-danger">
               Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} productos
             </small>
-            <nav aria-label="Paginación de productos">
+            <nav id="list-pagination" aria-label="Paginación de productos">
               <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a></li>
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a></li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}">&laquo;</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.previous_page_number }}&q={{ query }}&sort={{ sort_by }}">Anterior</a>
+                </li>
                 {% endif %}
-                <li class="page-item active"><span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                <li class="page-item active">
+                  <span class="page-link bg-danger border-danger">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
                 {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a></li>
-                <li class="page-item"><a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a></li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.next_page_number }}&q={{ query }}&sort={{ sort_by }}">Siguiente</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link border-danger text-danger" href="?page={{ page_obj.paginator.num_pages }}&q={{ query }}&sort={{ sort_by }}">&raquo;</a>
+                </li>
                 {% endif %}
               </ul>
             </nav>
@@ -285,7 +295,6 @@
 <script>
 /* -------- Validación visual en el formulario principal -------- */
 (function(){
-  // === Igual que Transacciones: CSRF + helpers ===
   function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== "") {
@@ -302,7 +311,6 @@
   }
   const CSRF = getCookie("csrftoken");
 
-  // === Helpers de validación (igual que en proveedores) ===
   function setInvalid(el, msg) {
     if (!el) return;
     const fb = el.parentElement.querySelector('.invalid-feedback');
@@ -311,7 +319,7 @@
       if (fb) fb.textContent = msg;
     } else {
       el.classList.remove("is-invalid");
-      if (fb) fb.textContent = ''; // Limpiar el mensaje cuando es válido
+      if (fb) fb.textContent = '';
     }
   }
 
@@ -323,19 +331,16 @@
     }
   }
 
-  // === Lógica para fechas (no futuro) ===
   const today = new Date().toISOString().split('T')[0];
-  // Para el formulario de productos, se establece la fecha de hoy automáticamente.
   const ultimaEntradaEl = document.querySelector('input[name="ultima_entrada"]');
   if (ultimaEntradaEl) ultimaEntradaEl.value = today;
-
 
   function validarFormulario(form) {
     let ok = true;
     let primerError = null;
-    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => { // Asegurarse de que solo se validan los campos con 'required'
+    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
       const val = el.value.trim();
-      const valido = val !== "" && !(el.type === "number" && isNaN(val)); // También valida números
+      const valido = val !== "" && !(el.type === "number" && isNaN(val));
       if (!valido) {
         setInvalid(el, el.parentElement.querySelector('.invalid-feedback')?.textContent || 'Este campo es obligatorio.');
         if (!primerError) primerError = el;
@@ -345,15 +350,11 @@
       }
     });
 
-    // 🔹 NUEVA VALIDACIÓN: Stock mínimo no puede ser mayor que el máximo.
     const stockMinEl = form.querySelector('input[name="stock_min"]');
     const stockMaxEl = form.querySelector('input[name="stock_max"]');
-
     if (stockMinEl && stockMaxEl) {
       const stockMin = parseFloat(stockMinEl.value);
       const stockMax = parseFloat(stockMaxEl.value);
-
-      // Solo se valida si ambos son números y el mínimo es mayor que el máximo.
       if (!isNaN(stockMin) && !isNaN(stockMax) && stockMin > stockMax) {
         setInvalid(stockMinEl, 'El stock mínimo no puede superar al máximo.');
         if (!primerError) primerError = stockMinEl;
@@ -371,12 +372,10 @@
   const form = document.getElementById("form-prod");
   if (!form) return;
 
-  // (Opcional) impedir caracteres raros en SKU
   form.querySelector('input[name="sku"]')?.addEventListener('input', (e)=>{
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g,'');
   });
 
-  // 🔹 NUEVO: Forzar solo números (enteros o decimales) en campos numéricos
   ['stock_min', 'stock_max', 'precio_compra', 'precio_venta'].forEach(name => {
     const input = form.querySelector(`input[name="${name}"]`);
     if (input) {
@@ -387,15 +386,10 @@
   });
 
   document.getElementById('btnGuardarProducto')?.addEventListener('click', async () => {
-    // Limpiar mensajes previos
     form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-
     if (!validarFormulario(form)) return;
 
-    // === Toma los valores del form (MISMO NOMBRE que en tu HTML) ===
     const fd = new FormData(form);
-
-    // === Mapeo al payload (misma idea que Transacciones:crear) ===
     const payload = {
       sku:           (fd.get("sku") || "").trim(),
       nombre:        (fd.get("nombre") || "").trim(),
@@ -409,11 +403,9 @@
       estado:        (fd.get("estado") || "Activo").trim(),
       ubicacion:     (fd.get("ubicacion") || "").trim(),
       uom:           (fd.get("uom") || "").trim(),
-      // Los que no existen en el modelo (imagen/ubicacion/proveedor/...) se ignoran
     };
 
     try {
-      // === POST JSON al endpoint (igual que transacciones) ===
       const resp = await fetch("{% url 'products:crear' %}", {
         method: "POST",
         headers: {
@@ -430,9 +422,7 @@
       }
 
       await Swal.fire({icon:'success', title:'Producto creado', timer:1200, showConfirmButton:false});
-      // Limpieza rápida del form
       form.reset();
-      // Recargar listado para ver el nuevo
       location.reload();
     } catch (err) {
       console.error(err);
@@ -445,7 +435,6 @@
     form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
   });
 
-  /* -------- FUNCIÓN EDITAR PRODUCTO -------- */
   function editarProducto(id) {
     fetch(`/productos/editar/${id}/`)
       .then(response => {
@@ -470,6 +459,7 @@
               <div class="swal-label-input"><label for="edit_marca">Marca</label><input id="edit_marca" class="swal2-input" value="${data.marca || ''}"></div>
             `,
             customClass: { htmlContainer: 'swal-container' },
+            showCancelButton: true,
             confirmButtonColor: '#d33',
             confirmButtonText: "Guardar",
             cancelButtonText: "Cancelar",
@@ -482,7 +472,7 @@
               fd.append("marca", document.getElementById("edit_marca").value);
               return fetch(`/productos/editar/${id}/`, {
                 method: "POST",
-                headers: { "X-CSRFToken": CSRF }, // Usar la constante CSRF
+                headers: { "X-CSRFToken": CSRF },
                 body: fd
               }).then(r => r.json());
             }
@@ -516,7 +506,7 @@
       if(!res.isConfirmed)return;
       fetch(`/productos/eliminar/${id}/`,{
         method:"POST",
-        headers:{ "X-CSRFToken": CSRF } // Usar la constante CSRF
+        headers:{ "X-CSRFToken": CSRF }
       }).then(r=>r.json()).then(data=>{
         if(data.status==="ok"){
           Swal.fire("¡Eliminado!",data.message,"success").then(()=>location.reload());
@@ -527,10 +517,98 @@
     });
   }
 
-  // Exponer las funciones al scope global
   window.editarProducto = editarProducto;
   window.eliminarProducto = eliminarProducto;
 
-})(); // Fin del IIFE
+})();
+</script>
+
+<!-- LIVE SEARCH: input debounced + submit + paginación (SIN RECARGA) -->
+<script>
+function setupLiveSearch(root = document) {
+  const log = (...args) => {/* console.log("[live-search]", ...args); */};
+
+  function extractAndSwap(html) {
+    // Reemplaza únicamente tbody, paginación y label (el form y listeners quedan vivos)
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const newBody  = doc.getElementById("list-body");
+    const newPagi  = doc.getElementById("list-pagination");
+    const newLabel = doc.getElementById("list-pagination-label");
+
+    if (newBody)  document.getElementById("list-body")?.replaceWith(newBody);
+    if (newPagi)  document.getElementById("list-pagination")?.replaceWith(newPagi);
+    if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
+  }
+
+  async function doFetch(url) {
+    const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.text();
+  }
+
+  // 1) Búsqueda por input (debounced)
+  const searchForm = root.querySelector('form[data-live="search"]');
+  if (!searchForm) return;
+
+  const searchInput = searchForm.querySelector('input[name="q"]');
+  if (!searchInput) return;
+
+  let debounceTimer;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      searchForm.dispatchEvent(new Event("submit", { cancelable: true }));
+    }, 400);
+  });
+
+  // 2) Submit del formulario (búsqueda y orden)
+  searchForm.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    const url = new URL(this.action || window.location.href);
+    const fd = new FormData(this);
+
+    // Copia todos los params del form
+    fd.forEach((val, key) => url.searchParams.set(key, val));
+
+    // Reset de página siempre que se hace una búsqueda/orden
+    url.searchParams.delete("page");
+
+    // Si q está vacío => restaurar listado inicial (sin q ni page)
+    const qVal = (fd.get('q') || '').trim();
+    if (qVal === '') {
+      url.search = '';
+    }
+
+    document.body.style.cursor = "progress";
+    doFetch(url.toString()).then(html => {
+      extractAndSwap(html);
+      window.history.replaceState({}, "", url.toString());
+    }).catch(e => log("submit error:", e))
+      .finally(() => { document.body.style.cursor = ""; });
+  });
+
+  // 3) Paginación por AJAX
+  root.addEventListener("click", function (ev) {
+    const a = ev.target.closest("#list-pagination a.page-link, #list-pagination a");
+    if (!a) return;
+    ev.preventDefault();
+    const href = a.getAttribute("href");
+    if (!href) return;
+
+    document.body.style.cursor = "progress";
+    doFetch(href).then(html => {
+      extractAndSwap(html);
+      window.history.replaceState({}, "", href);
+    }).catch(e => log("pag error:", e))
+      .finally(() => { document.body.style.cursor = ""; });
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupLiveSearch);
+} else {
+  setupLiveSearch();
+}
 </script>
 {% endblock %}

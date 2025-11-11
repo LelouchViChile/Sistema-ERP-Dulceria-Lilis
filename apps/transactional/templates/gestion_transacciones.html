@@ -17,35 +17,31 @@
 
   <!-- 🔍 BUSCADOR Y FILTROS -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2" srhadow-sm" style="min-width: 280px;">
-        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar movimiento..." value="{{ query }}">
+    <form method="get" action="{% url 'transactional:list' %}" class="d-flex gap-2" data-live="search">
+      <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
+        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar por tipo / producto / SKU / cantidad / bodegas / proveedor / usuario / lote" value="{{ query|default:'' }}">
         <button type="submit" class="btn btn-danger">
           <i class="bi bi-search"></i>
         </button>
       </div>
 
-      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="fecha" {% if sort_by == 'fecha' %}selected{% endif %}>Fecha</option>
         <option value="-fecha" {% if sort_by == '-fecha' %}selected{% endif %}>Fecha (desc)</option>
         <option value="tipo" {% if sort_by == 'tipo' %}selected{% endif %}>Tipo</option>
-        <option value="producto" {% if sort_by == 'producto' %}selected{% endif %}>Producto</option>
+        <option value="producto__nombre" {% if sort_by == 'producto__nombre' %}selected{% endif %}>Producto</option>
+        <option value="-producto__nombre" {% if sort_by == '-producto__nombre' %}selected{% endif %}>Producto (desc)</option>
       </select>
 
-      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
         <option value="ingresos" {% if ver == 'ingresos' %}selected{% endif %}>Ingresos</option>
         <option value="salidas" {% if ver == 'salidas' %}selected{% endif %}>Salidas</option>
         <option value="ajustes" {% if ver == 'ajustes' %}selected{% endif %}>Ajustes</option>
       </select>
-
-      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
-         href="{% url 'transactional:list' %}?q={{ query }}&sort={{ sort_by }}&ver={{ ver }}&export=xlsx">
-        <i class="bi bi-file-earmark-excel me-2"></i>Exportar
-      </a>
     </form>
   </div>
 
-  <!-- FILAS -->
   <div class="row g-3 align-items-start">
 
     <!-- 📋 FORMULARIO -->
@@ -74,7 +70,7 @@
             </ul>
 
             <div class="tab-content" id="movTabsContent">
-              <!-- TAB: DATOS -->
+              <!-- DATOS -->
               <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
                 <div class="row g-2">
                   <div class="col-6">
@@ -118,7 +114,7 @@
                 </div>
               </div>
 
-              <!-- TAB: CONTROL -->
+              <!-- CONTROL -->
               <div class="tab-pane fade" id="pane-avanzado" role="tabpanel">
                 <div class="row g-2">
                   <div class="col-6">
@@ -137,7 +133,7 @@
                 </div>
               </div>
 
-              <!-- TAB: REFERENCIAS -->
+              <!-- REFERENCIAS -->
               <div class="tab-pane fade" id="pane-referencias" role="tabpanel">
                 <div class="row g-2">
                   <div class="col-12">
@@ -176,7 +172,7 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
-            <i class="bi bi-clipboard-data me-2"></i>Movimientos Registrados
+              <i class="bi bi-clipboard-data me-2"></i>Movimientos Registrados
             </h6>
           </div>
 
@@ -190,11 +186,19 @@
                 </tr>
               </thead>
               <tbody id="list-body">
-                {% for m id="{{ m.id }}">
-                  <td>{{ m.fecha|date:"d/m/Y H:i" }}</td><td>{{ m.get_tipo_display }}</td><td>{{ m.producto.nombre }}</td>
-                  <td>{{ m.producto.sku }}</td><td class="text-center">{{ m.cantidad|floatformat:2 }}</td><td>{{ m.bodega_origen.nombre|default:"-" }}</td>
-                  <td>{{ m.bodega_destino.nombre|default:"-" }}</td><td>{{ m.proveedor.razon_social|default:"-" }}</td><td>{{ m.creado_por.username|default:"Sistema" }}</td>
-                  <td>{{ m.lote|default:"-" }}</td><td>{{ m.fecha_vencimiento|date:"d/m/Y"|default:"-" }}</td>
+                {% for m in movimientos %}
+                <tr id="mov-{{ m.id }}">
+                  <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                  <td>{{ m.get_tipo_display }}</td>
+                  <td>{{ m.producto.nombre }}</td>
+                  <td>{{ m.producto.sku }}</td>
+                  <td class="text-center">{{ m.cantidad|floatformat:2 }}</td>
+                  <td>{{ m.bodega_origen.nombre|default:"-" }}</td>
+                  <td>{{ m.bodega_destino.nombre|default:"-" }}</td>
+                  <td>{{ m.proveedor.razon_social|default:"-" }}</td>
+                  <td>{{ m.creado_por.username|default:"Sistema" }}</td>
+                  <td>{{ m.lote|default:"-" }}</td>
+                  <td>{{ m.fecha_vencimiento|date:"d/m/Y"|default:"-" }}</td>
                   <td>
                     <button class="btn btn-sm btn-warning" onclick="editarMovimiento('{{ m.id }}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="eliminarMovimiento('{{ m.id }}')"><i class="bi bi-trash"></i></button>
@@ -211,6 +215,8 @@
           <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
             <small id="list-pagination-label" class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} movimientos</small>
             <nav id="list-pagination" aria-label="Paginación de movimientos">
+              <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
                 <li class="page-item">
                   <a class="page-link border-danger text-danger" href="?page=1&q={{ query }}&sort={{ sort_by }}&ver={{ ver }}">&laquo;</a>
                 </li>
@@ -235,12 +241,13 @@
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
 <!-- ========== JS ========== -->
 <script src="{% static 'js/main.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- opcional para confirmaciones rápidas -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
   .swal-container { text-align: left !important; }
   .swal-label-input { margin-bottom: 1rem; }
@@ -248,9 +255,9 @@
   .swal-label-input .swal2-input, .swal-label-input .swal2-select { width: 100% !important; margin: 0 !important; }
   .swal2-select { display: block !important; }
 </style>
+
 <script>
 (function(){
-  // CSRF token
   function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== "") {
@@ -267,86 +274,51 @@
   }
   const CSRF = getCookie("csrftoken");
 
-  // Utility: debounce
-  function debounce(fn, wait){
-    let t;
-    return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
-  }
-
-  // ---------- Helpers ----------
+  // Helpers
   function setInvalid(el, msg){
     if(!el) return;
     const fb = el.parentElement.querySelector('.invalid-feedback');
-    if(msg){
-      el.classList.add('is-invalid');
-      if(fb) fb.textContent = msg;
-    } else {
-      el.classList.remove('is-invalid');
-      if(fb) fb.textContent = '';
-    }
+    if(msg){ el.classList.add('is-invalid'); if(fb) fb.textContent = msg; }
+    else { el.classList.remove('is-invalid'); if(fb) fb.textContent=''; }
   }
-
   function showMsg(el, text, ok=true){
     el.classList.remove('text-danger','text-success');
-    el.classList.add(ok ? 'text-success' : 'text-danger');
+    el.classList.add(ok?'text-success':'text-danger');
     el.textContent = text;
   }
-
-  // Helper para cambiar a la pestaña de un elemento
-  function switchToTabOf(element) {
+  function switchToTabOf(element){
     const pane = element.closest('.tab-pane');
     if (pane && !pane.classList.contains('active')) {
       const trigger = document.querySelector(`[data-bs-target="#${pane.id}"]`);
-      if (trigger) {
-        new bootstrap.Tab(trigger).show();
-      }
+      if (trigger) new bootstrap.Tab(trigger).show();
     }
   }
 
-  // === Lógica para fechas (no futuro) ===
+  // Fecha hoy
   const today = new Date().toISOString().split('T')[0];
-  // Para el formulario de transacciones, se establece la fecha de hoy automáticamente.
   const movFechaEl = document.getElementById('movFecha');
   if (movFechaEl) movFechaEl.value = today;
 
-
-  // Clamp non-negative inputs
-  document.querySelectorAll('input[data-nonneg]').forEach(el=>{
-    el.addEventListener('keydown', e => { if(['-','e','E','+'].includes(e.key)) e.preventDefault(); });
-    el.addEventListener('blur', ()=> { if(el.value === '' ) return; const n = Number(el.value); if(isNaN(n) || n < 0) el.value = 0; });
-  });
-
-  // --------- Validation (all tabs) ----------
+  // Validación general
   function validateForm(formEl){
-    let ok = true;
-    let firstError = null;
-    formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
-      const val = el.value.trim();
+    let ok = true, first = null;
+    formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
+      const val = (el.value||'').trim();
       const valido = val !== "" && !(el.type === "number" && isNaN(val));
-      if (!valido) {
-        setInvalid(el, el.parentElement.querySelector('.invalid-feedback')?.textContent || 'Este campo es obligatorio.');
-        if (!firstError) firstError = el;
-        ok = false;
-      } else {
-        setInvalid(el, null);
-      }
+      if(!valido){ setInvalid(el, 'Este campo es obligatorio.'); if(!first) first = el; ok = false; }
+      else { setInvalid(el, null); }
     });
-
-    // focus and open tab of first error
-    if(firstError){
-      switchToTabOf(firstError);
-      firstError.focus();
-    }
+    if(first){ switchToTabOf(first); first.focus(); }
     return ok;
   }
 
-  // ---------- Create transaction (AJAX) ----------
-  document.getElementById('form-mov')?.addEventListener('submit', async (ev) => {
+  // Crear movimiento (AJAX JSON)
+  document.getElementById('form-mov')?.addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const form = ev.target;
     const movMsg = document.getElementById('movMsg');
     movMsg.textContent = '';
-    if(!validateForm(form)){ showMsg(movMsg, 'Revisa los campos resaltados.', false); return; }
+    if(!validateForm(form)){ showMsg(movMsg,'Revisa los campos resaltados.',false); return; }
 
     const payload = {
       tipo: document.getElementById('movTipo').value.trim(),
@@ -366,14 +338,12 @@
 
     try{
       const resp = await fetch("{% url 'transactional:crear' %}", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+        method:'POST', headers:{ 'Content-Type':'application/json', 'X-CSRFToken':CSRF, 'X-Requested-With':'XMLHttpRequest' },
         body: JSON.stringify(payload)
       });
       const data = await resp.json();
       if(!resp.ok || !data.ok){
         const errs = data.errors || {};
-        // Mapear errores a campos si están disponibles
         for(const k in errs){
           const field = document.querySelector(`[name="${k}"]`);
           if(field) setInvalid(field, errs[k]);
@@ -381,97 +351,119 @@
         showMsg(movMsg, errs.__all__ || 'Revisa los campos con errores.', false);
         return;
       }
-
-      // Success: reload the page to show the new movement
       showMsg(movMsg, 'Movimiento creado correctamente.', true);
-      setTimeout(()=> location.reload(), 1000);
-    }catch(e){
-      console.error(e);
-      showMsg(movMsg, 'Error al crear movimiento.', false);
-    }
+      setTimeout(()=> location.reload(), 900);
+    }catch(e){ console.error(e); showMsg(movMsg,'Error al crear movimiento.',false); }
   });
 
   document.getElementById('btn-clear-mov')?.addEventListener('click', ()=>{
     document.getElementById('form-mov').reset();
-    document.getElementById('form-mov').classList.remove('was-validated');
-    document.querySelectorAll('#form-mov .is-invalid').forEach(i => { i.classList.remove('is-invalid'); });
-    document.getElementById('movMsg').textContent = '';
+    document.querySelectorAll('#form-mov .is-invalid').forEach(i=> i.classList.remove('is-invalid'));
+    document.getElementById('movMsg').textContent='';
   });
 
-  // ---------- EDITAR MOVIMIENTO (SweetAlert) ----------
-  async function editarMovimiento(id) {
-    try {
-      const getResp = await fetch(`/transacciones/editar/${id}/`);
-      if (!getResp.ok) throw new Error('No se pudo obtener el movimiento.');
-      const data = await getResp.json();
-
-      const { value: formValues } = await Swal.fire({
-        title: 'Editar Movimiento',
+  // Editar / Eliminar
+  async function editarMovimiento(id){
+    try{
+      const r = await fetch(`/transacciones/editar/${id}/`);
+      if(!r.ok) throw new Error('No se pudo obtener el movimiento.');
+      const data = await r.json();
+      const { value: vals } = await Swal.fire({
+        title:'Editar Movimiento',
         html: `
           <div class="swal-label-input"><label for="swal-fecha">Fecha</label><input id="swal-fecha" type="date" class="swal2-input" value="${data.movimiento.fecha.split('T')[0]}"></div>
           <div class="swal-label-input"><label for="swal-tipo">Tipo</label><input id="swal-tipo" class="swal2-input" value="${data.movimiento.tipo}"></div>
           <div class="swal-label-input"><label for="swal-cantidad">Cantidad</label><input id="swal-cantidad" type="number" step="0.01" class="swal2-input" value="${data.movimiento.cantidad}"></div>
         `,
-        customClass: { htmlContainer: 'swal-container' },
-        confirmButtonColor: '#d33',
-        showCancelButton: true,
-        confirmButtonText: 'Guardar',
-        cancelButtonText: 'Cancelar',
-        preConfirm: () => {
-          return {
-            fecha: document.getElementById('swal-fecha').value,
-            tipo: document.getElementById('swal-tipo').value,
-            cantidad: document.getElementById('swal-cantidad').value
-          };
-        }
+        customClass:{ htmlContainer:'swal-container' },
+        showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Guardar', cancelButtonText:'Cancelar',
+        preConfirm:()=>({
+          fecha: document.getElementById('swal-fecha').value,
+          tipo: document.getElementById('swal-tipo').value,
+          cantidad: document.getElementById('swal-cantidad').value
+        })
       });
-
-      if (formValues) {
-        const postResp = await fetch(`/transacciones/editar/${id}/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-          body: JSON.stringify(formValues)
+      if(vals){
+        const pr = await fetch(`/transacciones/editar/${id}/`, {
+          method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body: JSON.stringify(vals)
         });
-        const result = await postResp.json();
-        if (result.ok) {
-          Swal.fire('¡Actualizado!', 'El movimiento ha sido actualizado.', 'success').then(() => location.reload());
-        } else {
-          Swal.fire('Error', result.error || 'No se pudo actualizar.', 'error');
-        }
+        const out = await pr.json();
+        if(out.ok){ Swal.fire('¡Actualizado!','El movimiento ha sido actualizado.','success').then(()=>location.reload()); }
+        else { Swal.fire('Error', out.error || 'No se pudo actualizar.', 'error'); }
       }
-    } catch (error) {
-      Swal.fire('Error', error.message || 'Ocurrió un error inesperado.', 'error');
-    }
+    }catch(e){ Swal.fire('Error', e.message || 'Ocurrió un error inesperado.', 'error'); }
   }
-
-  // ---------- ELIMINAR MOVIMIENTO (SweetAlert) ----------
-  async function eliminarMovimiento(id) {
-    const confirm = await Swal.fire({
-      title: '¿Eliminar movimiento?',
-      text: "Esta acción no se puede revertir.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonText: 'Cancelar',
-      confirmButtonText: 'Sí, eliminar'
-    });
-
-    if (confirm.isConfirmed) {
-      const resp = await fetch(`/transacciones/eliminar/${id}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': CSRF }
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        Swal.fire('¡Eliminado!', 'El movimiento ha sido eliminado.', 'success').then(() => location.reload());
-      } else {
-        Swal.fire('Error', data.error || 'No se pudo eliminar.', 'error');
-      }
-    }
+  async function eliminarMovimiento(id){
+    const confirm = await Swal.fire({ title:'¿Eliminar movimiento?', text:'Esta acción no se puede revertir.', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonText:'Cancelar', confirmButtonText:'Sí, eliminar' });
+    if(!confirm.isConfirmed) return;
+    const r = await fetch(`/transacciones/eliminar/${id}/`, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+    const j = await r.json();
+    if(j.ok){ Swal.fire('¡Eliminado!','El movimiento ha sido eliminado.','success').then(()=>location.reload()); }
+    else { Swal.fire('Error', j.error || 'No se pudo eliminar.', 'error'); }
   }
-
   window.editarMovimiento = editarMovimiento;
   window.eliminarMovimiento = eliminarMovimiento;
+
+  // ===== LIVE SEARCH (debounce + submit + paginación) =====
+  function setupLiveSearch(root=document){
+    const log = (...a)=>{/* console.log('[live-search]',...a); */};
+    function extractAndSwap(html){
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html,'text/html');
+      const newBody  = doc.getElementById('list-body');
+      const newPagi  = doc.getElementById('list-pagination');
+      const newLabel = doc.getElementById('list-pagination-label');
+      if(newBody)  document.getElementById('list-body')?.replaceWith(newBody);
+      if(newPagi)  document.getElementById('list-pagination')?.replaceWith(newPagi);
+      if(newLabel) document.getElementById('list-pagination-label')?.replaceWith(newLabel);
+    }
+    async function doFetch(url){
+      const r = await fetch(url,{ headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    }
+    const searchForm  = root.querySelector('form[data-live="search"]');
+    if(!searchForm) return;
+    const searchInput = searchForm.querySelector('input[name="q"]');
+    if(!searchInput) return;
+
+    let t;
+    searchInput.addEventListener('input', function(){
+      clearTimeout(t);
+      t = setTimeout(()=>{ searchForm.dispatchEvent(new Event('submit',{cancelable:true})); }, 400);
+    });
+
+    searchForm.addEventListener('submit', function(ev){
+      ev.preventDefault();
+      const url = new URL(this.action || window.location.href);
+      const fd  = new FormData(this);
+      fd.forEach((v,k)=> url.searchParams.set(k,v));
+      url.searchParams.delete('page'); // reset paginación al buscar/ordenar
+
+      // Si el input queda vacío -> estado base sin filtros
+      const qVal = (fd.get('q')||'').trim();
+      if(qVal === '') url.search = '';
+
+      document.body.style.cursor='progress';
+      doFetch(url.toString()).then(html=>{
+        extractAndSwap(html);
+        window.history.replaceState({},'',url.toString());
+      }).catch(e=>log('submit error:',e)).finally(()=>{ document.body.style.cursor=''; });
+    });
+
+    root.addEventListener('click', function(ev){
+      const a = ev.target.closest('#list-pagination a.page-link, #list-pagination a');
+      if(!a) return;
+      ev.preventDefault();
+      const href = a.getAttribute('href'); if(!href) return;
+      document.body.style.cursor='progress';
+      doFetch(href).then(html=>{
+        extractAndSwap(html);
+        window.history.replaceState({},'',href);
+      }).catch(e=>log('pag error:',e)).finally(()=>{ document.body.style.cursor=''; });
+    });
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch()); } else { setupLiveSearch(); }
 
 })();
 </script>

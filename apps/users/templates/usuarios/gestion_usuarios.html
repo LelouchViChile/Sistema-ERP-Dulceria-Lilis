@@ -16,29 +16,29 @@
     </div>
   </div>
 
-  <!-- Controles búsqueda + export + filtro -->
+  <!-- Controles búsqueda + export + filtro (ARRIBA a la derecha) -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2" data-live="search">
+    <form method="get" action="{% url 'gestion_usuarios' %}" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
-        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..." value="{{ query }}">
+        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar usuario..." value="{{ query|default:'' }}">
         <button type="submit" class="btn btn-danger">
           <i class="bi bi-search"></i>
         </button>
       </div>
 
-      <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
       <!-- prettier-ignore-start -->
-      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
         <option value="username" {% if sort_by == 'username' %}selected{% endif %}>Usuario (A-Z)</option>
         <option value="-username" {% if sort_by == '-username' %}selected{% endif %}>Usuario (Z-A)</option>
         <option value="first_name" {% if sort_by == 'first_name' %}selected{% endif %}>Nombre (A-Z)</option>
+        <option value="-first_name" {% if sort_by == '-first_name' %}selected{% endif %}>Nombre (Z-A)</option>
+        <option value="rol" {% if sort_by == 'rol' %}selected{% endif %}>Rol (A-Z)</option>
+        <option value="-rol" {% if sort_by == '-rol' %}selected{% endif %}>Rol (Z-A)</option>
       </select>
       <!-- prettier-ignore-end -->
-      <!-- ======================================================= -->
 
-      <!-- NUEVO: filtro ver -->
-      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
         <option value="activos" {% if ver == 'activos' %}selected{% endif %}>Sólo activos</option>
         <option value="inactivos" {% if ver == 'inactivos' %}selected{% endif %}>Sólo inactivos</option>
@@ -51,9 +51,9 @@
     </form>
   </div>
 
-  <!-- GRID: izquierda (form) + derecha (tabla) -->
+  <!-- GRID -->
   <div class="row g-3 align-items-start">
-    <!-- Izquierda -->
+    <!-- Izquierda: Form crear -->
     <div class="col-12 col-lg-4 col-xxl-3">
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body">
@@ -138,15 +138,15 @@
       </div>
     </div>
 
-    <!-- Derecha -->
+    <!-- Derecha: LISTA -->
     <div class="col-12 col-lg-8 col-xxl-9">
       <div class="card border border-danger shadow-sm h-100">
-        <div class="card-body">
+        <div class="card-body" id="list-region">
           <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle mb-0">
-              <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
+            <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
               <i class="bi bi-people-fill me-2"></i>Usuarios Registrados
-              </h6>
+            </h6>
+            <table class="table table-hover table-striped align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Usuario</th>
@@ -208,10 +208,10 @@
             </table>
           </div>
 
-          <!-- ======== ZONA B: NO FORMATEAR / NO SELECCIONAR ======== -->
-          <!-- prettier-ignore-start -->
           <div class="d-flex justify-content-between align-items-center border-top border-danger pt-3 mt-3">
-            <small id="list-pagination-label" class="text-danger">Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios</small>
+            <small id="list-pagination-label" class="text-danger">
+              Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} usuarios
+            </small>
             <nav id="list-pagination" aria-label="Paginación de usuarios">
               <ul class="pagination pagination-sm mb-0">
                 {% if page_obj.has_previous %}
@@ -236,17 +236,126 @@
               </ul>
             </nav>
           </div>
-          <!-- prettier-ignore-end -->
-          <!-- ======================================================= -->
-
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- SweetAlert solo para crear/editar/eliminar/activar/desactivar -->
+{% load static %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- LIVE SEARCH: input debounced + submit + paginación (SIN RECARGA) -->
+<script>
+(function () {
+  function log(){/* console.log.apply(console, arguments); */ }
+
+  function doFetch(url) {
+    return fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    }).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    });
+  }
+
+  function extractAndSwap(html) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    const nextRegion = tmp.querySelector("#list-region");
+    const curRegion  = document.querySelector("#list-region");
+    if (!nextRegion || !curRegion) { window.location.reload(); return; }
+    curRegion.replaceWith(nextRegion);
+    setupLiveSearch(document); // re-atacha eventos tras el swap
+  }
+
+  // Construye URL a partir del form. Si q vacío => base sin query (restablece lista)
+  function urlFromForm(form) {
+    const base = new URL(form.action || window.location.pathname, window.location.origin);
+    base.search = "";
+    const fd = new FormData(form);
+    const q = (fd.get("q") || "").trim();
+
+    if (q === "") {
+      return base.toString(); // sin q ni page => listado inicial
+    }
+    for (const [k, v] of fd.entries()) {
+      if (!v) continue;
+      if (k === "page") continue;
+      base.searchParams.set(k, v);
+    }
+    base.searchParams.set("page", "1"); // siempre page 1 cuando hay q
+    return base.toString();
+  }
+
+  function setupLiveSearch(root = document) {
+    // 1) Búsqueda por input (debounced)
+    const searchForm  = root.querySelector('form[data-live="search"]');
+    if (!searchForm) return;
+
+    const searchInput = searchForm.querySelector('input[name="q"]');
+    if (!searchInput) return;
+
+    let debounceTimer;
+    if (!searchInput._liveBound) {
+      searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          searchForm.dispatchEvent(new Event("submit", { cancelable: true }));
+        }, 400);
+      });
+      searchInput._liveBound = true;
+    }
+
+    // 2) Submit del formulario (búsqueda y orden)
+    if (!searchForm._liveBoundSubmit) {
+      searchForm.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        const url = urlFromForm(this);
+
+        document.body.style.cursor = "progress";
+        doFetch(url).then(html => {
+          extractAndSwap(html);
+          window.history.replaceState({}, "", url);
+        }).catch(e => log("submit error:", e))
+          .finally(() => { document.body.style.cursor = ""; });
+      });
+      searchForm._liveBoundSubmit = true;
+    }
+
+    // 3) Paginación por AJAX
+    if (!root._liveBoundPagination) {
+      root.addEventListener("click", function (ev) {
+        const a = ev.target.closest("#list-pagination a.page-link, #list-pagination a");
+        if (a) {
+          ev.preventDefault();
+          const href = a.getAttribute("href");
+          if (!href) return;
+          document.body.style.cursor = "progress";
+          doFetch(href).then(html => {
+            extractAndSwap(html);
+            window.history.replaceState({}, "", href);
+          }).catch(e => log("pag error:", e))
+            .finally(() => { document.body.style.cursor = ""; });
+        }
+      });
+      root._liveBoundPagination = true;
+    }
+  }
+
+  // init
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setupLiveSearch(document));
+  } else {
+    setupLiveSearch(document);
+  }
+})();
+</script>
+
+<!-- CRUD JS existente (crear/editar/eliminar/activar/desactivar) -->
 <style>
   .swal-container { text-align: left !important; }
   .swal-label-input { margin-bottom: 1rem; }
@@ -376,6 +485,7 @@
               </select>
             </div>`,
           customClass: { htmlContainer: 'swal-container' },
+          showCancelButton: true,
           confirmButtonColor: '#d33',
           confirmButtonText: 'Guardar',
           cancelButtonText: 'Cancelar',

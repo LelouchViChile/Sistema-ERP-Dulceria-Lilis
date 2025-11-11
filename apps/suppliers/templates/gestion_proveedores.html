@@ -16,9 +16,9 @@
   </div>
 
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
-    <form method="get" class="d-flex gap-2" data-live="search">
+    <form method="get" action="{% url 'suppliers:list' %}" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
-        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar proveedor..." value="{{ query }}">
+        <input type="text" name="q" class="form-control border-danger" placeholder="Buscar por RUT / Razón social / Estado / Email" value="{{ query|default:'' }}">
         <button type="submit" class="btn btn-danger">
           <i class="bi bi-search"></i>
         </button>
@@ -26,7 +26,7 @@
 
       <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
       <!-- prettier-ignore-start -->
-      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
         <option value="rut_nif" {% if sort_by == 'rut_nif' %}selected{% endif %}>RUT/NIF (A-Z)</option>
         <option value="-rut_nif" {% if sort_by == '-rut_nif' %}selected{% endif %}>RUT/NIF (Z-A)</option>
@@ -36,8 +36,7 @@
       <!-- prettier-ignore-end -->
       <!-- ======================================================= -->
 
-      <!-- NUEVO: filtro ver -->
-      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.submit()">
+      <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
         <option value="activos" {% if ver == 'activos' %}selected{% endif %}>Sólo activos</option>
         <option value="inactivos" {% if ver == 'inactivos' %}selected{% endif %}>Sólo inactivos</option>
@@ -185,16 +184,16 @@
     </div>
 
     <!-- Tabla Proveedores -->
-
     <div class="col-12 col-lg-8 col-xxl-9">
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body p-3">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
-            <i class="bi bi-truck me-2"></i>Proveedores Registrados
+              <i class="bi bi-truck me-2"></i>Proveedores Registrados
             </h6>
           </div>
-          <!-- 🔹 PESTAÑAS PARA TABLAS -->
+
+          <!-- PESTAÑAS PARA TABLAS -->
           <ul class="nav nav-tabs mb-3" id="tablas-proveedores" role="tablist">
             <li class="nav-item" role="presentation">
               <button class="nav-link active text-danger fw-semibold" id="tab-lista-prov" data-bs-toggle="tab" data-bs-target="#pane-lista-prov" type="button" role="tab">Proveedores</button>
@@ -204,10 +203,10 @@
             </li>
           </ul>
 
-          <!-- 🔹 CONTENIDO DE PESTAÑAS -->
+          <!-- CONTENIDO DE PESTAÑAS -->
           <div class="tab-content" id="tablas-proveedores-content">
 
-            <!-- PESTAÑA 1: TABLA DE PROVEEDORES -->
+            <!-- TABLA DE PROVEEDORES -->
             <div class="tab-pane fade show active" id="pane-lista-prov" role="tabpanel">
               <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
                 <table class="table table-striped align-middle text-center mb-0">
@@ -285,7 +284,7 @@
               </div>
             </div>
 
-            <!-- PESTAÑA 2: TABLA DE RELACIONES -->
+            <!-- TABLA DE RELACIONES -->
             <div class="tab-pane fade" id="pane-lista-rel" role="tabpanel">
               <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
                 <table class="table table-striped align-middle text-center mb-0">
@@ -346,9 +345,10 @@
   .swal-container { text-align: left !important; }
   .swal-label-input { margin-bottom: 1rem; }
   .swal-label-input label { display: block; margin-bottom: .25rem; font-size: .9rem; color: #555; }
-  .swal-label-input .swal2-input, .swal-label-input .swal-custom-select { width: 100% !important; margin: 0 !important; }
+  .swal-label-input .swal2-input, .swal-label-input .swal2-select, .swal-custom-select { width: 100% !important; margin: 0 !important; }
   .swal-custom-select { display: block !important; padding: .375rem .75rem; font-size: 1rem; border: 1px solid #d1d1d1; border-radius: .25rem; }
 </style>
+
 <script>
 (function(){
   // ---- util CSRF
@@ -358,14 +358,9 @@
     if (parts.length === 2) return parts.pop().split(';').shift();
     return null;
   }
+  const CSRF = getCookie('csrftoken') || '';
 
-  // La constante CSRF ahora usará la función getCookie
-  const CSRF = (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)')||[])[2] || '';
-
-  // =====================================================
-  // ===============  VALIDACIÓN GLOBAL  =================
-  // =====================================================
-  // Helper para marcar/desmarcar validez de campos
+  // ===== Helpers de validación =====
   function setInvalid(el, msg) {
     if (!el) return;
     const fb = el.parentElement.querySelector('.invalid-feedback');
@@ -374,10 +369,9 @@
       if (fb) fb.textContent = msg;
     } else {
       el.classList.remove('is-invalid');
+      if (fb) fb.textContent = '';
     }
   }
-
-  // Helper para cambiar a la pestaña de un elemento
   function switchToTabOf(element) {
     const pane = element.closest('.tab-pane');
     if (pane && !pane.classList.contains('active')) {
@@ -385,120 +379,73 @@
       if (trigger) new bootstrap.Tab(trigger).show();
     }
   }
-
   function validarFormulario(form) {
-    let ok = true;
-    let primerError = null;
-    form.querySelectorAll("input, select, textarea").forEach(el => {
-      if (el.hasAttribute("required")) {
-        const val = el.value.trim();
-        const valido = val !== "" && !(el.type === "number" && isNaN(val));
-        if (!valido) {
-          el.classList.add("is-invalid");
-          if (!primerError) primerError = el;
-          ok = false;
-        } else {
-          el.classList.remove("is-invalid");
-        }
-      }
+    let ok = true, primero = null;
+    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
+      const val = (el.value||'').trim();
+      const valido = val !== "" && !(el.type === "number" && isNaN(val));
+      if(!valido){ setInvalid(el, 'Campo obligatorio'); if(!primero) primero = el; ok = false; } else { setInvalid(el, null); }
     });
-
-    if (primerError) {
-      switchToTabOf(primerError);
-      primerError.focus();
-    }
+    if(primero){ switchToTabOf(primero); primero.focus(); }
     return ok;
   }
 
-  // =====================================================
-  // ===============  GUARDAR PROVEEDOR  =================
-  // =====================================================
+  // ===== Guardar proveedor (AJAX JSON) =====
   document.getElementById('btnGuardarProveedor')?.addEventListener('click', async ()=>{
     const form = document.getElementById('form-prov');
-    const msg = document.getElementById('provMsg');
-    msg.className='small mt-2';
-    msg.textContent='';
+    const msg  = document.getElementById('provMsg');
+    msg.className = 'small mt-2'; msg.textContent = '';
 
-    if(!validarFormulario(form)){
-      msg.classList.add('text-danger');
-      msg.textContent='Revisa los campos resaltados.';
-      return;
-    }
+    if(!validarFormulario(form)){ msg.classList.add('text-danger'); msg.textContent='Revisa los campos resaltados.'; return; }
 
     const payload = {
-      rut_nif: document.getElementById('f_rut').value.trim(),
-      nombre_fantasia: document.getElementById('f_fantasia').value.trim(),
-      razon_social: document.getElementById('f_razon').value.trim(),
-      email: document.getElementById('f_email').value.trim(),
-      telefono: document.getElementById('f_fono').value.trim(),
-      sitio_web: document.getElementById('f_web').value.trim(),
-      condiciones_pago: document.getElementById('f_condiciones').value.trim(),
-      moneda: document.getElementById('f_moneda').value.trim(),
+      rut_nif:            document.getElementById('f_rut').value.trim(),
+      nombre_fantasia:    document.getElementById('f_fantasia').value.trim(),
+      razon_social:       document.getElementById('f_razon').value.trim(),
+      email:              document.getElementById('f_email').value.trim(),
+      telefono:           document.getElementById('f_fono').value.trim(),
+      sitio_web:          document.getElementById('f_web').value.trim(),
+      condiciones_pago:   document.getElementById('f_condiciones').value.trim(),
+      moneda:             document.getElementById('f_moneda').value.trim(),
       descuento_porcentaje: document.getElementById('f_desc').value.trim()
     };
 
     try{
       const resp = await fetch("{% url 'suppliers:create' %}",{
         method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'X-CSRFToken':CSRF,
-          'X-Requested-With':'XMLHttpRequest'
-        },
+        headers:{ 'Content-Type':'application/json', 'X-CSRFToken': CSRF, 'X-Requested-With':'XMLHttpRequest' },
         body: JSON.stringify(payload)
       });
       const data = await resp.json();
-
       if(!resp.ok || !data.ok){
-        // 🔹 MEJORA: Mostrar errores específicos del backend
         const errors = data.errors || {};
-        for (const fieldId in errors) {
-          // Mapeo de nombres de campo del backend a IDs de input del frontend
-          const inputId = { 'rut_nif': 'f_rut', 'razon_social': 'f_razon', 'email': 'f_email', 'telefono': 'f_fono', 'sitio_web': 'f_web', 'condiciones_pago': 'f_condiciones', 'descuento_porcentaje': 'f_desc' }[fieldId];
-          const inputEl = document.getElementById(inputId);
-          if (inputEl) {
-            setInvalid(inputEl, errors[fieldId]);
-            switchToTabOf(inputEl);
-          }
+        for (const field in errors){
+          const map = {rut_nif:'f_rut', razon_social:'f_razon', email:'f_email', telefono:'f_fono', sitio_web:'f_web', condiciones_pago:'f_condiciones', descuento_porcentaje:'f_desc'};
+          const input = document.getElementById(map[field]);
+          if (input){ setInvalid(input, errors[field]); switchToTabOf(input); }
         }
-        msg.classList.add('text-danger');
-        msg.textContent = (errors.__all__) || 'Revisa los campos resaltados.';
-        return;
+        msg.classList.add('text-danger'); msg.textContent = errors.__all__ || 'Revisa los campos resaltados.'; return;
       }
-      msg.classList.add('text-success');
-      msg.textContent='Proveedor guardado correctamente.';
-      setTimeout(()=>location.reload(),1000);
-    }catch(err){
-      msg.classList.add('text-danger');
-      msg.textContent='Error al guardar proveedor.';
-      console.error(err);
-    }
+      msg.classList.add('text-success'); msg.textContent='Proveedor guardado correctamente.'; setTimeout(()=>location.reload(), 900);
+    }catch(e){ msg.classList.add('text-danger'); msg.textContent='Error al guardar proveedor.'; console.error(e); }
   });
 
-  // =====================================================
-  // ===============  LIMPIAR FORMULARIO  ================
-  // =====================================================
+  // ===== Limpiar form =====
   document.getElementById('btnLimpiar')?.addEventListener('click', ()=>{
     document.querySelectorAll('#form-prov input,#form-prov select').forEach(el=>{
-      if(el.type==='checkbox') el.checked=false;
-      else el.value='';
+      if(el.type==='checkbox') el.checked = false; else el.value = '';
       el.classList.remove('is-invalid');
     });
-    const msg=document.getElementById('provMsg');
-    msg.textContent='';
-    msg.className='small mt-2 d-none';
+    const msg=document.getElementById('provMsg'); msg.textContent=''; msg.className='small mt-2 d-none';
   });
 
-  // =====================================================
-  // ===============  EDITAR PROVEEDOR  ==================
-  // =====================================================
+  // ===== Editar / Eliminar / Estado =====
   async function editarProveedor(id){
-    try {
-      const resp = await fetch(`/proveedores/editar/${id}/`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
-      if(!resp.ok) throw new Error('No se pudo obtener proveedor');
-      const data=await resp.json();
-
-      const {value: formValues} = await Swal.fire({
+    try{
+      const r = await fetch(`/proveedores/editar/${id}/`, { headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!r.ok) throw new Error('No se pudo obtener proveedor');
+      const data = await r.json();
+      const { value: vals } = await Swal.fire({
         title:'Editar Proveedor',
         html:`
           <div class="swal-label-input"><label for="edit_rut">RUT/NIF</label><input id="edit_rut" class="swal2-input" value="${data.rut_nif||''}"></div>
@@ -508,135 +455,129 @@
           <div class="swal-label-input"><label for="edit_web">Sitio Web</label><input id="edit_web" class="swal2-input" value="${data.sitio_web||''}"></div>
           <div class="swal-label-input"><label for="edit_condiciones">Condiciones de Pago</label><input id="edit_condiciones" class="swal2-input" value="${data.condiciones_pago||''}"></div>
         `,
-        customClass: { htmlContainer: 'swal-container' },
-        confirmButtonColor: '#d33',
-        confirmButtonText:'Guardar',
-        cancelButtonText:'Cancelar',
-        preConfirm:()=>{
-          return {
-            rut_nif: document.getElementById('edit_rut').value.trim(),
-            razon_social: document.getElementById('edit_razon').value.trim(),
-            email: document.getElementById('edit_email').value.trim(),
-            telefono: document.getElementById('edit_telefono').value.trim(),
-            sitio_web: document.getElementById('edit_web').value.trim(),
-            condiciones_pago: document.getElementById('edit_condiciones').value.trim()
-          };
-        }
+        customClass:{ htmlContainer:'swal-container' },
+        showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Guardar', cancelButtonText:'Cancelar',
+        preConfirm:()=>({
+          rut_nif: document.getElementById('edit_rut').value.trim(),
+          razon_social: document.getElementById('edit_razon').value.trim(),
+          email: document.getElementById('edit_email').value.trim(),
+          telefono: document.getElementById('edit_telefono').value.trim(),
+          sitio_web: document.getElementById('edit_web').value.trim(),
+          condiciones_pago: document.getElementById('edit_condiciones').value.trim()
+        })
       });
-
-      if(formValues){
-        const resp = await fetch(`/proveedores/editar/${id}/`,{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'X-CSRFToken':CSRF,
-            'X-Requested-With':'XMLHttpRequest'
-          },
-          body: JSON.stringify(formValues)
+      if(vals){
+        const pr = await fetch(`/proveedores/editar/${id}/`, {
+          method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(vals)
         });
-        const result = await resp.json();
-
-        if(resp.ok && result.status === 'ok'){
-          Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false})
-            .then(()=>location.reload());
-        }else{
-          Swal.fire({icon:'error',title:'Error',text:result.message||'Error al actualizar proveedor.'});
-        }
+        const out = await pr.json();
+        if(pr.ok && out.status==='ok'){ Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
+        else { Swal.fire({icon:'error',title:'Error',text: out.message || 'No se pudo actualizar.'}); }
       }
-    } catch(err) {
-      Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'});
-      console.error(err);
-    }
+    }catch(err){ Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'}); console.error(err); }
   }
-
-  // =====================================================
-  // ===============  ELIMINAR PROVEEDOR  ================
-  // =====================================================
   async function eliminarProveedor(id){
-    const confirm = await Swal.fire({
-      title:'¿Eliminar proveedor?',
-      text:'Esta acción no se puede revertir',
-      icon:'warning',
-      showCancelButton:true,
-      confirmButtonColor:'#d33',
-      cancelButtonColor:'#3085d6',
-      confirmButtonText:'Sí, eliminar',
-      cancelButtonText:'Cancelar'
-    });
-
-    if(confirm.isConfirmed){
-      try{
-        const resp=await fetch(`/proveedores/eliminar/${id}/`,{
-          method:'POST',
-          headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}
+    const ok = await Swal.fire({ title:'¿Eliminar proveedor?', text:'Esta acción no se puede revertir', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonText:'Cancelar', confirmButtonText:'Sí, eliminar' });
+    if(!ok.isConfirmed) return;
+    const r = await fetch(`/proveedores/eliminar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}});
+    const j = await r.json();
+    if(j.status==='ok'){ Swal.fire('¡Eliminado!', j.message, 'success').then(()=>location.reload()); }
+    else { Swal.fire({icon:'error',title:'Error',text:j.message||'No se pudo eliminar.'}); }
+  }
+  function desactivarProveedor(id){
+    Swal.fire({ title:'Desactivar proveedor', text:'¿Confirmas?', icon:'warning', showCancelButton:true, confirmButtonText:'Sí, desactivar' })
+      .then(r=>{ if(!r.isConfirmed) return;
+        fetch(`/proveedores/desactivar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF}}).then(r=>r.json()).then(d=>{
+          if(d.status==='ok'){ Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
+          else { Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo desactivar.'}); }
         });
-        const data=await resp.json();
-        if(data.status==='ok'){
-          Swal.fire('¡Eliminado!',data.message,'success').then(()=>location.reload());
-        }else{
-          Swal.fire({icon:'error',title:'Error',text:data.message||'No se pudo eliminar.'});
-        }
-      }catch(err){
-        Swal.fire({icon:'error',title:'Error',text:'Error al eliminar proveedor.'});
-        console.error(err);
-      }
-    }
-  }
-
-  window.editarProveedor = editarProveedor;
-  window.eliminarProveedor = eliminarProveedor;
-
-    // DESACTIVAR / REACTIVAR
-  function desactivarProveedor(id) {
-    Swal.fire({ title: 'Desactivar usuario', text: '¿Confirmas?', icon: 'warning',
-      showCancelButton: true, confirmButtonText: 'Sí, desactivar'
-    }).then(r => {
-      if (!r.isConfirmed) return;
-      fetch(`/proveedores/desactivar/${id}/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCookie('csrftoken') },
-      }).then(r => r.json()).then(data => {
-        if (data.status === 'ok') {
-          Swal.fire({ icon: 'success', title: data.message, timer: 1200, showConfirmButton: false })
-            .then(() => location.reload());
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo desactivar.' });
-        }
       });
+  }
+  function reactivarProveedor(id){
+    fetch(`/proveedores/reactivar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF} }).then(r=>r.json()).then(d=>{
+      if(d.status==='ok'){ Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
+      else { Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo reactivar.'}); }
     });
   }
-  window.desactivarProveedor = desactivarProveedor;
+  window.editarProveedor=editarProveedor;
+  window.eliminarProveedor=eliminarProveedor;
+  window.desactivarProveedor=desactivarProveedor;
+  window.reactivarProveedor=reactivarProveedor;
 
-  function reactivarProveedor(id) {
-    fetch(`/proveedores/reactivar/${id}/`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': getCookie('csrftoken') },
-    }).then(r => r.json()).then(data => {
-      if (data.status === 'ok') {
-        Swal.fire({ icon: 'success', title: data.message, timer: 1200, showConfirmButton: false })
-          .then(() => location.reload());
-      } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo reactivar.' });
-      }
-    });
-  }
-  window.reactivarProveedor = reactivarProveedor;
-
-  // 🔹 SCRIPT PARA MANTENER LA PESTAÑA ACTIVA AL PAGINAR
+  // Mantener pestaña activa al navegar
   document.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
     const pageRel = params.get('page_rel');
     const activeTabId = sessionStorage.getItem('activeSupplierTab');
-
     if (pageRel || activeTabId === '#pane-lista-rel') {
       const tabTrigger = document.querySelector('button[data-bs-target="#pane-lista-rel"]');
       if (tabTrigger) new bootstrap.Tab(tabTrigger).show();
     }
-
     document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
-      tab.addEventListener('shown.bs.tab', event => sessionStorage.setItem('activeSupplierTab', event.target.dataset.bsTarget));
+      tab.addEventListener('shown.bs.tab', e => sessionStorage.setItem('activeSupplierTab', e.target.dataset.bsTarget));
     });
   });
+
+  // ===== LIVE SEARCH (debounce + submit + paginación) =====
+  function setupLiveSearch(root=document){
+    const log = (...a)=>{/* console.log('[live-search]',...a); */};
+
+    function extractAndSwap(html){
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html,'text/html');
+      const newBody  = doc.getElementById('list-body');
+      const newPagi  = doc.getElementById('list-pagination');
+      const newLabel = doc.getElementById('list-pagination-label');
+      if(newBody)  document.getElementById('list-body')?.replaceWith(newBody);
+      if(newPagi)  document.getElementById('list-pagination')?.replaceWith(newPagi);
+      if(newLabel) document.getElementById('list-pagination-label')?.replaceWith(newLabel);
+    }
+    async function doFetch(url){
+      const r = await fetch(url,{ headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    }
+
+    const searchForm  = root.querySelector('form[data-live="search"]');
+    if(!searchForm) return;
+    const searchInput = searchForm.querySelector('input[name="q"]');
+    if(!searchInput) return;
+
+    let t;
+    searchInput.addEventListener('input', function(){
+      clearTimeout(t);
+      t = setTimeout(()=>{ searchForm.dispatchEvent(new Event('submit',{cancelable:true})); }, 400);
+    });
+
+    searchForm.addEventListener('submit', function(ev){
+      ev.preventDefault();
+      const url = new URL(this.action || window.location.href);
+      const fd  = new FormData(this);
+      fd.forEach((v,k)=> url.searchParams.set(k,v));
+      url.searchParams.delete('page'); // reset page al buscar/ordenar
+      const qVal = (fd.get('q')||'').trim();
+      if(qVal === '') url.search = ''; // << RESTABLECER LISTA INICIAL
+
+      document.body.style.cursor='progress';
+      doFetch(url.toString()).then(html=>{
+        extractAndSwap(html);
+        window.history.replaceState({},'',url.toString());
+      }).catch(e=>log('submit error:',e)).finally(()=>{ document.body.style.cursor=''; });
+    });
+
+    root.addEventListener('click', function(ev){
+      const a = ev.target.closest('#list-pagination a.page-link, #list-pagination a');
+      if(!a) return;
+      ev.preventDefault();
+      const href = a.getAttribute('href'); if(!href) return;
+      document.body.style.cursor='progress';
+      doFetch(href).then(html=>{
+        extractAndSwap(html);
+        window.history.replaceState({},'',href);
+      }).catch(e=>log('pag error:',e)).finally(()=>{ document.body.style.cursor=''; });
+    });
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch()); } else { setupLiveSearch(); }
 })();
 </script>
 {% endblock %}

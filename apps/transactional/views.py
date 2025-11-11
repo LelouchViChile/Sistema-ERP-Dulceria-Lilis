@@ -1,15 +1,20 @@
 from datetime import datetime
-from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-from django.core.paginator import Paginator
-from lilis_erp.roles import require_roles
-from django.views.decorators.http import require_POST
 import json
 
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Q
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
+from django.views.decorators.http import require_POST
+
+from lilis_erp.roles import require_roles
+
+# Ajusta imports si tu estructura difiere
 from .models import MovimientoInventario, Producto, Proveedor
 
+# Excel
 try:
     from openpyxl import Workbook
     from openpyxl.utils import get_column_letter
@@ -17,27 +22,58 @@ except ImportError:
     Workbook = None
 
 
-def _build_transaction_q(q: str):
-    """Construye un Q de búsqueda para movimientos de inventario."""
+# -------------------------- Helper búsqueda --------------------------
+
+def _build_transaction_q(q: str) -> Q:
+    """
+    Búsqueda para movimientos de inventario (lo que pediste):
+    - cantidad (si es número)
+    - producto.sku, producto.nombre
+    - tipo
+    - bodega_origen.nombre, bodega_destino.nombre
+    - proveedor.razon_social / rut_nif
+    - usuario (creado_por.username)
+    - lote
+    """
     q = (q or "").strip()
     if not q:
         return Q()
-    return (
-        Q(producto__nombre__icontains=q) |
+
+    expr = (
         Q(producto__sku__icontains=q) |
+        Q(producto__nombre__icontains=q) |
         Q(tipo__icontains=q) |
+        Q(bodega_origen__nombre__icontains=q) |
+        Q(bodega_destino__nombre__icontains=q) |
         Q(proveedor__razon_social__icontains=q) |
-        Q(lote__icontains=q) |
-        Q(serie__icontains=q) |
-        Q(creado_por__username__icontains=q)
+        Q(proveedor__rut_nif__icontains=q) |
+        Q(creado_por__username__icontains=q) |
+        Q(lote__icontains=q)
     )
 
+    # cantidad exacta si es número (soporta coma o punto)
+    try:
+        cantidad_q = float(q.replace(",", "."))
+        expr |= Q(cantidad=cantidad_q)
+    except ValueError:
+        pass
+
+    # ID exacto si es entero
+    try:
+        expr |= Q(id=int(q))
+    except ValueError:
+        pass
+
+    return expr
+
+
+# ------------------------------ Vistas ------------------------------
 
 @login_required
 @require_roles("ADMIN", "PRODUCCION", "INVENTARIO", "VENTAS", "COMPRAS")
 def gestion_transacciones(request):
     """
-    Vista para listar, filtrar, ordenar y exportar movimientos de inventario.
+    Lista, filtra, ordena y exporta movimientos de inventario.
     """
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', '-fecha')
@@ -52,19 +88,22 @@ def gestion_transacciones(request):
         'producto', 'proveedor', 'bodega_origen', 'bodega_destino', 'creado_por'
     ).all()
 
-    # Filtro por tipo de movimiento
+    # Filtro por tipo desde 'ver'
     if ver == 'ingresos':
         qs = qs.filter(tipo__in=['Ingreso', 'Devolución'])
     elif ver == 'salidas':
         qs = qs.filter(tipo='Salida')
     elif ver == 'ajustes':
         qs = qs.filter(tipo='Ajuste')
+    # 'todos' no filtra
 
+    # Filtro textual amplio
     if query:
         qs = qs.filter(_build_transaction_q(query))
 
     qs = qs.order_by(sort_by)
 
+    # Export a Excel
     if export == "xlsx":
         if Workbook is None:
             return HttpResponse("Falta dependencia: instala openpyxl (pip install openpyxl)", status=500)
@@ -73,27 +112,28 @@ def gestion_transacciones(request):
         ws = wb.active
         ws.title = "Movimientos"
         headers = [
-            "ID", "Fecha", "Tipo", "Producto", "SKU", "Cantidad", "Bodega Origen", "Bodega Destino",
-            "Proveedor", "Lote", "Serie", "Vencimiento", "Usuario", "Observación"
+            "ID", "Fecha", "Tipo", "Producto", "SKU", "Cantidad",
+            "Bodega Origen", "Bodega Destino", "Proveedor",
+            "Lote", "Serie", "Vencimiento", "Usuario", "Observación"
         ]
         ws.append(headers)
 
         for m in qs:
             ws.append([
                 m.id,
-                m.fecha.strftime('%Y-%m-%d %H:%M'),
-                m.get_tipo_display(),
-                m.producto.nombre,
-                m.producto.sku,
+                m.fecha.strftime('%Y-%m-%d %H:%M') if m.fecha else "",
+                getattr(m, "tipo", ""),
+                getattr(m.producto, "nombre", ""),
+                getattr(m.producto, "sku", ""),
                 m.cantidad,
-                m.bodega_origen.nombre if m.bodega_origen else "-",
-                m.bodega_destino.nombre if m.bodega_destino else "-",
-                m.proveedor.razon_social if m.proveedor else "-",
+                getattr(m.bodega_origen, "nombre", "-") if m.bodega_origen else "-",
+                getattr(m.bodega_destino, "nombre", "-") if m.bodega_destino else "-",
+                getattr(m.proveedor, "razon_social", "-") if m.proveedor else "-",
                 m.lote or "-",
-                m.serie or "-",
-                m.fecha_vencimiento.strftime('%Y-%m-%d') if m.fecha_vencimiento else "-",
-                m.creado_por.username if m.creado_por else "Sistema",
-                m.observacion
+                getattr(m, "serie", "") or "-",
+                m.fecha_vencimiento.strftime('%Y-%m-%d') if getattr(m, "fecha_vencimiento", None) else "-",
+                getattr(m.creado_por, "username", "Sistema") if m.creado_por else "Sistema",
+                getattr(m, "observacion", "") or ""
             ])
 
         for col in ws.columns:
@@ -192,9 +232,6 @@ def crear_transaccion(request):
                 observacion=data.get("observaciones", ""),
                 creado_por=request.user
             )
-            # Aquí iría la lógica para actualizar el stock del producto si es necesario
-            # producto.stock += cantidad (o -=)
-            # producto.save()
         return JsonResponse({"ok": True, "id": mov.id})
     except Exception as e:
         return JsonResponse({"ok": False, "errors": {"__all__": f"Error inesperado: {e}"}}, status=500)
@@ -242,14 +279,18 @@ def eliminar_transaccion(request, mov_id):
         return JsonResponse({"ok": True})
     except MovimientoInventario.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Movimiento no encontrado"}, status=404)
-    
+
+
 @login_required
 @require_roles("ADMIN", "PRODUCCION", "INVENTARIO", "VENTAS")
 def export_xlsx(request):
     """
-    Exporta los movimientos de inventario a un archivo Excel.
+    Exporta los movimientos de inventario a Excel (atajo).
     """
-    wb = openpyxl.Workbook()
+    if Workbook is None:
+        return HttpResponse("La librería 'openpyxl' es necesaria para exportar a Excel. Instálala con: pip install openpyxl", status=500)
+
+    wb = Workbook()
     ws = wb.active
     ws.title = "Movimientos"
 
@@ -263,16 +304,16 @@ def export_xlsx(request):
 
     for m in movimientos:
         ws.append([
-            m.fecha.strftime("%Y-%m-%d"),
-            dict(MovimientoInventario.TIPOS).get(m.tipo, m.tipo),
+            m.fecha.strftime("%Y-%m-%d") if m.fecha else "",
+            getattr(m, "tipo", ""),
             getattr(m.producto, "nombre", ""),
-            getattr(m.proveedor, "razon_social", ""),
+            getattr(m.proveedor, "razon_social", "") if m.proveedor else "",
             m.cantidad,
-            m.usuario.username,
+            getattr(m.creado_por, "username", "Sistema") if m.creado_por else "Sistema",
             m.lote or "",
-            m.serie or "",
-            m.vencimiento.strftime("%Y-%m-%d") if m.vencimiento else "",
-            m.doc_ref or ""
+            getattr(m, "serie", "") or "",
+            m.fecha_vencimiento.strftime("%Y-%m-%d") if getattr(m, "fecha_vencimiento", None) else "",
+            getattr(m, "observacion", "") or ""
         ])
 
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

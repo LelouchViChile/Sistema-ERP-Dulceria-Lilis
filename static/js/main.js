@@ -1,21 +1,17 @@
-// main.js — Búsqueda AJAX en vivo para formularios GET con [data-live="search"]
-// Reemplaza: <tbody id="list-body"> y <nav id="list-pagination"> con el HTML recibido.
-// Soporta: tecleo (debounced), Enter/submit, cambio de <select>, clicks de paginación y redirección a login.
+document.addEventListener("DOMContentLoaded", () => {
+  // ===============================
+  // main.js — Búsqueda AJAX en vivo
+  // ===============================
+  // Funciona con <form method="get" data-live="search">
+  // Reemplaza <tbody id="list-body">, <nav id="list-pagination"> y <small id="list-pagination-label">
+  // Vuelve al listado completo (página 1) cuando el campo 'q' queda vacío.
+  // ===============================
+  console.log("[live-search] Inicializando...");
 
-(function () {
-  function log() { try { console.log.apply(console, arguments); } catch (_) {} }
-
-  function debounce(fn, wait) {
-    let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
-  }
-
-  function serializeForm(form) {
-    const fd = new FormData(form);
-    const params = new URLSearchParams();
-    for (const [k, v] of fd.entries()) {
-      if (v !== null && v !== undefined && v !== '') params.append(k, v);
-    }
-    return params;
+  // --- Helpers ---
+  function debounce(fn, delay = 300) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
   }
 
   function extractAndSwap(htmlText) {
@@ -23,112 +19,89 @@
     dom.innerHTML = htmlText;
 
     const newBody = dom.querySelector("#list-body");
-    const newPag  = dom.querySelector("#list-pagination");
+    const newPagi = dom.querySelector("#list-pagination");
+    const newLabel = dom.querySelector("#list-pagination-label");
 
-    const curBody = document.querySelector("#list-body");
-    const curPag  = document.querySelector("#list-pagination");
-
-    if (newBody && curBody) curBody.innerHTML = newBody.innerHTML;
-    if (newPag && curPag)   curPag.innerHTML  = newPag.innerHTML;
-
-    // Re-engancha paginación cada vez que reemplazamos el HTML
-    wirePagination();
+    if (newBody) document.getElementById("list-body")?.replaceWith(newBody);
+    if (newPagi) document.getElementById("list-pagination")?.replaceWith(newPagi);
+    if (newLabel) document.getElementById("list-pagination-label")?.replaceWith(newLabel);
   }
 
-  async function doFetch(url, opts = {}) {
-    const res = await fetch(url, { method: "GET", credentials: "same-origin", redirect: "follow", ...opts });
+  async function doFetch(url) {
+    const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
     const text = await res.text();
-    return { ok: res.ok, status: res.status, text, finalUrl: res.url };
-  }
-
-  function ensureAbsolute(urlLike) {
-    // Convierte acción relativa a absoluta en el mismo origen
-    try { return new URL(urlLike, window.location.origin); }
-    catch { return new URL(window.location.href); }
-  }
-
-  async function refreshFromForm(form) {
-    const base = ensureAbsolute(form.action || window.location.pathname);
-    const params = serializeForm(form);
-    base.search = params.toString();
-
-    try {
-      document.body.style.cursor = "progress";
-      const { ok, status, text, finalUrl } = await doFetch(base.toString());
-
-      // Si nos mandaron al login, redirige la página completa para mantener la sesión coherente
-      if (finalUrl.includes("/login/")) {
-        window.location.href = finalUrl;
-        return;
-      }
-
-      if (!ok) throw new Error(`HTTP ${status}`);
-      extractAndSwap(text);
-
-      // Actualiza la URL sin recargar
-      window.history.replaceState({}, "", base.toString());
-    } catch (e) {
-      log("[live-search] error:", e);
-    } finally {
-      document.body.style.cursor = "";
+    // Si la sesión expira, el servidor redirige al login.
+    if (res.redirected && res.url.includes("/login")) {
+      window.location.href = res.url;
     }
-  }
-
-  function wirePagination() {
-    const nav = document.querySelector("#list-pagination");
-    if (!nav) return;
-    nav.querySelectorAll("a[href]").forEach(a => {
-      a.addEventListener("click", ev => {
-        ev.preventDefault();
-        const form = document.querySelector('form[data-live="search"]');
-        if (!form) { window.location.href = a.href; return; }
-        // Usa la URL de la página que pidió el link
-        const url = new URL(a.href, window.location.origin);
-        // Conserva también los parámetros del form actual (por si hay filtros)
-        const params = serializeForm(form);
-        url.search = new URLSearchParams({ ...Object.fromEntries(url.searchParams), ...Object.fromEntries(params) }).toString();
-        doFetch(url.toString()).then(({ finalUrl, ok, text }) => {
-          if (finalUrl.includes("/login/")) { window.location.href = finalUrl; return; }
-          if (!ok) return;
-          extractAndSwap(text);
-          window.history.replaceState({}, "", url.toString());
-        }).catch(err => log("[live-search] paginación error:", err));
-      }, { passive: false });
-    });
+    return { ok: res.ok, status: res.status, text, finalUrl: res.url };
   }
 
   function setupLiveSearch(root = document) {
     const form = root.querySelector('form[data-live="search"]');
-    if (!form) { log("[live-search] No se encontró form[data-live='search']"); return; }
+    if (!form) {
+      console.warn("[live-search] No se encontró form[data-live='search']");
+      return;
+    }
 
-    // Submit (Enter / botón)
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      refreshFromForm(form);
-    });
+    const performSearch = async (url) => {
+      document.body.style.cursor = "progress";
+      try {
+        const { ok, text } = await doFetch(url);
+        if (ok) {
+          extractAndSwap(text);
+          window.history.replaceState({}, "", url);
+        } else {
+          console.error("[live-search] La respuesta del servidor no fue OK.");
+        }
+      } catch (err) {
+        console.error("[live-search] Error en fetch:", err);
+      } finally {
+        document.body.style.cursor = "auto";
+      }
+    };
 
-    // Tecleo (debounced)
-    const debounced = debounce(() => refreshFromForm(form), 300);
-    form.querySelectorAll("input[type='text'], input[type='search']").forEach(inp => {
-      inp.addEventListener("input", debounced);
-    });
+    // --- Lógica de eventos ---
 
-    // Cambios en selects / checkboxes / radios
-    form.addEventListener("change", function (ev) {
-      const el = ev.target;
-      if (!el) return;
-      const tag = el.tagName;
-      const type = (el.type || "").toLowerCase();
-      if (tag === "SELECT" || type === "checkbox" || type === "radio") {
-        refreshFromForm(form);
+    // 1. Búsqueda al escribir (con debounce)
+    const onInput = debounce(() => {
+      const url = new URL(form.action || window.location.href);
+      const fd = new FormData(form);
+      fd.forEach((val, key) => url.searchParams.set(key, val));
+      // Al escribir, siempre se va a la página 1.
+      url.searchParams.delete("page");
+      performSearch(url.toString());
+    }, 350);
+
+    form.querySelector("input[name='q']")?.addEventListener("input", onInput);
+
+    // 2. Búsqueda al cambiar un filtro (select)
+    form.addEventListener("change", (ev) => {
+      if (ev.target.tagName === "SELECT") {
+        form.dispatchEvent(new Event("submit", { cancelable: true }));
       }
     });
 
-    wirePagination();
+    // 3. Búsqueda al presionar Enter o el botón de buscar
+    form.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      onInput(); // Reutilizamos la misma lógica
+    });
+
+    // 4. Paginación por AJAX
+    root.addEventListener("click", (ev) => {
+      const link = ev.target.closest("#list-pagination a");
+      if (link) {
+        ev.preventDefault();
+        const href = link.getAttribute("href");
+        if (href) {
+          performSearch(href);
+        }
+      }
+    });
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    setupLiveSearch(document);
-    log("[live-search] listo");
-  });
-})();
+  setupLiveSearch(document);
+  console.log("[live-search] Listo.");
+});
+ 

@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Sum
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, models
@@ -52,52 +52,48 @@ def _qs_to_dicts(qs):
     """
     data = []
     for p in qs:
-        # Calculamos el stock total sumando las cantidades del modelo Stock
-        total_stock = p.stocks.aggregate(total=models.Sum('cantidad'))['total'] or 0
+        # Usamos el stock total anotado para eficiencia.
+        total_stock = getattr(p, 'stock_total', None)
+        if total_stock is None:
+            # Fallback por si la anotación no está presente
+            total_stock = p.stocks.aggregate(total=models.Sum('cantidad'))['total'] or 0
         data.append({
             "id": p.id,
             "sku": getattr(p, "sku", ""),
             "nombre": getattr(p, "nombre", getattr(p, "name", "")),
             "categoria": _display_categoria(p),
-            "stock": total_stock,
+            "stock": total_stock if total_stock is not None else 0,
         })
     return data
 
 
 def _build_search_q(q: str):
-    """
-    Construye un Q de búsqueda compatible con los campos existentes del modelo.
-    Soporta FK a 'categoria' correctamente (usa nombre de la categoría).
-    """
     q = (q or "").strip()
     if not q:
         return Q()
 
-    names = {f.name for f in Product._meta.get_fields()}
-    expr = Q()
+    # Expresión base para buscar en los campos de texto más comunes.
+    expr = (
+        Q(sku__icontains=q) |
+        Q(nombre__icontains=q) |
+        Q(marca__icontains=q) | # Búsqueda por marca
+        Q(ean_upc__icontains=q) | # Búsqueda por código de barras
+        Q(categoria__nombre__icontains=q) # Búsqueda por nombre de categoría
+    )
 
-    if "sku" in names:
-        expr |= Q(sku__icontains=q)
-    if "nombre" in names:
-        expr |= Q(nombre__icontains=q)
-    if "name" in names:
-        expr |= Q(name__icontains=q)
+    # Añadir búsqueda por ID si el término es un número.
+    try:
+        expr |= Q(id=int(q))
+    except ValueError:
+        pass
 
-    # si existe FK a categoria
-    if "categoria" in names:
-        try:
-            expr |= Q(categoria__nombre__icontains=q)
-        except Exception:
-            expr |= Q(categoria__icontains=q)
-
-    if "category" in names:
-        try:
-            expr |= Q(category__nombre__icontains=q)
-        except Exception:
-            expr |= Q(category__icontains=q)
+    # Stock total exacto si escribe un número
+    try:
+        expr |= Q(stock_total=int(q))
+    except Exception:
+        pass
 
     return expr
-
 
 # ===================== VISTAS =====================
 
@@ -115,17 +111,34 @@ def product_list_view(request):
     sort_by = (request.GET.get("sort") or "sku").strip()
     export = (request.GET.get("export") or "").strip()
 
-    qs = Product.objects.all()
+    qs = Product.objects.all().annotate(stock_total=Sum('stocks__cantidad'))
 
     if query:
-        qs = qs.filter(_build_search_q(query))
+        # La búsqueda por stock es especial porque es un campo calculado (anotado).
+        # Si el término de búsqueda es numérico, intentamos filtrar por stock.
+        try:
+            stock_query = int(query)
+            # Anotamos el stock total y filtramos por él.
+            qs = qs.annotate(total_stock=models.Sum('stocks__cantidad')).filter(
+                _build_search_q(query) | Q(total_stock=stock_query)
+            )
+        except (ValueError, TypeError):
+            # Si no es un número, filtramos por los campos de texto habituales.
+            qs = qs.filter(_build_search_q(query))
 
     reverse = sort_by.startswith("-")
     key = sort_by.lstrip("-")
     if key not in ALLOWED_SORT_FIELDS:
         key = "sku"
         reverse = False
-    ordering = f"-{key}" if reverse else key
+    
+    # Mapeo de campos pseudo (categoria->categoria__nombre, stock->stock_total)
+    sort_field = key
+    if key == 'categoria':
+        sort_field = 'categoria__nombre'
+    elif key == 'stock':
+        sort_field = 'stock_total'
+    ordering = f'-{sort_field}' if reverse else sort_field
     qs = qs.order_by(ordering)
 
     # Exportar a Excel
@@ -389,4 +402,4 @@ def editar_producto(request, prod_id):
 
         return JsonResponse({"status": "ok", "message": "Producto actualizado correctamente."})
 
-    return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405)
+    return JsonResponse({"status": "error", "message": "Método no permitido."}, status=405) 
