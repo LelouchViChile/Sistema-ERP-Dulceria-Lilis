@@ -11,4 +11,5 @@ urlpatterns = [
     # nuevos
     path('desactivar/<int:user_id>/', views.desactivar_usuario, name='desactivar_usuario'),
     path('reactivar/<int:user_id>/', views.reactivar_usuario, name='reactivar_usuario'),
+    path('reiniciar_clave/<int:user_id>/', views.reiniciar_clave, name='reiniciar_clave'),
 ]

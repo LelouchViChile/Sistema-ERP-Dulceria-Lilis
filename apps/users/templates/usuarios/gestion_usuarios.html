@@ -183,13 +183,15 @@
                     <button class="btn btn-warning btn-sm" onclick="editarUsuario('{{ usuario.id }}')" title="Editar">
                       <i class="bi bi-pencil-square"></i>
                     </button>
-
+                    <button class="btn btn-primary btn-sm" onclick="reiniciarClave('{{ usuario.id }}')" title="Reiniciar Clave">
+                      <i class="bi bi-key-fill"></i> 
+                    </button>
                     {% if usuario.estado == 'activo' %}
-                      <button class="btn btn-outline-secondary btn-sm" onclick="desactivarUsuario('{{ usuario.id }}')" title="Desactivar">
+                      <button class="btn btn-secondary btn-sm" onclick="desactivarUsuario('{{ usuario.id }}')" title="Desactivar">
                         <i class="bi bi-person-dash"></i>
                       </button>
                     {% else %}
-                      <button class="btn btn-outline-success btn-sm" onclick="reactivarUsuario('{{ usuario.id }}')" title="Reactivar">
+                      <button class="btn btn-success btn-sm" onclick="reactivarUsuario('{{ usuario.id }}')" title="Reactivar">
                         <i class="bi bi-person-check"></i>
                       </button>
                     {% endif %}
@@ -451,7 +453,42 @@
     f.reset();
     f.querySelectorAll('.is-valid,.is-invalid').forEach(el => el.classList.remove('is-valid', 'is-invalid'));
   });
-
+  // REINICIAR CLAVE
+  function reiniciarClave(id) {
+    Swal.fire({
+      title: 'Reiniciar Clave',
+      text: '¿Estás seguro de reiniciar la clave de este usuario? Se enviará un correo con la nueva clave.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, reiniciar',
+      cancelButtonText: 'Cancelar'
+    }).then((res) => {
+      if (!res.isConfirmed) return;
+      Swal.showLoading();
+      fetch(`/users/reiniciar_clave/${id}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Correo enviado!',
+            text: data.message,
+          }).then(() => {
+            if (data.force_logout) {
+              window.location.href = "{% url 'login' %}";
+            }
+          });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo reiniciar la clave.' });
+        }
+      })
+      .catch(() => Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor. Inténtalo de nuevo.' }));
+    });
+  }
   // EDITAR
   function editarUsuario(id) {
     fetch(`/users/editar/${id}/`)

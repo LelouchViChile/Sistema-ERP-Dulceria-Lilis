@@ -1,6 +1,6 @@
 # apps/users/views.py
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpRequest
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
@@ -200,7 +200,17 @@ def crear_usuario(request):
 def eliminar_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
+
     usuario = get_object_or_404(Usuario, id=user_id)
+
+    # No se puede eliminar a sí mismo
+    if usuario.id == request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'No puedes eliminar tu propia cuenta.'}, status=403)
+
+    # No se puede eliminar a otro administrador
+    if _es_admin(usuario):
+        return JsonResponse({'status': 'error', 'message': 'No se puede eliminar a un usuario administrador.'}, status=403)
+
     usuario.delete()
     return JsonResponse({'status': 'ok', 'message': 'Usuario eliminado correctamente.'})
 
@@ -259,6 +269,15 @@ def desactivar_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
     usuario = get_object_or_404(Usuario, id=user_id)
+
+    # No se puede desactivar a sí mismo
+    if usuario.id == request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'No puedes desactivar tu propia cuenta.'}, status=403)
+
+    # No se puede desactivar a otro administrador
+    if _es_admin(usuario):
+        return JsonResponse({'status': 'error', 'message': 'No se puede desactivar a un usuario administrador.'}, status=403)
+
     usuario.estado = 'inactivo'
     usuario.activo = False
     usuario.save(update_fields=['estado', 'activo'])
@@ -271,7 +290,52 @@ def reactivar_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
     usuario = get_object_or_404(Usuario, id=user_id)
+
+    # No se puede reactivar a sí mismo (caso improbable, pero seguro)
+    if usuario.id == request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'Acción no permitida sobre tu propia cuenta.'}, status=403)
+
+    # No se puede reactivar a otro administrador
+    if _es_admin(usuario):
+        return JsonResponse({'status': 'error', 'message': 'Los administradores no pueden ser gestionados con esta función.'}, status=403)
+
     usuario.estado = 'activo'
     usuario.activo = True
     usuario.save(update_fields=['estado', 'activo'])
     return JsonResponse({'status': 'ok', 'message': 'Usuario reactivado.'})
+
+
+@login_required
+@csrf_exempt
+def reiniciar_clave(request: HttpRequest, user_id: int):
+    """
+    Reinicia la clave de un usuario y le envía un correo de invitación
+    para que establezca una nueva, reutilizando la lógica de creación.
+    """
+    if not _es_admin(request.user):
+        return HttpResponseForbidden("Solo Administrador.")
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+
+    usuario = get_object_or_404(Usuario, id=user_id)
+    
+    invite_user_and_email(usuario, source='reset')
+    
+    # Invalidar todas las sesiones existentes para este usuario.
+    # La sesión actual del admin no se ve afectada.
+    from django.contrib.auth import update_session_auth_hash
+    update_session_auth_hash(request, usuario)
+
+    # Si el admin se reinicia su propia clave, lo deslogueamos.
+    force_logout = False
+    if request.user.id == usuario.id:
+        from django.contrib.auth import logout
+        logout(request)
+        force_logout = True
+    
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'Se ha enviado un correo para el reinicio de clave a {usuario.email}.',
+        'force_logout': force_logout,
+    })
