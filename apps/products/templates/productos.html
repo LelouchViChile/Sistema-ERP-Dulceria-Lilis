@@ -284,6 +284,7 @@
 <script>
 /* -------- Validación visual y CRUD del formulario principal -------- */
 (function(){
+  // CSRF: meta -> cookie (fallback). Sin cambiar estructura.
   function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== "") {
@@ -298,7 +299,10 @@
     }
     return cookieValue;
   }
-  const CSRF = getCookie("csrftoken");
+  const CSRF =
+    document.querySelector('meta[name="csrf-token"]')?.content ||
+    getCookie("csrftoken") ||
+    "";
 
   function setInvalid(el, msg) {
     if (!el) return;
@@ -424,9 +428,14 @@
     form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
   });
 
+  // ====== EDITAR (GET con X-Requested-With y preConfirm robusto) ======
   window.editarProducto = function (id) {
-    const CSRF = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
-    fetch(`/productos/editar/${id}/`)
+    const CSRF_LOCAL =
+      document.querySelector('meta[name="csrf-token"]')?.content ||
+      document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] ||
+      '';
+
+    fetch(`/productos/editar/${id}/`, { headers: { "X-Requested-With": "XMLHttpRequest" } })
       .then(r => { if (!r.ok) throw new Error('Error en la respuesta del servidor'); return r.json(); })
       .then(response => {
         if (!response.ok) throw new Error(response.error || 'No se pudieron cargar los datos del producto.');
@@ -450,18 +459,41 @@
           confirmButtonColor: '#d33',
           confirmButtonText: "Guardar",
           cancelButtonText: "Cancelar",
-          preConfirm: () => {
-            const payload = {
-              nombre: document.getElementById("edit_nombre").value,
-              categoria: document.getElementById("edit_categoria").value,
-              marca: document.getElementById("edit_marca").value,
-              descripcion: document.getElementById("edit_descripcion").value,
-            };
-            return fetch(`/productos/editar/${id}/`, {
-              method: "POST",
-              headers: { "X-CSRFToken": CSRF, "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            }).then(r => r.json());
+
+          preConfirm: async () => {
+            try {
+              const payload = {
+                nombre: document.getElementById("edit_nombre").value,
+                categoria: document.getElementById("edit_categoria").value,
+                marca: document.getElementById("edit_marca").value,
+                descripcion: document.getElementById("edit_descripcion").value,
+              };
+
+              const resp = await fetch(`/productos/editar/${id}/`, {
+                method: "POST",
+                headers: {
+                  "X-CSRFToken": CSRF_LOCAL,
+                  "Content-Type": "application/json",
+                  "X-Requested-With": "XMLHttpRequest"
+                },
+                body: JSON.stringify(payload)
+              });
+
+              const ctype = resp.headers.get("content-type") || "";
+              if (!ctype.includes("application/json")) {
+                const html = await resp.text();
+                throw new Error(`${resp.status} ${resp.statusText} – Detalle: ${html.slice(0, 400)}`);
+              }
+
+              const dataResp = await resp.json();
+              if (!resp.ok || !dataResp.ok) {
+                throw new Error(dataResp.error || "No se pudo actualizar el producto.");
+              }
+              return dataResp; // éxito
+
+            } catch (err) {
+              Swal.showValidationMessage(err.message || "Error inesperado al actualizar.");
+            }
           }
         }).then(res => {
           if (res.value?.ok) {
@@ -475,8 +507,12 @@
       .catch(err => Swal.fire({ icon:"error", title:"Error", text: err.message || "No se pudo obtener el producto." }));
   };
 
+  // ====== ELIMINAR (usa CSRF meta -> cookie) ======
   window.eliminarProducto = function (id){
-    const CSRF = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+    const CSRF_LOCAL =
+      document.querySelector('meta[name="csrf-token"]')?.content ||
+      document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] ||
+      '';
     Swal.fire({
       title:"¿Eliminar producto?",
       text:"Esta acción no se puede revertir",
@@ -490,7 +526,7 @@
       if(!res.isConfirmed)return;
       fetch(`/productos/eliminar/${id}/`,{
         method:"POST",
-        headers:{ "X-CSRFToken": CSRF }
+        headers:{ "X-CSRFToken": CSRF_LOCAL, "X-Requested-With": "XMLHttpRequest" }
       }).then(r=>r.json()).then(data=>{
         if(data.status==="ok"){
           Swal.fire("¡Eliminado!",data.message,"success").then(()=>location.reload());

@@ -151,6 +151,15 @@ def _load_bodegas_safe():
         return []
 
 
+def _json_or_empty(request):
+    """Devuelve el cuerpo JSON o {} sin romper si llega vacío o HTML."""
+    try:
+        raw = request.body.decode("utf-8") if request.body else ""
+        return json.loads(raw) if raw else {}
+    except Exception:
+        return {}
+
+
 # ---------------- LISTADO ----------------
 @login_required
 @require_roles("ADMIN", "INVENTARIO", "PRODUCCION", "VENTAS")
@@ -281,35 +290,84 @@ def editar_producto(request, prod_id: int):
             ]
         )
         data["categoria_nombre"] = getattr(producto.categoria, "nombre", "")
-        data["categorias"] = list(Categoria.objects.values("id", "nombre"))
+        data["categorias"] = list(Categoria.objects.values("id", "nombre").order_by("nombre"))
         return JsonResponse({"ok": True, "data": data})
 
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
 
-    is_json = (request.headers.get("Content-Type", "") or "").startswith("application/json")
-    data = json.loads(request.body.decode("utf-8") or "{}") if is_json else request.POST
+    # --- POST (actualización robusta) ---
+    try:
+        # Acepta JSON o form; evita excepciones si llega vacío/HTML
+        is_json = (request.headers.get("Content-Type", "") or "").startswith("application/json")
+        data = _json_or_empty(request) if is_json else request.POST
 
-    for field in ["sku", "nombre", "descripcion", "marca", "modelo"]:
-        if field in data and getattr(producto, field, None) is not None:
-            setattr(producto, field, (data.get(field) or "").strip())
+        # Campos básicos (los que envías desde el front)
+        nombre = (data.get("nombre") or "").strip()
+        marca = (data.get("marca") or "").strip()
+        descripcion = (data.get("descripcion") or "").strip()
+        categoria_raw = data.get("categoria", None)
 
-    if data.get("categoria"):
-        producto.categoria_id = data.get("categoria")
+        if not nombre:
+            return JsonResponse({"ok": False, "error": "El nombre es obligatorio."}, status=400)
 
-    if "codigo_barras" in data or "ean_upc" in data:
-        ean = (data.get("codigo_barras") or data.get("ean_upc") or "").strip()
-        producto.ean_upc = ean or None
-
-    for f in ("stock_minimo", "stock_maximo", "punto_reorden"):
-        if f in data and hasattr(producto, f):
+        # categoria: "", None -> None ; si viene id, validar que exista
+        if categoria_raw in ("", None):
+            producto.categoria = None
+            categoria_changed = True
+        else:
             try:
-                setattr(producto, f, data.get(f))
-            except Exception:
-                pass
+                categoria_id = int(categoria_raw)
+                # valida que exista
+                Categoria.objects.get(pk=categoria_id)
+                producto.categoria_id = categoria_id
+                categoria_changed = True
+            except (ValueError, Categoria.DoesNotExist):
+                return JsonResponse({"ok": False, "error": "La categoría seleccionada no existe."}, status=400)
 
-    producto.save()
-    return JsonResponse({"ok": True})
+        # Actualiza campos de texto que llegaron (sin forzar los que no envías)
+        update_fields = []
+        if "nombre" in data:
+            producto.nombre = nombre
+            update_fields.append("nombre")
+        if "marca" in data:
+            producto.marca = marca
+            update_fields.append("marca")
+        if "descripcion" in data:
+            producto.descripcion = descripcion
+            update_fields.append("descripcion")
+        if "categoria" in data and categoria_changed:
+            update_fields.append("categoria")
+
+        # Mantengo tu soporte previo: ean/código de barras y numéricos si aparecieran
+        if "codigo_barras" in data or "ean_upc" in data:
+            ean = (data.get("codigo_barras") or data.get("ean_upc") or "").strip()
+            producto.ean_upc = ean or None
+            update_fields.append("ean_upc")
+
+        for f in ("stock_minimo", "stock_maximo", "punto_reorden"):
+            if f in data and hasattr(producto, f):
+                val = data.get(f)
+                try:
+                    # Permite "", None -> no tocar; si viene algo, castea
+                    if val not in ("", None):
+                        setattr(producto, f, val)
+                        update_fields.append(f)
+                except Exception:
+                    # no corta el flujo si viene sucio
+                    pass
+
+        if update_fields:
+            producto.save(update_fields=update_fields)
+        else:
+            # si no vino ningún campo actualizable, igual asegura persistencia
+            producto.save()
+
+        return JsonResponse({"ok": True, "message": "Producto actualizado."})
+
+    except Exception as e:
+        # Devuelve JSON (no HTML) si algo inesperado ocurre
+        return JsonResponse({"ok": False, "error": f"Error al actualizar: {e}"}, status=500)
 
 
 @login_required
