@@ -7,6 +7,11 @@ from django.urls import reverse, NoReverseMatch
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordChangeView
 from django.urls import reverse_lazy
 
+import logging
+logger = logging.getLogger('login_secure')  # <<<<<< YA LO TENÍAS
+
+from django.views.decorators.cache import never_cache  # <<<<<< AGREGADO
+
 from .forms import (
     CustomPasswordResetForm,
     CustomSetPasswordForm,
@@ -50,6 +55,7 @@ def get_redirect_for_role(user):
 
 
 # ------------------ auth views ------------------
+@never_cache  # <<<<<< AGREGADO (NO CAMBIAMOS NADA MÁS)
 def iniciar_sesion(request):
     # Si ya está logueado, manda directo según rol
     if request.user.is_authenticated:
@@ -58,15 +64,30 @@ def iniciar_sesion(request):
     if request.method == "POST":
         usuario = request.POST.get("username", "")
         contrasena = request.POST.get("password", "")
+
+        # ------------------ LOG SEGURO ------------------
+        ip = request.META.get('REMOTE_ADDR', 'desconocida')
+        logger.info(f"Intento de login: usuario={usuario}, ip={ip}")
+        # ------------------------------------------------
+
         user = authenticate(request, username=usuario, password=contrasena)
 
         if user is not None:
             # Bloqueo de acceso si está inactivo o no-activo por negocio
             if getattr(user, "estado", "activo") != "activo" or not getattr(user, "activo", True):
+
+                # -------- LOG BLOQUEO -----------
+                logger.info(f"Login bloqueado (usuario inactivo): usuario={usuario}, ip={ip}")
+                # -------------------------------
+
                 messages.error(request, "Tu usuario está desactivado. Contacta al administrador.")
                 return render(request, "login.html")
 
             login(request, user)
+
+            # -------- LOG LOGIN EXITOSO --------
+            logger.info(f"Login exitoso: usuario={usuario}, ip={ip}")
+            # -----------------------------------
 
             # Solo admin/superuser respeta ?next=...; el resto va a su módulo
             next_url = request.POST.get("next") or request.GET.get("next")
@@ -74,6 +95,10 @@ def iniciar_sesion(request):
                 return redirect(next_url)
 
             return redirect(get_redirect_for_role(user))
+
+        # -------- LOG LOGIN FALLIDO --------
+        logger.info(f"Login fallido: usuario={usuario}, ip={ip}")
+        # -----------------------------------
 
         messages.error(request, "Usuario o contraseña incorrectos.")
 

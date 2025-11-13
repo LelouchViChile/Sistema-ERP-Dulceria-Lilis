@@ -1,4 +1,3 @@
-# apps/users/views.py
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpRequest
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -207,9 +206,12 @@ def eliminar_usuario(request, user_id):
     if usuario.id == request.user.id:
         return JsonResponse({'status': 'error', 'message': 'No puedes eliminar tu propia cuenta.'}, status=403)
 
-    # No se puede eliminar a otro administrador
-    if _es_admin(usuario):
-        return JsonResponse({'status': 'error', 'message': 'No se puede eliminar a un usuario administrador.'}, status=403)
+    # Solo un superusuario puede eliminar a otro administrador.
+    # Un administrador normal (rol=ADMIN) no puede eliminar a otro admin o superuser.
+    if _es_admin(usuario) and not request.user.is_superuser:
+        return JsonResponse({
+            'status': 'error', 'message': 'Solo un Superusuario puede eliminar a otro administrador.'
+        }, status=403)
 
     usuario.delete()
     return JsonResponse({'status': 'ok', 'message': 'Usuario eliminado correctamente.'})
@@ -274,9 +276,12 @@ def desactivar_usuario(request, user_id):
     if usuario.id == request.user.id:
         return JsonResponse({'status': 'error', 'message': 'No puedes desactivar tu propia cuenta.'}, status=403)
 
-    # No se puede desactivar a otro administrador
-    if _es_admin(usuario):
-        return JsonResponse({'status': 'error', 'message': 'No se puede desactivar a un usuario administrador.'}, status=403)
+    # Un administrador no puede desactivar a un superusuario.
+    # Solo un superusuario puede gestionar a otro superusuario.
+    if usuario.is_superuser and not request.user.is_superuser:
+        return JsonResponse({
+            'status': 'error', 'message': 'No tienes permisos para desactivar a un Superusuario.'
+        }, status=403)
 
     usuario.estado = 'inactivo'
     usuario.activo = False
@@ -295,9 +300,12 @@ def reactivar_usuario(request, user_id):
     if usuario.id == request.user.id:
         return JsonResponse({'status': 'error', 'message': 'Acción no permitida sobre tu propia cuenta.'}, status=403)
 
-    # No se puede reactivar a otro administrador
-    if _es_admin(usuario):
-        return JsonResponse({'status': 'error', 'message': 'Los administradores no pueden ser gestionados con esta función.'}, status=403)
+    # Un administrador no puede reactivar a un superusuario.
+    # Solo un superusuario puede gestionar a otro superusuario.
+    if usuario.is_superuser and not request.user.is_superuser:
+        return JsonResponse({
+            'status': 'error', 'message': 'No tienes permisos para reactivar a un Superusuario.'
+        }, status=403)
 
     usuario.estado = 'activo'
     usuario.activo = True
