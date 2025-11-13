@@ -55,7 +55,6 @@ def _build_supplier_q(q: str) -> Q:
         Q(rut_nif__icontains=q) |
         Q(razon_social__icontains=q) |
         Q(email__icontains=q) |
-        Q(estado__icontains=q) |
         # extras útiles
         Q(nombre_fantasia__icontains=q) |
         Q(telefono__icontains=q) |
@@ -73,11 +72,6 @@ def _build_supplier_q(q: str) -> Q:
         expr |= Q(id=int(q))
     except ValueError:
         pass
-
-    # estado normalizado
-    est = _estado_from_text(q)
-    if est:
-        expr |= Q(estado__iexact=est)
 
     return expr
 
@@ -107,16 +101,15 @@ def supplier_list_view(request):
     if sort_by not in valid_sort_fields:
         sort_by = 'id'
 
-    qs = Proveedor.objects.all()
+    # Primero, filtramos por estado (ver)
+    if ver == 'activos':
+        qs = Proveedor.objects.filter(activo=True)
+    elif ver == 'inactivos':
+        qs = Proveedor.objects.filter(activo=False)
+    else: # 'todos'
+        qs = Proveedor.objects.all()
 
-    # Filtro por estado/activo
-    if ver == 'inactivos':
-        qs = qs.filter(Q(estado__in=['inactivo', 'bloqueado']) | Q(activo=False))
-    elif ver == 'activos':
-        qs = qs.filter(Q(estado__iexact='activo') | Q(activo=True))
-    # 'todos' no filtra
-
-    # Filtro de texto (rut/razon/estado/email y extras)
+    # Luego, sobre el resultado anterior, aplicamos la búsqueda por texto si existe
     if query:
         qs = qs.filter(_build_supplier_q(query))
 
@@ -184,7 +177,8 @@ def supplier_list_view(request):
     # Normaliza estado para visual
     proveedores_list = []
     for p in page_obj.object_list:
-        p.estado = (p.estado or "").capitalize() if p.estado else ("Activo" if getattr(p, "activo", False) else "Inactivo")
+        # Creamos un atributo 'estado_display' para no sobreescribir el original
+        p.estado_display = "Activo" if p.activo else "Inactivo"
         proveedores_list.append(p)
 
     context = {

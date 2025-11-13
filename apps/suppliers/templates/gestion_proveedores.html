@@ -225,18 +225,17 @@
                       <td>{{ p.rut_nif }}</td>
                       <td>{{ p.razon_social }}</td>
                       <td>
-                        {% if p.estado == 'Activo' %}
+                        {% comment %} Usamos el campo booleano 'activo' que es la fuente de verdad {% endcomment %}
+                        {% if p.activo %}
                         <span class="badge bg-success-subtle text-success">Activo</span>
-                        {% elif p.estado == 'Inactivo' %}
-                        <span class="badge bg-warning-subtle text-warning">Inactivo</span>
                         {% else %}
-                        <span class="badge bg-danger-subtle text-danger">Bloqueado</span>
+                        <span class="badge bg-warning-subtle text-warning">Inactivo</span>
                         {% endif %}
                       </td>
                       <td>{{ p.email }}</td>
                       <td>
                         <button class="btn btn-sm btn-warning" onclick="editarProveedor('{{ p.id }}')" title="Editar"><i class="bi bi-pencil"></i></button>
-                        {% if p.estado == "Activo" %}
+                        {% if p.activo %}
                           <button class="btn btn-secondary btn-sm" onclick="desactivarProveedor('{{ p.id }}')" title="Desactivar">
                             <i class="bi bi-person-dash"></i>
                           </button>
