@@ -272,6 +272,7 @@
     }
     return cookieValue;
   }
+
   const CSRF = getCookie("csrftoken");
 
   // Helpers
@@ -281,11 +282,13 @@
     if(msg){ el.classList.add('is-invalid'); if(fb) fb.textContent = msg; }
     else { el.classList.remove('is-invalid'); if(fb) fb.textContent=''; }
   }
+
   function showMsg(el, text, ok=true){
     el.classList.remove('text-danger','text-success');
     el.classList.add(ok?'text-success':'text-danger');
     el.textContent = text;
   }
+
   function switchToTabOf(element){
     const pane = element.closest('.tab-pane');
     if (pane && !pane.classList.contains('active')) {
@@ -294,12 +297,12 @@
     }
   }
 
-  // Fecha hoy
+  // FECHA HOY
   const today = new Date().toISOString().split('T')[0];
   const movFechaEl = document.getElementById('movFecha');
   if (movFechaEl) movFechaEl.value = today;
 
-  // Validación general
+  // VALIDACIÓN GENERAL
   function validateForm(formEl){
     let ok = true, first = null;
     formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
@@ -312,7 +315,7 @@
     return ok;
   }
 
-  // Crear movimiento (AJAX JSON)
+  // CREAR MOVIMIENTO
   document.getElementById('form-mov')?.addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const form = ev.target;
@@ -324,13 +327,17 @@
       tipo: document.getElementById('movTipo').value.trim(),
       fecha: document.getElementById('movFecha').value.trim(),
       cantidad: document.getElementById('movCantidad').value.trim(),
+
       producto_id: document.getElementById('movProductoId').value || null,
       proveedor_id: document.getElementById('movProveedorId').value || null,
+
       producto_text: document.getElementById('movProducto').value.trim(),
       proveedor_text: document.getElementById('movProveedor').value.trim(),
+
       lote: document.getElementById('movLote').value.trim(),
       serie: document.getElementById('movSerie').value.trim(),
       vencimiento: document.getElementById('movVenc').value.trim(),
+
       doc_ref: document.getElementById('movDoc').value.trim(),
       motivo: document.getElementById('movMotivo').value.trim(),
       observaciones: document.getElementById('movObs').value.trim()
@@ -338,9 +345,15 @@
 
     try{
       const resp = await fetch("{% url 'transactional:crear' %}", {
-        method:'POST', headers:{ 'Content-Type':'application/json', 'X-CSRFToken':CSRF, 'X-Requested-With':'XMLHttpRequest' },
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'X-CSRFToken':CSRF,
+          'X-Requested-With':'XMLHttpRequest'
+        },
         body: JSON.stringify(payload)
       });
+
       const data = await resp.json();
       if(!resp.ok || !data.ok){
         const errs = data.errors || {};
@@ -353,21 +366,26 @@
       }
       showMsg(movMsg, 'Movimiento creado correctamente.', true);
       setTimeout(()=> location.reload(), 900);
-    }catch(e){ console.error(e); showMsg(movMsg,'Error al crear movimiento.',false); }
+    }catch(e){
+      console.error(e);
+      showMsg(movMsg,'Error al crear movimiento.',false);
+    }
   });
 
+  // LIMPIAR
   document.getElementById('btn-clear-mov')?.addEventListener('click', ()=>{
     document.getElementById('form-mov').reset();
     document.querySelectorAll('#form-mov .is-invalid').forEach(i=> i.classList.remove('is-invalid'));
     document.getElementById('movMsg').textContent='';
   });
 
-  // Editar / Eliminar
+  // EDITAR MOVIMIENTO
   async function editarMovimiento(id){
     try{
       const r = await fetch(`/transacciones/editar/${id}/`);
       if(!r.ok) throw new Error('No se pudo obtener el movimiento.');
       const data = await r.json();
+
       const { value: vals } = await Swal.fire({
         title:'Editar Movimiento',
         html: `
@@ -376,61 +394,129 @@
           <div class="swal-label-input"><label for="swal-cantidad">Cantidad</label><input id="swal-cantidad" type="number" step="0.01" class="swal2-input" value="${data.movimiento.cantidad}"></div>
         `,
         customClass:{ htmlContainer:'swal-container' },
-        showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Guardar', cancelButtonText:'Cancelar',
+        showCancelButton:true,
+        confirmButtonColor:'#d33',
+        confirmButtonText:'Guardar',
+        cancelButtonText:'Cancelar',
         preConfirm:()=>({
           fecha: document.getElementById('swal-fecha').value,
           tipo: document.getElementById('swal-tipo').value,
           cantidad: document.getElementById('swal-cantidad').value
         })
       });
+
       if(vals){
         const pr = await fetch(`/transacciones/editar/${id}/`, {
-          method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body: JSON.stringify(vals)
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+          body: JSON.stringify(vals)
         });
         const out = await pr.json();
-        if(out.ok){ Swal.fire('¡Actualizado!','El movimiento ha sido actualizado.','success').then(()=>location.reload()); }
-        else { Swal.fire('Error', out.error || 'No se pudo actualizar.', 'error'); }
+
+        if(out.ok){
+          Swal.fire('¡Actualizado!','El movimiento ha sido actualizado.','success')
+           .then(()=>location.reload());
+        } else {
+          Swal.fire('Error', out.error || 'No se pudo actualizar.', 'error');
+        }
       }
-    }catch(e){ Swal.fire('Error', e.message || 'Ocurrió un error inesperado.', 'error'); }
+
+    }catch(e){
+      Swal.fire('Error', e.message || 'Ocurrió un error inesperado.', 'error');
+    }
   }
+
+  // 🧨 FUNCIÓN FINAL ELIMINAR — SIN INPUT RARO
   async function eliminarMovimiento(id){
-    const confirm = await Swal.fire({ title:'¿Eliminar movimiento?', text:'Esta acción no se puede revertir.', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonText:'Cancelar', confirmButtonText:'Sí, eliminar' });
-    if(!confirm.isConfirmed) return;
-    const r = await fetch(`/transacciones/eliminar/${id}/`, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+    const confirm = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      text: 'Esta acción no se puede revertir.',
+      icon: 'warning',
+
+      input: '',          // ❌ mata cualquier input heredado
+      inputOptions: {},
+
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+
+      willOpen: () => {
+        const popup = Swal.getPopup();
+        if (!popup) return;
+
+        popup.querySelectorAll('.swal2-select, .swal2-input, .swal2-textarea')
+            .forEach(el => el.remove());
+
+        const html = Swal.getHtmlContainer();
+        if (html) html.style.marginBottom = '0';
+      },
+
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        if (!popup) return;
+
+        popup.querySelectorAll('.swal2-select, .swal2-input, .swal2-textarea')
+            .forEach(el => el.style.display = 'none');
+
+        const html = Swal.getHtmlContainer();
+        if (html) html.style.marginBottom = '0';
+      }
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    const r = await fetch(`/transacciones/eliminar/${id}/`, {
+      method:'POST',
+      headers:{'X-CSRFToken':CSRF}
+    });
+
     const j = await r.json();
-    if(j.ok){ Swal.fire('¡Eliminado!','El movimiento ha sido eliminado.','success').then(()=>location.reload()); }
-    else { Swal.fire('Error', j.error || 'No se pudo eliminar.', 'error'); }
+
+    if(j.ok){
+      Swal.fire('¡Eliminado!','El movimiento ha sido eliminado.','success')
+        .then(()=> location.reload());
+    } else {
+      Swal.fire('Error', j.error || 'No se pudo eliminar.', 'error');
+    }
   }
+
   window.editarMovimiento = editarMovimiento;
   window.eliminarMovimiento = eliminarMovimiento;
 
-  // ===== LIVE SEARCH (debounce + submit + paginación) =====
+  // LIVE SEARCH
   function setupLiveSearch(root=document){
     const log = (...a)=>{/* console.log('[live-search]',...a); */};
+
     function extractAndSwap(html){
       const parser = new DOMParser();
       const doc = parser.parseFromString(html,'text/html');
       const newBody  = doc.getElementById('list-body');
       const newPagi  = doc.getElementById('list-pagination');
       const newLabel = doc.getElementById('list-pagination-label');
+
       if(newBody)  document.getElementById('list-body')?.replaceWith(newBody);
       if(newPagi)  document.getElementById('list-pagination')?.replaceWith(newPagi);
       if(newLabel) document.getElementById('list-pagination-label')?.replaceWith(newLabel);
     }
+
     async function doFetch(url){
       const r = await fetch(url,{ headers:{'X-Requested-With':'XMLHttpRequest'}});
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.text();
     }
+
     const searchForm  = root.querySelector('form[data-live="search"]');
     if(!searchForm) return;
+
     const searchInput = searchForm.querySelector('input[name="q"]');
     if(!searchInput) return;
 
     let t;
     searchInput.addEventListener('input', function(){
       clearTimeout(t);
-      t = setTimeout(()=>{ searchForm.dispatchEvent(new Event('submit',{cancelable:true})); }, 400);
+      t = setTimeout(()=> searchForm.dispatchEvent(new Event('submit',{cancelable:true})), 400);
     });
 
     searchForm.addEventListener('submit', function(ev){
@@ -438,17 +524,19 @@
       const url = new URL(this.action || window.location.href);
       const fd  = new FormData(this);
       fd.forEach((v,k)=> url.searchParams.set(k,v));
-      url.searchParams.delete('page'); // reset paginación al buscar/ordenar
 
-      // Si el input queda vacío -> estado base sin filtros
+      url.searchParams.delete('page');
       const qVal = (fd.get('q')||'').trim();
       if(qVal === '') url.search = '';
 
       document.body.style.cursor='progress';
-      doFetch(url.toString()).then(html=>{
-        extractAndSwap(html);
-        window.history.replaceState({},'',url.toString());
-      }).catch(e=>log('submit error:',e)).finally(()=>{ document.body.style.cursor=''; });
+
+      doFetch(url.toString())
+        .then(html=>{
+          extractAndSwap(html);
+          window.history.replaceState({},'',url.toString());
+        })
+        .finally(()=>{ document.body.style.cursor=''; });
     });
 
     root.addEventListener('click', function(ev){
@@ -456,15 +544,24 @@
       if(!a) return;
       ev.preventDefault();
       const href = a.getAttribute('href'); if(!href) return;
+
       document.body.style.cursor='progress';
-      doFetch(href).then(html=>{
-        extractAndSwap(html);
-        window.history.replaceState({},'',href);
-      }).catch(e=>log('pag error:',e)).finally(()=>{ document.body.style.cursor=''; });
+      doFetch(href)
+        .then(html=>{
+          extractAndSwap(html);
+          window.history.replaceState({},'',href);
+        })
+        .finally(()=>{ document.body.style.cursor=''; });
     });
   }
-  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch()); } else { setupLiveSearch(); }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch());
+  } else {
+    setupLiveSearch();
+  }
 
 })();
 </script>
+
 {% endblock %}

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction, models
+from django.db import transaction, models, IntegrityError
 from django.db.models import Q, CharField, DecimalField, Value
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpResponse, JsonResponse
@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 from django.forms.models import model_to_dict
 from django.core.exceptions import FieldError
 from django.apps import apps  # <- para cargar Bodega de forma segura
+from django.db.models.deletion import ProtectedError, RestrictedError  # 👈 NUEVO
 
 from lilis_erp.roles import require_roles
 
@@ -375,6 +376,71 @@ def editar_producto(request, prod_id: int):
 @transaction.atomic
 @require_POST
 def eliminar_producto(request, prod_id: int):
-    producto = get_object_or_404(Product, id=prod_id)
-    producto.delete()
-    return JsonResponse({"ok": True})
+    """
+    Elimina un producto de forma segura:
+    - Si no existe -> 404 JSON
+    - Si tiene relaciones protegidas (stocks, movimientos, etc.) -> error legible
+    - Si elimina bien -> status=ok
+    Siempre responde JSON (nunca HTML 500) para que el front no reviente con r.json().
+    """
+    try:
+        producto = Product.objects.get(id=prod_id)
+    except Product.DoesNotExist:
+        return JsonResponse(
+            {"status": "error", "message": "Producto no encontrado."},
+            status=404
+        )
+
+    try:
+        producto.delete()
+        return JsonResponse(
+            {"status": "ok", "message": "Producto eliminado correctamente."}
+        )
+
+    except ProtectedError:
+        # FK con on_delete=PROTECT
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": (
+                    "No se puede eliminar el producto porque tiene movimientos, "
+                    "stock u otras relaciones asociadas."
+                ),
+            },
+            status=400,
+        )
+
+    except RestrictedError:
+        # Django 3.1+ on_delete=RESTRICT
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": (
+                    "No se puede eliminar el producto debido a restricciones de integridad "
+                    "en la base de datos (registros relacionados)."
+                ),
+            },
+            status=400,
+        )
+
+    except IntegrityError:
+        # Cualquier otra violación de integridad
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": (
+                    "No se pudo eliminar el producto por un problema de integridad de datos."
+                ),
+            },
+            status=400,
+        )
+
+    except Exception as e:
+        # Fallback: nunca devolvemos HTML, siempre JSON
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": f"Error inesperado al eliminar el producto: {e}",
+            },
+            status=500,
+        )

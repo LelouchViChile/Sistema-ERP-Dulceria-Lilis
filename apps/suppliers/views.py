@@ -561,11 +561,18 @@ def editar_proveedor(request, supplier_id):
 @require_POST
 def eliminar_proveedor(request, supplier_id):
     try:
-        proveedor = Proveedor.objects.get(id=supplier_id)
-        proveedor.delete()
-        return JsonResponse({"status": "ok", "message": "Proveedor eliminado correctamente"})
+        with transaction.atomic():
+            proveedor = Proveedor.objects.get(id=supplier_id)
+            # Primero, eliminamos todas las relaciones que este proveedor pueda tener
+            ProveedorProducto.objects.filter(proveedor=proveedor).delete()
+            # Ahora sí, eliminamos el proveedor
+            proveedor.delete()
+            return JsonResponse({"status": "ok", "message": "Proveedor y sus relaciones eliminados correctamente"})
     except Proveedor.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Proveedor no encontrado"}, status=404)
+    except Exception as e:
+        # Captura cualquier otro error de base de datos o de lógica
+        return JsonResponse({"status": "error", "message": f"No se pudo eliminar el proveedor. Error: {str(e)}"}, status=500)
 
 @login_required
 @require_roles("ADMIN", "COMPRAS", "INVENTARIO")
@@ -600,3 +607,16 @@ def reactivar_proveedor(request, supplier_id):
     proveedor.activo = True
     proveedor.save(update_fields=[f for f in ['estado', 'activo'] if hasattr(proveedor, f)])
     return JsonResponse({'status': 'ok', 'message': 'Proveedor reactivado.'})
+
+@login_required
+@require_roles("ADMIN", "COMPRAS", "INVENTARIO")
+@require_POST
+def eliminar_relacion(request, relation_id):
+    try:
+        relacion = ProveedorProducto.objects.get(id=relation_id)
+        relacion.delete()
+        return JsonResponse({"status": "ok", "message": "Relación eliminada correctamente"})
+    except ProveedorProducto.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "La relación no fue encontrada."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"No se pudo eliminar la relación. Error: {str(e)}"}, status=500)

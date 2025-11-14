@@ -14,4 +14,5 @@ urlpatterns = [
     path("relations/export/", views.relations_export, name="relations_export"),
     path('desactivar/<int:supplier_id>/', views.desactivar_proveedor, name='desactivar_proveedor'),
     path('reactivar/<int:supplier_id>/', views.reactivar_proveedor, name='reactivar_proveedor'),
+    path('relacion/eliminar/<int:relation_id>/', views.eliminar_relacion, name='delete_relation'),
 ]
