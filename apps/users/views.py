@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
 from datetime import datetime
+import re  # <-- NUEVO, para validar formato del teléfono
 
 from .models import Usuario
 from .utils_invite import invite_user_and_email
@@ -167,6 +168,13 @@ def crear_usuario(request):
     if not all([username, email, nombre, apellido, telefono, rol, estado]):
         return JsonResponse({'status': 'error', 'message': 'Todos los campos son obligatorios.'})
 
+    # NUEVO: validación de formato de teléfono chileno +569XXXXXXXX (12 caracteres)
+    if not re.fullmatch(r'^\+569\d{8}$', telefono):
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Teléfono inválido. Usa el formato +569XXXXXXXX (12 caracteres).'
+        })
+
     if Usuario.objects.filter(username=username).exists():
         return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})
     if Usuario.objects.filter(email=email).exists():
@@ -232,6 +240,13 @@ def editar_usuario(request, user_id):
         telefono = (request.POST.get('telefono') or '').strip()
         rol      = (request.POST.get('rol') or '').strip()
         estado   = (request.POST.get('estado') or '').strip()
+
+        # NUEVO: validación de formato también al editar
+        if not re.fullmatch(r'^\+569\d{8}$', telefono):
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Teléfono inválido. Usa el formato +569XXXXXXXX (12 caracteres).'
+            })
 
         if Usuario.objects.filter(username=username).exclude(id=usuario.id).exists():
             return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})

@@ -1,9 +1,14 @@
-# apps/users/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Upper
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
+
+# NUEVO: validador específico para celular chileno +569XXXXXXXX
+telefono_chile_validator = RegexValidator(
+    regex=r'^\+569\d{8}$',
+    message='Formato inválido: debe ser +569XXXXXXXX (12 caracteres).'
+)
 
 
 class Usuario(AbstractUser):
@@ -33,7 +38,7 @@ class Usuario(AbstractUser):
         "Teléfono",
         max_length=30,
         blank=True,         # opcional en formularios; en BD sigue siendo NOT NULL
-        validators=[RegexValidator(r'^[0-9+()\-\s]{6,30}$', 'Teléfono inválido')]
+        validators=[telefono_chile_validator],  # <-- AQUÍ USAMOS EL NUEVO VALIDADOR
     )
 
     rol = models.CharField(_("Rol"), max_length=20, choices=Roles.choices, default=Roles.VENTAS)

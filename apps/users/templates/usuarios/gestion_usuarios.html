@@ -91,7 +91,8 @@
             <div class="col-6">
               <label class="form-label small mb-1" for="telefono">Teléfono*</label>
               <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+569..." required>
-              <div class="invalid-feedback">Formato permitido: +, números, espacios y () - (mín. 6).</div>
+              <!-- NUEVO MENSAJE EXPLÍCITO -->
+              <div class="invalid-feedback">Debe ser un celular valido en formato +569XXXXXXXX (12 caracteres).</div>
             </div>
 
             <div class="col-6">
@@ -103,7 +104,6 @@
                 <option value="INVENTARIO">Operador de Inventario</option>
                 <option value="PRODUCCION">Operador de Producción</option>
                 <option value="VENTAS">Operador de Ventas</option>
-                <option value="FINANZAS">Analista Financiero</option>
               </select>
               <div class="invalid-feedback">Selecciona un rol.</div>
             </div>
@@ -377,7 +377,7 @@
   // ---- validadores simples (sin passwords)
   const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
   const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  const reTel  = /^[0-9+()\-\s]{6,30}$/;
+  const reTel  = /^\+569\d{8}$/;
   const reName = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
   function markValidity(el, ok) {
@@ -400,7 +400,8 @@
     e.addEventListener('input', () => markValidity(e, reMail.test((e.value || '').trim())));
     n.addEventListener('input', () => markValidity(n, reName.test((n.value || '').trim())));
     a.addEventListener('input', () => markValidity(a, reName.test((a.value || '').trim())));
-    t.addEventListener('input', () => markValidity(t, reTel.test((t.value || '').trim())));
+    // CAMBIADO: validar teléfono SOLO al salir del campo, no mientras escribe
+    t.addEventListener('blur', () => markValidity(t, reTel.test((t.value || '').trim())));
     r.addEventListener('change', () => markValidity(r, !!(r.value || '')));
     es.addEventListener('change', () => markValidity(es, !!(es.value || '')));
   })();
@@ -501,7 +502,7 @@
             <div class="swal-label-input"><label for="edit_first">Nombre</label><input id="edit_first" class="swal2-input" value="${data.first_name || ''}"></div>
             <div class="swal-label-input"><label for="edit_last">Apellido</label><input id="edit_last" class="swal2-input" value="${data.last_name || ''}"></div>
             <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email || ''}"></div>
-            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}"></div>
+            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}" placeholder="+569XXXXXXXX"></div>
             <div class="swal-label-input">
               <label for="edit_rol">Rol</label>
               <select id="edit_rol" class="swal-custom-select">
@@ -510,7 +511,6 @@
                 <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option>
                 <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option>
                 <option value="VENTAS"     ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option>
-                <option value="FINANZAS"   ${data.rol === 'FINANZAS' ? 'selected' : ''}>Analista Financiero</option>
               </select>
             </div>
             <div class="swal-label-input">

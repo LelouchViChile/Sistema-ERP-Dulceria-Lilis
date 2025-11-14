@@ -29,6 +29,49 @@ except ImportError:
 def _valid_email(s: str) -> bool:
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", s or ""))
 
+# NUEVO: helpers para RUT chileno
+def normalizar_rut(rut: str) -> str:
+    """
+    Elimina puntos y guión, deja sólo dígitos + K en mayúscula.
+    """
+    return (rut or "").replace(".", "").replace("-", "").strip().upper()
+
+def rut_chileno_valido(rut: str) -> bool:
+    """
+    Valida RUT chileno:
+      - 7 u 8 dígitos + DV (0-9 o K)
+      - Usa algoritmo módulo 11
+    """
+    limpio = normalizar_rut(rut)
+    if not limpio or not re.fullmatch(r"\d{7,8}[0-9K]", limpio):
+        return False
+
+    cuerpo = limpio[:-1]
+    dv = limpio[-1]
+
+    try:
+        int(cuerpo)
+    except ValueError:
+        return False
+
+    suma = 0
+    multiplo = 2
+    for d in reversed(cuerpo):
+        suma += int(d) * multiplo
+        multiplo += 1
+        if multiplo > 7:
+            multiplo = 2
+
+    resto = 11 - (suma % 11)
+    if resto == 11:
+        dv_calc = "0"
+    elif resto == 10:
+        dv_calc = "K"
+    else:
+        dv_calc = str(resto)
+
+    return dv == dv_calc
+
 def _estado_from_text(q: str):
     """
     Normaliza a los estados guardados en BD (minúscula para matchear consistentes).
@@ -106,7 +149,7 @@ def supplier_list_view(request):
         qs = Proveedor.objects.filter(activo=True)
     elif ver == 'inactivos':
         qs = Proveedor.objects.filter(activo=False)
-    else: # 'todos'
+    else:  # 'todos'
         qs = Proveedor.objects.all()
 
     # Luego, sobre el resultado anterior, aplicamos la búsqueda por texto si existe
@@ -201,7 +244,7 @@ def create_supplier(request):
     """
     Crea/actualiza proveedor por RUT. Si existe, actualiza datos básicos.
     Validación:
-      - rut_nif requerido y único
+      - rut_nif requerido y válido (RUT chileno) + ejemplo
       - razon_social requerida
       - email requerido y válido
     """
@@ -227,8 +270,8 @@ def create_supplier(request):
         descuento = -1
 
     # Validaciones
-    if not re.match(r"^[0-9kK.\-]{7,20}$", rut or ""):
-        errors["rut_nif"] = "RUT/NIF obligatorio y válido."
+    if not rut_chileno_valido(rut):
+        errors["rut_nif"] = "RUT/NIF obligatorio y válido. Ejemplo: 12.345.678-9."
 
     if not razon:
         errors["razon_social"] = "Razón social obligatoria."
@@ -248,7 +291,7 @@ def create_supplier(request):
     if not (0 <= descuento <= 100):
         errors["descuento_porcentaje"] = "Descuento 0 a 100%."
 
-    # Duplicado
+    # Duplicado por RUT exacto
     if not errors:
         existente = Proveedor.objects.filter(rut_nif=rut).first()
         if existente and str(existente.id) != str(data.get("id") or ""):
@@ -495,6 +538,13 @@ def editar_proveedor(request, supplier_id):
             proveedor.telefono = data.get("telefono", proveedor.telefono).strip()
             proveedor.sitio_web = data.get("sitio_web", proveedor.sitio_web).strip()
             proveedor.condiciones_pago = data.get("condiciones_pago", proveedor.condiciones_pago).strip()
+
+            # NUEVO: validar RUT al editar también
+            if not rut_chileno_valido(proveedor.rut_nif):
+                return JsonResponse({
+                    "status": "error",
+                    "message": "RUT/NIF inválido. Ejemplo: 12.345.678-9."
+                }, status=400)
 
             if Proveedor.objects.filter(rut_nif=proveedor.rut_nif).exclude(id=supplier_id).exists():
                 return JsonResponse({"status": "error", "message": "Ya existe otro proveedor con este RUT/NIF."}, status=400)

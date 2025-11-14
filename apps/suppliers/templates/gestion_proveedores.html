@@ -84,8 +84,11 @@
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label small mb-1">RUT/NIF <span class="text-danger">*</span></label>
-                    <input type="text" id="f_rut" class="form-control form-control-sm" autocomplete="off" required>
-                    <div class="invalid-feedback">RUT/NIF obligatorio y válido.</div>
+                    <input type="text" id="f_rut" class="form-control form-control-sm"
+                           autocomplete="off" placeholder="12.345.678-9" required>
+                    <div class="invalid-feedback">
+                      RUT/NIF obligatorio y válido. Ej: 12.345.678-9.
+                    </div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Nombre fantasía (opcional)</label>
@@ -104,7 +107,9 @@
                   <div class="col-6">
                     <label class="form-label small mb-1">Teléfono <span class="text-danger">*</span></label>
                     <input type="text" id="f_fono" class="form-control form-control-sm" autocomplete="off" required>
-                    <div class="invalid-feedback">Teléfono obligatorio y válido.</div>
+                    <div class="invalid-feedback">
+                      Teléfono obligatorio y válido. Ej: +56912345678.
+                    </div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Sitio web</label>
@@ -378,6 +383,39 @@
       if (trigger) new bootstrap.Tab(trigger).show();
     }
   }
+
+  // ---- RUT CHILENO (frontend) ----
+  function limpiarRut(rut) {
+    return (rut || '').replace(/\./g, '').replace(/-/g, '').toUpperCase().trim();
+  }
+  function rutChilenoValido(rut) {
+    const limpio = limpiarRut(rut);
+    // 7 u 8 dígitos + DV (0-9 o K)
+    if (!/^\d{7,8}[0-9K]$/.test(limpio)) return false;
+
+    const cuerpo = limpio.slice(0, -1);
+    const dv = limpio.slice(-1);
+
+    let suma = 0;
+    let multiplo = 2;
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+      suma += parseInt(cuerpo[i], 10) * multiplo;
+      multiplo = multiplo === 7 ? 2 : multiplo + 1;
+    }
+    const resto = 11 - (suma % 11);
+    let dvCalc;
+    if (resto === 11) dvCalc = '0';
+    else if (resto === 10) dvCalc = 'K';
+    else dvCalc = String(resto);
+    return dv === dvCalc;
+  }
+
+  // ---- TELÉFONO CHILENO (misma lógica que usuarios) ----
+  function telefonoChileValido(tel) {
+    const limpio = (tel || '').replace(/\s+/g, '');
+    // EXACTAMENTE +569 + 8 dígitos -> 12 caracteres
+    return /^\+569\d{8}$/.test(limpio);
+  }
   function validarFormulario(form) {
     let ok = true, primero = null;
     form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
@@ -386,16 +424,88 @@
       if(!valido){ setInvalid(el, 'Campo obligatorio'); if(!primero) primero = el; ok = false; } else { setInvalid(el, null); }
     });
     if(primero){ switchToTabOf(primero); primero.focus(); }
+
+    // Validación específica de teléfono
+    const telEl = document.getElementById('f_fono');
+    if (telEl) {
+      const val = telEl.value.trim();
+      if (val && !telefonoChileValido(val)) { // se valida si no está vacío
+        setInvalid(telEl, 'Teléfono inválido. Ej: +56912345678.');
+        if (!primero) primero = telEl;
+        ok = false;
+      } else {
+        setInvalid(telEl, null);
+      }
+    }
+
+    // Validación específica de RUT
+    const rutEl = document.getElementById('f_rut');
+    if (rutEl && rutEl.value.trim() !== '') {
+      if (!rutChilenoValido(rutEl.value)) {
+        setInvalid(rutEl, 'RUT inválido. Ejemplo: 76.543.210-K.');
+        if (!primero) primero = rutEl;
+        ok = false;
+      } else {
+        setInvalid(rutEl, null);
+      }
+    }
     return ok;
+  }
+
+  // validación en blur para RUT en el formulario
+  const rutInput = document.getElementById('f_rut');
+  if (rutInput) {
+    rutInput.addEventListener('blur', function() {
+      if (this.value.trim() === '') return;  // no molestar si está vacío
+      const ok = rutChilenoValido(this.value);
+      setInvalid(this, ok ? null : 'RUT inválido. Ejemplo: 76.543.210-K.');
+    });
+  }
+
+  // validación en blur para TELÉFONO
+  const telInput = document.getElementById('f_fono');
+  if (telInput) {
+    telInput.addEventListener('blur', function() {
+      if (this.value.trim() === '') return;
+      const ok = telefonoChileValido(this.value);
+      setInvalid(this, ok ? null : 'Teléfono inválido. Ej: +56912345678.');
+    });
   }
 
   // ===== Guardar proveedor (AJAX JSON) =====
   document.getElementById('btnGuardarProveedor')?.addEventListener('click', async ()=>{
     const form = document.getElementById('form-prov');
     const msg  = document.getElementById('provMsg');
-    msg.className = 'small mt-2'; msg.textContent = '';
+    msg.className = 'small mt-2';
+    msg.textContent = '';
 
-    if(!validarFormulario(form)){ msg.classList.add('text-danger'); msg.textContent='Revisa los campos resaltados.'; return; }
+    if(!validarFormulario(form)){
+      msg.classList.add('text-danger');
+      msg.textContent='Revisa los campos resaltados.';
+      return;
+    }
+
+    // cheque extra de RUT antes de enviar
+    const rutEl = document.getElementById('f_rut');
+    if (rutEl && rutEl.value.trim() && !rutChilenoValido(rutEl.value)) {
+      setInvalid(rutEl, 'RUT inválido. Ejemplo: 76.543.210-K.');
+      msg.classList.add('text-danger');
+      msg.textContent = 'RUT/NIF obligatorio y válido. Revisa el formato.';
+      switchToTabOf(rutEl);
+      rutEl.focus();
+      return;
+    }
+
+    // cheque extra de TELÉFONO antes de enviar
+    const telEl = document.getElementById('f_fono');
+    if (telEl && telEl.value.trim() && !telefonoChileValido(telEl.value)) {
+      setInvalid(telEl, 'Teléfono inválido. Ej: +56912345678.');
+      msg.classList.add('text-danger');
+      msg.textContent = 'Teléfono inválido. Revisa el formato.';
+      switchToTabOf(telEl);
+      telEl.focus();
+      return;
+    }
 
     const payload = {
       rut_nif:            document.getElementById('f_rut').value.trim(),
@@ -419,23 +529,45 @@
       if(!resp.ok || !data.ok){
         const errors = data.errors || {};
         for (const field in errors){
-          const map = {rut_nif:'f_rut', razon_social:'f_razon', email:'f_email', telefono:'f_fono', sitio_web:'f_web', condiciones_pago:'f_condiciones', descuento_porcentaje:'f_desc'};
+          const map = {
+            rut_nif:'f_rut',
+            razon_social:'f_razon',
+            email:'f_email',
+            telefono:'f_fono',
+            sitio_web:'f_web',
+            condiciones_pago:'f_condiciones',
+            descuento_porcentaje:'f_desc'
+          };
           const input = document.getElementById(map[field]);
-          if (input){ setInvalid(input, errors[field]); switchToTabOf(input); }
+          if (input){
+            setInvalid(input, errors[field]);
+            switchToTabOf(input);
+          }
         }
-        msg.classList.add('text-danger'); msg.textContent = errors.__all__ || 'Revisa los campos resaltados.'; return;
+        msg.classList.add('text-danger');
+        msg.textContent = errors.__all__ || 'Revisa los campos resaltados.';
+        return;
       }
-      msg.classList.add('text-success'); msg.textContent='Proveedor guardado correctamente.'; setTimeout(()=>location.reload(), 900);
-    }catch(e){ msg.classList.add('text-danger'); msg.textContent='Error al guardar proveedor.'; console.error(e); }
+      msg.classList.add('text-success');
+      msg.textContent='Proveedor guardado correctamente.';
+      setTimeout(()=>location.reload(), 900);
+    }catch(e){
+      msg.classList.add('text-danger');
+      msg.textContent='Error al guardar proveedor.';
+      console.error(e);
+    }
   });
 
   // ===== Limpiar form =====
   document.getElementById('btnLimpiar')?.addEventListener('click', ()=>{
     document.querySelectorAll('#form-prov input,#form-prov select').forEach(el=>{
-      if(el.type==='checkbox') el.checked = false; else el.value = '';
+      if(el.type==='checkbox') el.checked = false;
+      else el.value = '';
       el.classList.remove('is-invalid');
     });
-    const msg=document.getElementById('provMsg'); msg.textContent=''; msg.className='small mt-2 d-none';
+    const msg=document.getElementById('provMsg');
+    msg.textContent='';
+    msg.className='small mt-2 d-none';
   });
 
   // ===== Editar / Eliminar / Estado =====
@@ -455,47 +587,111 @@
           <div class="swal-label-input"><label for="edit_condiciones">Condiciones de Pago</label><input id="edit_condiciones" class="swal2-input" value="${data.condiciones_pago||''}"></div>
         `,
         customClass:{ htmlContainer:'swal-container' },
-        showCancelButton:true, confirmButtonColor:'#d33', confirmButtonText:'Guardar', cancelButtonText:'Cancelar',
-        preConfirm:()=>({
-          rut_nif: document.getElementById('edit_rut').value.trim(),
-          razon_social: document.getElementById('edit_razon').value.trim(),
-          email: document.getElementById('edit_email').value.trim(),
-          telefono: document.getElementById('edit_telefono').value.trim(),
-          sitio_web: document.getElementById('edit_web').value.trim(),
-          condiciones_pago: document.getElementById('edit_condiciones').value.trim()
-        })
+        showCancelButton:true,
+        confirmButtonColor:'#d33',
+        confirmButtonText:'Guardar',
+        cancelButtonText:'Cancelar',
+        preConfirm:()=>{
+          const rut = document.getElementById('edit_rut').value.trim();
+          const tel = document.getElementById('edit_telefono').value.trim();
+
+          if (rut && !rutChilenoValido(rut)) {
+            Swal.showValidationMessage('RUT inválido. Ejemplo: 76.543.210-K.');
+            return false;
+          }
+          if (tel && !telefonoChileValido(tel)) {
+            Swal.showValidationMessage('Teléfono inválido. Ej: +56912345678.');
+            return false;
+          }
+
+          return {
+            rut_nif: rut,
+            razon_social: document.getElementById('edit_razon').value.trim(),
+            email: document.getElementById('edit_email').value.trim(),
+            telefono: tel,
+            sitio_web: document.getElementById('edit_web').value.trim(),
+            condiciones_pago: document.getElementById('edit_condiciones').value.trim()
+          };
+        }
       });
       if(vals){
         const pr = await fetch(`/proveedores/editar/${id}/`, {
-          method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(vals)
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'X-CSRFToken':CSRF,
+            'X-Requested-With':'XMLHttpRequest'
+          },
+          body: JSON.stringify(vals)
         });
         const out = await pr.json();
-        if(pr.ok && out.status==='ok'){ Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
-        else { Swal.fire({icon:'error',title:'Error',text: out.message || 'No se pudo actualizar.'}); }
+        if(pr.ok && out.status==='ok'){
+          Swal.fire({icon:'success',title:'Proveedor actualizado',timer:1200,showConfirmButton:false})
+            .then(()=>location.reload());
+        } else {
+          Swal.fire({icon:'error',title:'Error',text: out.message || 'No se pudo actualizar.'});
+        }
       }
-    }catch(err){ Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'}); console.error(err); }
+    }catch(err){
+      Swal.fire({icon:'error',title:'Error',text:'No se pudo obtener proveedor'});
+      console.error(err);
+    }
   }
   async function eliminarProveedor(id){
-    const ok = await Swal.fire({ title:'¿Eliminar proveedor?', text:'Esta acción no se puede revertir', icon:'warning', showCancelButton:true, confirmButtonColor:'#d33', cancelButtonText:'Cancelar', confirmButtonText:'Sí, eliminar' });
+    const ok = await Swal.fire({
+      title:'¿Eliminar proveedor?',
+      text:'Esta acción no se puede revertir',
+      icon:'warning',
+      showCancelButton:true,
+      confirmButtonColor:'#d33',
+      cancelButtonText:'Cancelar',
+      confirmButtonText:'Sí, eliminar'
+    });
     if(!ok.isConfirmed) return;
-    const r = await fetch(`/proveedores/eliminar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}});
+    const r = await fetch(`/proveedores/eliminar/${id}/`,{
+      method:'POST',
+      headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}
+    });
     const j = await r.json();
-    if(j.status==='ok'){ Swal.fire('¡Eliminado!', j.message, 'success').then(()=>location.reload()); }
-    else { Swal.fire({icon:'error',title:'Error',text:j.message||'No se pudo eliminar.'}); }
+    if(j.status==='ok'){
+      Swal.fire('¡Eliminado!', j.message, 'success').then(()=>location.reload());
+    } else {
+      Swal.fire({icon:'error',title:'Error',text:j.message||'No se pudo eliminar.'});
+    }
   }
   function desactivarProveedor(id){
-    Swal.fire({ title:'Desactivar proveedor', text:'¿Confirmas?', icon:'warning', showCancelButton:true, confirmButtonText:'Sí, desactivar' })
-      .then(r=>{ if(!r.isConfirmed) return;
-        fetch(`/proveedores/desactivar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF}}).then(r=>r.json()).then(d=>{
-          if(d.status==='ok'){ Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
-          else { Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo desactivar.'}); }
-        });
+    Swal.fire({
+      title:'Desactivar proveedor',
+      text:'¿Confirmas?',
+      icon:'warning',
+      showCancelButton:true,
+      confirmButtonText:'Sí, desactivar'
+    }).then(r=>{
+      if(!r.isConfirmed) return;
+      fetch(`/proveedores/desactivar/${id}/`,{
+        method:'POST',
+        headers:{'X-CSRFToken':CSRF}
+      }).then(r=>r.json()).then(d=>{
+        if(d.status==='ok'){
+          Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false})
+            .then(()=>location.reload());
+        } else {
+          Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo desactivar.'});
+        }
       });
+    });
   }
   function reactivarProveedor(id){
-    fetch(`/proveedores/reactivar/${id}/`,{ method:'POST', headers:{'X-CSRFToken':CSRF} }).then(r=>r.json()).then(d=>{
-      if(d.status==='ok'){ Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false}).then(()=>location.reload()); }
-      else { Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo reactivar.'}); }
+    fetch(`/proveedores/reactivar/${id}/`,{
+      method:'POST',
+      headers:{'X-CSRFToken':CSRF}
+    }).then(r=>r.json()).then(d=>{
+      if(d.status==='ok'){
+        Swal.fire({icon:'success',title:d.message,timer:1200,showConfirmButton:false})
+          .then(()=>location.reload());
+      } else {
+        Swal.fire({icon:'error',title:'Error',text:d.message||'No se pudo reactivar.'});
+      }
     });
   }
   window.editarProveedor=editarProveedor;
@@ -576,7 +772,11 @@
       }).catch(e=>log('pag error:',e)).finally(()=>{ document.body.style.cursor=''; });
     });
   }
-  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch()); } else { setupLiveSearch(); }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', ()=>setupLiveSearch());
+  } else {
+    setupLiveSearch();
+  }
 })();
 </script>
 {% endblock %}
