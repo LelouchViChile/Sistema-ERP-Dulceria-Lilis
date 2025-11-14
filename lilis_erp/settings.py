@@ -141,23 +141,7 @@ LOGGING = {
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-    {
-        'NAME': 'apps.users.validators.ComplexPasswordValidator',
-    }
-]
+AUTH_PASSWORD_VALIDATORS = []
 
 
 AUTH_USER_MODEL = 'users.Usuario'
@@ -204,3 +188,7 @@ DEFAULT_FROM_EMAIL = "Dulcería Lilis ERP <erpdulceria@gmail.com>"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
+# --- Dominio fijo para los enlaces de recuperación de contraseña ---
+PASSWORD_RESET_DOMAIN = "3.85.33.49"   # IP pública de tu instancia EC2
+PASSWORD_RESET_PROTOCOL = "http"       # usa "https" si tienes SSL en la instancia

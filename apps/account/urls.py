@@ -38,7 +38,7 @@ urlpatterns = [
     # Al completar el cambio vía token, de vuelta al login (sin plantilla "complete")
     path(
         'password/reset/complete/',
-        RedirectView.as_view(pattern_name='login', permanent=False),
+        RedirectView.as_view(pattern_name='login', permanent=False), # Ahora la vista de confirmación redirige aquí
         name='password_reset_complete',
     ),
 

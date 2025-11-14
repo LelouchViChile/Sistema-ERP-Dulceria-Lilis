@@ -1,86 +1,108 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light d-flex align-items-center justify-content-center vh-100">
-    <div class="card p-4 shadow-sm" style="width: 24rem;">
-        <div class="card-body">
-            <h3 class="card-title text-center mb-4">Dulcería Lilis ERP</h3>
+{% extends "base.html" %}
+{% load static %}
 
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-danger text-center p-2">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
+{% block title %}Iniciar Sesión | Dulcería Lilis ERP{% endblock %}
 
-            <form method="post" action="">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.GET.next }}">
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+        <div class="col-md-6 col-lg-5 col-xl-4">
+            <div class="card p-3 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <img src="{% static 'img/Lilis.png' %}" alt="Logo Dulcería Lilis" style="height: 72px;">
+                        <h3 class="card-title text-center mt-3 fw-bold text-danger">ERP Lilis</h3>
+                    </div>
 
-                <div class="mb-3">
-                    <label for="username" class="form-label">Usuario</label>
-                    <input type="text" name="username" id="username" class="form-control" required>
+                    {# Contenedor oculto para los mensajes de Django que leerá SweetAlert #}
+                    <div id="django-messages" style="display: none;">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div data-tag="{{ message.tags }}" data-message="{{ message }}"></div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <form method="post" action="" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+
+                        <div class="mb-3">
+                            <label for="username" class="form-label fw-semibold">Usuario</label>
+                            <input type="text" name="username" id="username" class="form-control rounded-3" required>
+                        </div>
+
+                        <div class="mb-1">
+                            <label for="password" class="form-label fw-semibold">Contraseña</label>
+                            <input type="password" name="password" id="password" class="form-control rounded-3" required>
+                        </div>
+
+                        <div class="text-end mt-2">
+                            <a href="{% url 'password_reset_request' %}" class="small text-decoration-none">¿Olvidaste tu contraseña?</a>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-danger w-100 mt-3 fw-semibold rounded-3">Ingresar</button>
+                        </div>
+                    </form>
                 </div>
-
-                <div class="mb-1">
-                    <label for="password" class="form-label">Contraseña</label>
-                    <input type="password" name="password" id="password" class="form-control" required>
-                </div>
-
-                <!-- Enlaces de ayuda -->
-                <div class="d-flex justify-content-between mt-2">
-                    <a href="{% url 'password_reset_request' %}" class="small text-decoration-none">¿Olvidaste tu contraseña?</a>
-                </div>
-
-                <button type="submit" class="btn btn-danger w-100 mt-3">Ingresar</button>
-            </form>
+            </div>
+            <div class="text-center mt-4 text-muted small">
+                &copy; {% now "Y" %} Dulcería Lilis — Todos los derechos reservados
+            </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <!-- SweetAlert2 (agregado) -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% block scripts %}
+{# Asegúrate que SweetAlert2 esté cargado en base.html o aquí #}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- Validaciones + mensajes SweetAlert2 (agregado) -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const form = document.querySelector('form');
-            const usuario = document.getElementById('username');
-            const clave = document.getElementById('password');
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form');
+    const usuarioInput = document.getElementById('username');
+    const claveInput = document.getElementById('password');
 
-            // 1) Validación de campos vacíos antes de enviar
-            form.addEventListener('submit', function (e) {
-                const u = (usuario?.value || '').trim();
-                const p = (clave?.value || '').trim();
-
-                if (!u || !p) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Campos incompletos',
-                        text: 'Por favor, completa Usuario y Contraseña.',
-                        confirmButtonText: 'Entendido'
-                    });
-                }
+    // 1. Validación de campos vacíos antes de enviar
+    form.addEventListener('submit', function (e) {
+        if (!usuarioInput.value.trim() || !claveInput.value.trim()) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos incompletos',
+                text: 'Por favor, completa tu usuario y contraseña.',
             });
+        }
+    });
 
-            // 2) Mostrar mensajes de error del backend con SweetAlert2 (sin quitar los alerts existentes)
-            const alerts = document.querySelectorAll('.alert.alert-danger');
-            alerts.forEach(function (al) {
-                const msg = al.textContent.trim();
-                if (msg) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error de inicio de sesión',
-                        text: msg,
-                        confirmButtonText: 'Ok'
-                    });
-                }
+    // 2. Mostrar mensajes de Django (éxito o error) con SweetAlert2
+    const messageContainer = document.getElementById('django-messages');
+    if (messageContainer) {
+        const firstMessage = messageContainer.querySelector('div');
+        if (firstMessage) {
+            const tag = firstMessage.dataset.tag;
+            const text = firstMessage.dataset.message;
+
+            Swal.fire({
+                icon: tag === 'success' ? 'success' : 'error',
+                title: tag === 'success' ? 'Operación exitosa' : 'Error de inicio de sesión',
+                text: text,
             });
+        }
+    }
+
+    // 3. 🔥 NUEVO: mensaje de éxito al venir desde el reset de contraseña
+    //    La vista de reset te redirige a: /login/?reset=1
+    const resetFlag = "{{ request.GET.reset|default:'' }}";
+    if (resetFlag === "1") {
+        Swal.fire({
+            icon: 'success',
+            title: 'Contraseña actualizada',
+            text: 'Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión.',
         });
-    </script>
-</body>
-</html>
+    }
+});
+</script>
+{% endblock %}

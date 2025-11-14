@@ -38,6 +38,10 @@
 
     <!-- JS personalizado -->
     <script src="{% static 'js/main.js' %}"></script>
+
+    {# 🔥 BLOQUE AGREGADO PARA QUE LOS SCRIPTS DE CADA VISTA (como login.html) SE INYECTEN AQUÍ #}
+    {% block scripts %}
+    {% endblock %}
 </body>
 
 </html>
