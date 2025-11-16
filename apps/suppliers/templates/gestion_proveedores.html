@@ -27,7 +27,7 @@
       <!-- ======== ZONA A: NO FORMATEAR / NO SELECCIONAR ======== -->
       <!-- prettier-ignore-start -->
       <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
-        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>Ordenar por...</option>
         <option value="rut_nif" {% if sort_by == 'rut_nif' %}selected{% endif %}>RUT/NIF (A-Z)</option>
         <option value="-rut_nif" {% if sort_by == '-rut_nif' %}selected{% endif %}>RUT/NIF (Z-A)</option>
         <option value="razon_social" {% if sort_by == 'razon_social' %}selected{% endif %}>Razón Social (A-Z)</option>
@@ -56,7 +56,7 @@
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body">
           <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
-            <i class="bi bi-person-plus-fill me-2"></i>Nuevo Proveedor
+            <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Proveedor
           </h6>
 
           <form id="form-prov" class="row g-3 needs-validation" novalidate>
@@ -86,9 +86,7 @@
                     <label class="form-label small mb-1">RUT/NIF <span class="text-danger">*</span></label>
                     <input type="text" id="f_rut" class="form-control form-control-sm"
                            autocomplete="off" placeholder="12.345.678-9" required>
-                    <div class="invalid-feedback">
-                      RUT/NIF obligatorio y válido. Ej: 12.345.678-9.
-                    </div>
+                    <div class="invalid-feedback">RUT/NIF obligatorio y válido. Ej: 12.345.678-9.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Nombre fantasía (opcional)</label>
@@ -105,11 +103,9 @@
                     <div class="invalid-feedback">Email obligatorio y válido.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Teléfono <span class="text-danger">*</span></label>
-                    <input type="text" id="f_fono" class="form-control form-control-sm" autocomplete="off" required>
-                    <div class="invalid-feedback">
-                      Teléfono obligatorio y válido. Ej: +56912345678.
-                    </div>
+                    <label class="form-label small mb-1" for="telefono">Teléfono <span class="text-danger">*</span></label>
+                    <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+56 9 XXXX XXXX" required>
+                    <div class="invalid-feedback">Ingrese un número valido.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Sitio web</label>
@@ -129,10 +125,12 @@
                   <div class="col-6">
                     <label class="form-label small mb-1">Moneda <span class="text-danger">*</span></label>
                     <select id="f_moneda" class="form-select form-select-sm" required>
+                      <option value="">Seleccione...</option>
                       <option>CLP</option>
                       <option>USD</option>
                       <option>EUR</option>
                     </select>
+                    <div class="invalid-feedback">Seleccione una moneda.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Descuento (%) <span class="text-danger">*</span></label>
@@ -156,8 +154,8 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Costo asociado <span class="text-danger">*</span></label>
-                    <input type="number" id="rel_costo" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal" required>
-                    <div class="invalid-feedback">No puede ser negativo.</div>
+                    <input type="number" id="rel_costo" class="form-control form-control-sm" min="100" step="10" inputmode="decimal" required>
+                    <div class="invalid-feedback">Ingresa un costo válido.</div>
                   </div>
                   <div class="col-12">
                     <label class="form-label small mb-1">Producto (buscar por SKU o nombre) <span class="text-danger">*</span></label>
@@ -365,16 +363,15 @@
   const CSRF = getCookie('csrftoken') || '';
 
   // ===== Helpers de validación =====
-  function setInvalid(el, msg) {
+  function markValidity(el, ok) {
     if (!el) return;
-    const fb = el.parentElement.querySelector('.invalid-feedback');
-    if (msg) {
-      el.classList.add('is-invalid');
-      if (fb) fb.textContent = msg;
-    } else {
-      el.classList.remove('is-invalid');
-      if (fb) fb.textContent = '';
-    }
+    el.classList.toggle('is-invalid', !ok);
+    el.classList.toggle('is-valid', ok);
+  }
+
+  // Wrapper para mantener compatibilidad con validaciones específicas que sí pasan mensaje
+  function setInvalid(el, msgOrBool) {
+    markValidity(el, !msgOrBool);
   }
   function switchToTabOf(element) {
     const pane = element.closest('.tab-pane');
@@ -386,11 +383,20 @@
 
   // ---- RUT CHILENO (frontend) ----
   function limpiarRut(rut) {
-    return (rut || '').replace(/\./g, '').replace(/-/g, '').toUpperCase().trim();
+  return (rut || '')
+    .replace(/\./g, '')
+    .replace(/-/g, '')
+    .toUpperCase()
+    .trim();
   }
+  // -------------------------------------------------------
+  // Validación completa con cálculo de DV
+  // -------------------------------------------------------
+  /*
   function rutChilenoValido(rut) {
     const limpio = limpiarRut(rut);
-    // 7 u 8 dígitos + DV (0-9 o K)
+
+    // Debe cumplir: 7 u 8 dígitos + DV
     if (!/^\d{7,8}[0-9K]$/.test(limpio)) return false;
 
     const cuerpo = limpio.slice(0, -1);
@@ -398,79 +404,63 @@
 
     let suma = 0;
     let multiplo = 2;
+
     for (let i = cuerpo.length - 1; i >= 0; i--) {
       suma += parseInt(cuerpo[i], 10) * multiplo;
       multiplo = multiplo === 7 ? 2 : multiplo + 1;
     }
+
     const resto = 11 - (suma % 11);
-    let dvCalc;
-    if (resto === 11) dvCalc = '0';
-    else if (resto === 10) dvCalc = 'K';
-    else dvCalc = String(resto);
+    const dvCalc = resto === 11 ? "0" : resto === 10 ? "K" : String(resto);
+
     return dv === dvCalc;
   }
+  */
+  // -------------------------------------------------------
+  // Validación solo formato
+  // -------------------------------------------------------
+  function rutChilenoValido(rut) {
+    const reFormato = /^\d{1,2}\.\d{3}\.\d{3}-[0-9Kk]$/;
+    return reFormato.test((rut || '').trim());
+  }
+
 
   // ---- TELÉFONO CHILENO (misma lógica que usuarios) ----
   function telefonoChileValido(tel) {
-    const limpio = (tel || '').replace(/\s+/g, '');
-    // EXACTAMENTE +569 + 8 dígitos -> 12 caracteres
-    return /^\+569\d{8}$/.test(limpio);
+    return /^\+56\s9\s\d{4}\s\d{4}$/.test((tel || '').trim());
   }
-  function validarFormulario(form) {
-    let ok = true, primero = null;
-    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
-      const val = (el.value||'').trim();
-      const valido = val !== "" && !(el.type === "number" && isNaN(val));
-      if(!valido){ setInvalid(el, 'Campo obligatorio'); if(!primero) primero = el; ok = false; } else { setInvalid(el, null); }
-    });
-    if(primero){ switchToTabOf(primero); primero.focus(); }
 
-    // Validación específica de teléfono
-    const telEl = document.getElementById('f_fono');
-    if (telEl) {
-      const val = telEl.value.trim();
-      if (val && !telefonoChileValido(val)) { // se valida si no está vacío
-        setInvalid(telEl, 'Teléfono inválido. Ej: +56912345678.');
-        if (!primero) primero = telEl;
-        ok = false;
-      } else {
-        setInvalid(telEl, null);
+  // ---- Validadores de campos ----
+  const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  const reWeb = /^https?:\/\/.+/;
+
+  (function attachFieldValidation() {
+    const fields = {
+      'f_rut':        el => rutChilenoValido(el.value),
+      'f_razon':      el => !!el.value.trim(),
+      'f_email':      el => reMail.test(el.value.trim()),
+      'telefono':     el => telefonoChileValido(el.value),
+      'f_web':        el => !el.value.trim() || reWeb.test(el.value.trim()), // Opcional, pero si se llena, debe ser válido
+      'f_condiciones':el => !!el.value.trim(),
+      'f_moneda':     el => !!el.value,
+      'f_desc':       el => el.value !== '' && !isNaN(el.value) && parseFloat(el.value) >= 0 && parseFloat(el.value) <= 100,
+      'rel_lead':     el => el.value !== '' && !isNaN(el.value) && parseInt(el.value, 10) >= 0 && parseInt(el.value, 10) <= 365,
+      'rel_costo':    el => el.value !== '' && !isNaN(el.value) && parseFloat(el.value) >= 0,
+      'rel_product_search': el => !!el.value.trim(),
+    };
+
+    for (const id in fields) {
+      const el = document.getElementById(id);
+      if (el) {
+        const event = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
+        el.addEventListener(event, () => markValidity(el, fields[id](el)));
+        // También validar en blur para inputs de texto
+        if (event === 'input') {
+          el.addEventListener('blur', () => markValidity(el, fields[id](el)));
+        }
       }
     }
-
-    // Validación específica de RUT
-    const rutEl = document.getElementById('f_rut');
-    if (rutEl && rutEl.value.trim() !== '') {
-      if (!rutChilenoValido(rutEl.value)) {
-        setInvalid(rutEl, 'RUT inválido. Ejemplo: 76.543.210-K.');
-        if (!primero) primero = rutEl;
-        ok = false;
-      } else {
-        setInvalid(rutEl, null);
-      }
-    }
-    return ok;
-  }
-
-  // validación en blur para RUT en el formulario
-  const rutInput = document.getElementById('f_rut');
-  if (rutInput) {
-    rutInput.addEventListener('blur', function() {
-      if (this.value.trim() === '') return;  // no molestar si está vacío
-      const ok = rutChilenoValido(this.value);
-      setInvalid(this, ok ? null : 'RUT inválido. Ejemplo: 76.543.210-K.');
-    });
-  }
-
-  // validación en blur para TELÉFONO
-  const telInput = document.getElementById('f_fono');
-  if (telInput) {
-    telInput.addEventListener('blur', function() {
-      if (this.value.trim() === '') return;
-      const ok = telefonoChileValido(this.value);
-      setInvalid(this, ok ? null : 'Teléfono inválido. Ej: +56912345678.');
-    });
-  }
+  })();
 
   // ===== Guardar proveedor (AJAX JSON) =====
   document.getElementById('btnGuardarProveedor')?.addEventListener('click', async ()=>{
@@ -479,31 +469,30 @@
     msg.className = 'small mt-2';
     msg.textContent = '';
 
-    if(!validarFormulario(form)){
+    // Re-validar todo antes de enviar
+    let ok = true;
+    let firstInvalid = null;
+    form.querySelectorAll("input[required], select[required]").forEach(el => {
+      const fieldId = el.id || el.name;
+      let isValid = !!(el.value || '').trim();
+      if (fieldId === 'f_rut') isValid = rutChilenoValido(el.value);
+      if (fieldId === 'f_email') isValid = reMail.test(el.value.trim());
+      if (fieldId === 'telefono') isValid = telefonoChileValido(el.value);
+
+      markValidity(el, isValid);
+      if (!isValid) {
+        ok = false;
+        if (!firstInvalid) firstInvalid = el;
+      }
+    });
+
+    if (!ok) {
       msg.classList.add('text-danger');
       msg.textContent='Revisa los campos resaltados.';
-      return;
-    }
-
-    // cheque extra de RUT antes de enviar
-    const rutEl = document.getElementById('f_rut');
-    if (rutEl && rutEl.value.trim() && !rutChilenoValido(rutEl.value)) {
-      setInvalid(rutEl, 'RUT inválido. Ejemplo: 76.543.210-K.');
-      msg.classList.add('text-danger');
-      msg.textContent = 'RUT/NIF obligatorio y válido. Revisa el formato.';
-      switchToTabOf(rutEl);
-      rutEl.focus();
-      return;
-    }
-
-    // cheque extra de TELÉFONO antes de enviar
-    const telEl = document.getElementById('f_fono');
-    if (telEl && telEl.value.trim() && !telefonoChileValido(telEl.value)) {
-      setInvalid(telEl, 'Teléfono inválido. Ej: +56912345678.');
-      msg.classList.add('text-danger');
-      msg.textContent = 'Teléfono inválido. Revisa el formato.';
-      switchToTabOf(telEl);
-      telEl.focus();
+      if (firstInvalid) {
+        switchToTabOf(firstInvalid);
+        firstInvalid.focus();
+      }
       return;
     }
 
@@ -512,7 +501,7 @@
       nombre_fantasia:    document.getElementById('f_fantasia').value.trim(),
       razon_social:       document.getElementById('f_razon').value.trim(),
       email:              document.getElementById('f_email').value.trim(),
-      telefono:           document.getElementById('f_fono').value.trim(),
+      telefono:           document.getElementById('telefono').value.trim(),
       sitio_web:          document.getElementById('f_web').value.trim(),
       condiciones_pago:   document.getElementById('f_condiciones').value.trim(),
       moneda:             document.getElementById('f_moneda').value.trim(),
@@ -533,9 +522,9 @@
             rut_nif:'f_rut',
             razon_social:'f_razon',
             email:'f_email',
-            telefono:'f_fono',
+            telefono:'telefono',
             sitio_web:'f_web',
-            condiciones_pago:'f_condiciones',
+            condiciones_pago:'f_condiciones', // Asegúrate que el backend use estos nombres
             descuento_porcentaje:'f_desc'
           };
           const input = document.getElementById(map[field]);
@@ -562,7 +551,7 @@
   document.getElementById('btnLimpiar')?.addEventListener('click', ()=>{
     document.querySelectorAll('#form-prov input,#form-prov select').forEach(el=>{
       if(el.type==='checkbox') el.checked = false;
-      else el.value = '';
+      else if (el.id !== 'f_moneda') el.value = ''; // No limpiar la moneda
       el.classList.remove('is-invalid');
     });
     const msg=document.getElementById('provMsg');

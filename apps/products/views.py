@@ -170,7 +170,7 @@ def product_list_view(request):
     Renderiza productos.html (compatible con AJAX).
     """
     query = (request.GET.get("q") or "").strip()
-    sort_by = (request.GET.get("sort") or "sku").strip()
+    sort_by = (request.GET.get("sort") or "id").strip()
     export = (request.GET.get("export") or "").strip()
 
     try:
@@ -253,6 +253,20 @@ def crear_producto(request):
     is_json = (request.headers.get("Content-Type", "") or "").startswith("application/json")
     data = json.loads(request.body.decode("utf-8") or "{}") if is_json else request.POST
 
+    try:
+        precio_compra = Decimal(data.get("costo_estandar", "0") or "0")
+        precio_venta = Decimal(data.get("precio_venta", "0") or "0")
+
+        if precio_compra > precio_venta:
+            return JsonResponse(
+                {"ok": False, "error": "El costo estándar no puede ser mayor que el precio de venta."},
+                status=400)
+        
+    except Exception:
+        return JsonResponse(
+            {"ok": False, "error": "Valores numéricos inválidos para costo estándar o precio de venta."},
+            status=400)
+
     sku = (data.get("sku") or "").strip().upper()
     nombre = (data.get("nombre") or "").strip()
     categoria_id = (data.get("categoria") or "").strip() or None
@@ -271,6 +285,8 @@ def crear_producto(request):
         descripcion=data.get("descripcion") or "",
         marca=data.get("marca") or "",
         modelo=data.get("modelo") or "",
+        costo_estandar=precio_compra,
+        precio_venta=precio_venta,
     )
     return JsonResponse({"ok": True, "id": prod.id})
 

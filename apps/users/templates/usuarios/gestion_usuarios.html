@@ -65,38 +65,37 @@
             {% csrf_token %}
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="username">Username*</label>
+              <label class="form-label small mb-1" for="username">Username <span class="text-danger">*</span></label>
               <input type="text" id="username" name="username" class="form-control form-control-sm" required>
               <div class="invalid-feedback">Ingresa un username válido (3–30, letras/números .-_).</div>
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="email">Email*</label>
+              <label class="form-label small mb-1" for="email">Email <span class="text-danger">*</span></label>
               <input type="email" id="email" name="email" class="form-control form-control-sm" required>
               <div class="invalid-feedback">Ingresa un email válido.</div>
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="nombre">Nombre*</label>
+              <label class="form-label small mb-1" for="nombre">Nombre <span class="text-danger">*</span></label>
               <input type="text" id="nombre" name="first_name" class="form-control form-control-sm" required>
               <div class="invalid-feedback">Ingresa el nombre.</div>
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="apellido">Apellido*</label>
+              <label class="form-label small mb-1" for="apellido">Apellido <span class="text-danger">*</span></label>
               <input type="text" id="apellido" name="last_name" class="form-control form-control-sm" required>
               <div class="invalid-feedback">Ingresa el apellido.</div>
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="telefono">Teléfono*</label>
-              <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+569..." required>
-              <!-- NUEVO MENSAJE EXPLÍCITO -->
-              <div class="invalid-feedback">Debe ser un celular valido en formato +569XXXXXXXX (12 caracteres).</div>
+              <label class="form-label small mb-1" for="telefono">Teléfono <span class="text-danger">*</span></label>
+              <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+56 9 XXXX XXXX" required>
+              <div class="invalid-feedback">Ingrese un número valido.</div>
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="rol">Rol*</label>
+              <label class="form-label small mb-1" for="rol">Rol <span class="text-danger">*</span></label>
               <select id="rol" name="rol" class="form-select form-select-sm" required>
                 <option value="">Seleccione...</option>
                 <option value="ADMIN">Administrador</option>
@@ -109,13 +108,8 @@
             </div>
 
             <div class="col-6">
-              <label class="form-label small mb-1" for="estado">Estado*</label>
-              <select id="estado" name="estado" class="form-select form-select-sm" required>
-                <option value="activo" selected>Activo</option>
-                <option value="inactivo">Inactivo</option>
-                <option value="bloqueado">Bloqueado</option>
-              </select>
-              <div class="invalid-feedback">Selecciona un estado.</div>
+              <label class="form-label small mb-1">Estado</label>
+              <input type="text" name="estado" class="form-control form-control-sm" disabled value="Activo">
             </div>
 
             <div class="col-12">
@@ -126,13 +120,15 @@
             </div>
 
             <div class="col-12 mt-1 d-flex gap-2">
-              <button type="submit" class="btn btn-sm btn-danger flex-grow-1">
+              <button type="button" class="btn btn-sm btn-danger flex-grow-1" id="btnGuardarUsuario">
                 <i class="bi bi-check-lg me-1"></i>Guardar
               </button>
               <button type="button" id="btnLimpiar" class="btn btn-sm btn-outline-danger px-3">
                 <i class="bi bi-eraser me-1"></i>Limpiar
               </button>
             </div>
+
+            <div id="userMsg" class="small mt-2"></div>
           </form>
         </div>
       </div>
@@ -186,19 +182,26 @@
                     <button class="btn btn-primary btn-sm" onclick="reiniciarClave('{{ usuario.id }}')" title="Reiniciar Clave">
                       <i class="bi bi-key-fill"></i> 
                     </button>
-                    {% if usuario.estado == 'activo' %}
-                      <button class="btn btn-secondary btn-sm" onclick="desactivarUsuario('{{ usuario.id }}')" title="Desactivar">
-                        <i class="bi bi-person-dash"></i>
-                      </button>
-                    {% else %}
-                      <button class="btn btn-success btn-sm" onclick="reactivarUsuario('{{ usuario.id }}')" title="Reactivar">
-                        <i class="bi bi-person-check"></i>
-                      </button>
-                    {% endif %}
+                    {% if usuario.id != request.user.id %}
 
-                    <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('{{ usuario.id }}')" title="Eliminar">
-                      <i class="bi bi-trash3-fill"></i>
-                    </button>
+                      {% if usuario.estado == 'activo' %}
+                        <button class="btn btn-secondary btn-sm" onclick="desactivarUsuario('{{ usuario.id }}')" title="Desactivar">
+                          <i class="bi bi-person-dash"></i>
+                        </button>
+                      {% else %}
+                        <button class="btn btn-success btn-sm" onclick="reactivarUsuario('{{ usuario.id }}')" title="Reactivar">
+                          <i class="bi bi-person-check"></i>
+                        </button>
+                      {% endif %}
+                      
+                      {% if usuario.estado != 'bloqueado' %}
+                        <button class="btn btn-danger btn-sm" onclick="bloquearUsuario('{{ usuario.id }}')" title="Bloquear"><i class="bi bi-ban"></i></button>
+                      {% else %}
+                        <button class="btn btn-success btn-sm" onclick="desbloquearUsuario('{{ usuario.id }}')" title="Desbloquear"><i class="bi bi-ban"></i></button>
+                      {% endif %}
+
+                      <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('{{ usuario.id }}')" title="Eliminar"><i class="bi bi-trash3-fill"></i></button>
+                    {% endif %}
                   </td>
                 </tr>
                 {% empty %}
@@ -374,10 +377,14 @@
     return null;
   }
 
+  // 🔒 Evita que el formulario se envíe por método tradicional
+  document.getElementById('formUsuario')
+    ?.addEventListener('submit', ev => ev.preventDefault());
+
   // ---- validadores simples (sin passwords)
   const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
   const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  const reTel  = /^\+569\d{8}$/;
+  const reTel = /^\+56\s9\s\d{4}\s\d{4}$/;
   const reName = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 
   function markValidity(el, ok) {
@@ -393,59 +400,79 @@
     const a = document.getElementById('apellido');
     const t = document.getElementById('telefono');
     const r = document.getElementById('rol');
-    const es= document.getElementById('estado');
+
     if (!u) return;
 
     u.addEventListener('input', () => markValidity(u, reUser.test((u.value || '').trim())));
     e.addEventListener('input', () => markValidity(e, reMail.test((e.value || '').trim())));
     n.addEventListener('input', () => markValidity(n, reName.test((n.value || '').trim())));
     a.addEventListener('input', () => markValidity(a, reName.test((a.value || '').trim())));
-    // CAMBIADO: validar teléfono SOLO al salir del campo, no mientras escribe
     t.addEventListener('blur', () => markValidity(t, reTel.test((t.value || '').trim())));
     r.addEventListener('change', () => markValidity(r, !!(r.value || '')));
-    es.addEventListener('change', () => markValidity(es, !!(es.value || '')));
-  })();
+})();
 
-  // crear
-  document.getElementById('formUsuario')?.addEventListener('submit', function (e) {
-    e.preventDefault();
-    const fd = new FormData(this);
 
-    const checks = [
-      ['username',  v => reUser.test(v.trim())],
-      ['email',     v => reMail.test(v.trim())],
-      ['first_name',v => reName.test(v.trim())],
-      ['last_name', v => reName.test(v.trim())],
-      ['telefono',  v => reTel.test(v.trim())],
-      ['rol',       v => !!v],
-      ['estado',    v => !!v],
-    ];
+  // CREAR USUARIO (AJAX) - Lógica similar a Proveedores
+  document.getElementById('btnGuardarUsuario')?.addEventListener('click', async () => {
+    const form = document.getElementById('formUsuario');
+    const msg  = document.getElementById('userMsg');
+    msg.className = 'small mt-2';
+    msg.textContent = '';
+
+    // 1. Validar campos con Regex
     let ok = true;
+    const checks = [
+      ['username',   v => reUser.test(v)],
+      ['email',      v => reMail.test(v)],
+      ['first_name', v => reName.test(v)],
+      ['last_name',  v => reName.test(v)],
+      ['telefono',   v => reTel.test(v)],
+      ['rol',        v => !!v],
+    ];
+
     for (const [name, fn] of checks) {
-      const el  = document.querySelector(`[name="${name}"]`);
-      const val = (fd.get(name) || '');
-      const pass = fn(val);
-      markValidity(el, pass);
-      if (!pass) ok = false;
+      const el = form.elements[name];
+      const valid = fn((el.value || '').trim());
+      markValidity(el, valid);
+      if (!valid) ok = false;
     }
-    if (!ok) return;
+
+    if (!ok) {
+      form.querySelectorAll("[required]").forEach(el => {
+    if (!el.value.trim()) {
+      markValidity(el, false);
+    }
+    });
+
+      msg.classList.add('text-danger');
+      msg.textContent = 'Revisa los campos resaltados.';
+      return;
+    }
+    
+    // 2. Construir payload
+    const payload = {
+      username:       form.elements.username.value.trim(),
+      email:          form.elements.email.value.trim(),
+      first_name:     form.elements.first_name.value.trim(),
+      last_name:      form.elements.last_name.value.trim(),
+      telefono:       form.elements.telefono.value.trim(),
+      rol:            form.elements.rol.value,
+      mfa_habilitado: form.elements.mfa_habilitado.checked,
+      // El estado no se envía porque el backend lo asigna por defecto
+    };
 
     Swal.showLoading();
-    fetch("{% url 'crear_usuario' %}", {
-      method: 'POST',
-      headers: { 'X-CSRFToken': getCookie('csrftoken') },
-      body: fd
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 'ok') {
-        Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false })
-          .then(() => location.reload());
-      } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo crear.' });
-      }
-    })
-    .catch(() => Swal.fire({ icon: 'error', title: 'Error de red', text: 'Inténtalo otra vez.' }));
+
+    fetch(form.action, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false }).then(() => location.reload());
+        } else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.message || data.error || 'No se pudo crear el usuario.' });
+        }
+      })
+      .catch(() => Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor.' }));
   });
 
   // limpiar
@@ -502,7 +529,7 @@
             <div class="swal-label-input"><label for="edit_first">Nombre</label><input id="edit_first" class="swal2-input" value="${data.first_name || ''}"></div>
             <div class="swal-label-input"><label for="edit_last">Apellido</label><input id="edit_last" class="swal2-input" value="${data.last_name || ''}"></div>
             <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email || ''}"></div>
-            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}" placeholder="+569XXXXXXXX"></div>
+            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}" placeholder="+56 9 XXXX XXXX"></div>
             <div class="swal-label-input">
               <label for="edit_rol">Rol</label>
               <select id="edit_rol" class="swal-custom-select">
@@ -617,5 +644,45 @@
     });
   }
   window.reactivarUsuario = reactivarUsuario;
+  // BLOQUEAR / DESBLOQUEAR
+  function bloquearUsuario(id) {
+    Swal.fire({
+      title: 'Bloquear Usuario',
+      text: '¿Estás seguro de que quieres bloquear a este usuario? No podrá iniciar sesión.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, bloquear',
+      cancelButtonText: 'Cancelar'
+    }).then((res) => {
+      if (!res.isConfirmed) return;
+      fetch(`/users/bloquear/${id}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'ok') Swal.fire('¡Bloqueado!', data.message, 'success').then(() => window.location.reload());
+        else {
+          Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo bloquear el usuario.' });
+        }
+      });
+    });
+  }
+  window.bloquearUsuario = bloquearUsuario;
+
+  function desbloquearUsuario(id) {
+    fetch(`/users/desbloquear/${id}/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') },
+    }).then(r => r.json()).then(data => {
+      if (data.status === 'ok') {
+        Swal.fire({ icon: 'success', title: data.message, timer: 1200, showConfirmButton: false }).then(() => window.location.reload());
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo desbloquear el usuario.' });
+      }
+    });
+  }
+  window.desbloquearUsuario = desbloquearUsuario;
 </script>
 {% endblock %}

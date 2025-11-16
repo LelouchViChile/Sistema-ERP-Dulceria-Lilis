@@ -137,7 +137,7 @@ def _build_relation_q(q: str) -> Q:
 def supplier_list_view(request):
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', 'id')
-    ver = request.GET.get('ver', 'activos')
+    ver = request.GET.get('ver', 'todos')
     export = request.GET.get('export', '')
 
     valid_sort_fields = ['id', '-id', 'rut_nif', '-rut_nif', 'razon_social', '-razon_social']

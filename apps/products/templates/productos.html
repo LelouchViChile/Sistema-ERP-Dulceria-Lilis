@@ -15,7 +15,6 @@
     </div>
   </div>
 
-  <!-- 🔍 BUSCADOR Y ORDEN (MODO TRANSACCIONES) -->
   <div class="d-flex justify-content-end align-items-center mb-3 gap-2">
     <form method="get" action="{% url 'products:list' %}" class="d-flex gap-2" data-live="search">
       <div class="input-group input-group-sm shadow-sm" style="min-width: 280px;">
@@ -28,13 +27,14 @@
       </div>
 
       <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
+        <option value="id" {% if sort_by == 'id' %}selected{% endif %} >Ordenar por...</option>
         <option value="sku" {% if sort_by == 'sku' %}selected{% endif %}>SKU</option>
         <option value="nombre" {% if sort_by == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
         <option value="-nombre" {% if sort_by == '-nombre' %}selected{% endif %}>Nombre (Z-A)</option>
         <option value="categoria" {% if sort_by == 'categoria' %}selected{% endif %}>Categoría (A-Z)</option>
         <option value="-categoria" {% if sort_by == '-categoria' %}selected{% endif %}>Categoría (Z-A)</option>
         <option value="stock" {% if sort_by == 'stock' %}selected{% endif %}>Stock</option>
-        <option value="id" {% if sort_by == 'id' %}selected{% endif %}>ID</option>
+        <option value="-stock" {% if sort_by == '-stock' %}selected{% endif %}>Stock (desc)</option>
       </select>
 
       <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
@@ -77,7 +77,7 @@
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label small mb-1">SKU</label>
-                    <input type="text" name="sku" class="form-control form-control-sm" required>
+                    <input type="text" name="sku" class="form-control form-control-sm" placeholder="LLS-CATE-0000-XX" required>
                     <div class="invalid-feedback">El SKU es obligatorio.</div>
                   </div>
                   <div class="col-6">
@@ -102,12 +102,12 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Compra</label>
-                    <input type="number" name="precio_compra" class="form-control form-control-sm" step="0.01" min="0" required>
+                    <input type="number" name="precio_compra" class="form-control form-control-sm" step="10" min="100" required>
                     <div class="invalid-feedback">El precio de compra es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Venta</label>
-                    <input type="number" name="precio_venta" class="form-control form-control-sm" step="0.01" min="0" required>
+                    <input type="number" name="precio_venta" class="form-control form-control-sm" step="10" min="100" required>
                     <div class="invalid-feedback">El precio de venta es obligatorio.</div>
                   </div>
                   <div class="col-6">
@@ -157,17 +157,12 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Última Entrada</label>
-                    <input type="date" name="ultima_entrada" class="form-control form-control-sm" readonly>
+                    <input id="movFecha" name="fecha" type="date" class="form-control form-control-sm" disabled readonly>
                     <div class="form-text small">Se registrará la fecha actual.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Estado</label>
-                    <select name="estado" class="form-select form-select-sm" required>
-                      <option value="Activo">Activo</option>
-                      <option value="Inactivo">Inactivo</option>
-                      <option value="Descontinuado">Descontinuado</option>
-                    </select>
-                    <div class="invalid-feedback">El estado es obligatorio.</div>
+                    <input type="text" name="estado" class="form-control form-control-sm" disabled value="Activo" required>
                   </div>
                 </div>
               </div>
@@ -182,7 +177,7 @@
                   </div>
                   <div class="col-12">
                     <label class="form-label small mb-1">Código de Barras</label>
-                    <input type="text" name="codigo_barras" class="form-control form-control-sm" required>
+                    <input type="text" name="codigo_barras" class="form-control form-control-sm" placeholder="0987654321234" required>
                     <div class="invalid-feedback">El código de barras es obligatorio.</div>
                   </div>
                   <div class="col-12">
@@ -202,6 +197,10 @@
                 <i class="bi bi-eraser me-1"></i>Limpiar
               </button>
             </div>
+
+            <!-- Mensaje de error general -->
+            <div id="prodMsg" class="small mt-2"></div>
+
           </form>
         </div>
       </div>
@@ -304,18 +303,16 @@
     getCookie("csrftoken") ||
     "";
 
-  function setInvalid(el, msg) {
+  function markValidity(el, ok, msg = null) {
     if (!el) return;
-    const fb = el.parentElement.querySelector('.invalid-feedback');
+    el.classList.toggle('is-invalid', !ok);
+    el.classList.toggle('is-valid', ok);
     if (msg) {
-      el.classList.add("is-invalid");
+      const fb = el.parentElement.querySelector('.invalid-feedback');
       if (fb) fb.textContent = msg;
-    } else {
-      el.classList.remove("is-invalid");
-      if (fb) fb.textContent = '';
     }
   }
-
+  
   function switchToTabOf(element) {
     const pane = element.closest('.tab-pane');
     if (pane && !pane.classList.contains('active')) {
@@ -325,42 +322,8 @@
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const ultimaEntradaEl = document.querySelector('input[name="ultima_entrada"]');
-  if (ultimaEntradaEl) ultimaEntradaEl.value = today;
-
-  function validarFormulario(form) {
-    let ok = true;
-    let primerError = null;
-    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
-      const val = el.value.trim();
-      const valido = val !== "" && !(el.type === "number" && isNaN(val));
-      if (!valido) {
-        setInvalid(el, el.parentElement.querySelector('.invalid-feedback')?.textContent || 'Este campo es obligatorio.');
-        if (!primerError) primerError = el;
-        ok = false;
-      } else {
-        setInvalid(el, null);
-      }
-    });
-
-    const stockMinEl = form.querySelector('input[name="stock_min"]');
-    const stockMaxEl = form.querySelector('input[name="stock_max"]');
-    if (stockMinEl && stockMaxEl) {
-      const stockMin = parseFloat(stockMinEl.value);
-      const stockMax = parseFloat(stockMaxEl.value);
-      if (!isNaN(stockMin) && !isNaN(stockMax) && stockMin > stockMax) {
-        setInvalid(stockMinEl, 'El stock mínimo no puede superar al máximo.');
-        if (!primerError) primerError = stockMinEl;
-        ok = false;
-      }
-    }
-
-    if (primerError) {
-      switchToTabOf(primerError);
-      primerError.focus();
-    }
-    return ok;
-  }
+  const movFechaEl = document.getElementById('movFecha');
+  if (movFechaEl) movFechaEl.value = today;
 
   const form = document.getElementById("form-prod");
   if (!form) return;
@@ -379,8 +342,62 @@
   });
 
   document.getElementById('btnGuardarProducto')?.addEventListener('click', async () => {
-    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-    if (!validarFormulario(form)) return;
+    const msg = document.getElementById('prodMsg');
+    msg.className = 'small mt-2';
+    msg.textContent = '';
+
+    let ok = true;
+    let firstInvalid = null;
+
+    // 1. Validar todos los campos requeridos
+    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
+      const valid = !!el.value.trim();
+      markValidity(el, valid);
+      if (!valid) {
+        ok = false;
+        if (!firstInvalid) firstInvalid = el;
+      }
+    });
+
+    // 2. Validaciones específicas (stock y precios)
+    const stockMinEl = form.elements.stock_min;
+    const stockMaxEl = form.elements.stock_max;
+    const stockMin = parseFloat(stockMinEl.value);
+    const stockMax = parseFloat(stockMaxEl.value);
+    if (!isNaN(stockMin) && !isNaN(stockMax) && stockMin > stockMax) {
+      markValidity(stockMinEl, false, 'El stock mínimo no puede superar al máximo.');
+      ok = false;
+      if (!firstInvalid) firstInvalid = stockMinEl;
+    } else if (!isNaN(stockMin) && !isNaN(stockMax)) {
+      // Si la validación es correcta, asegurarse de que no queden marcados como inválidos
+      markValidity(stockMinEl, true);
+      markValidity(stockMaxEl, true);
+    }
+
+    const precioCompraEl = form.elements.precio_compra;
+    const precioVentaEl = form.elements.precio_venta;
+    const precioCompra = parseFloat(precioCompraEl.value);
+    const precioVenta = parseFloat(precioVentaEl.value);
+    if (!isNaN(precioCompra) && !isNaN(precioVenta) && precioCompra > precioVenta) {
+      markValidity(precioCompraEl, false, 'El precio de compra no puede ser mayor al de venta.');
+      ok = false;
+      if (!firstInvalid) firstInvalid = precioCompraEl;
+    } else if (!isNaN(precioCompra) && !isNaN(precioVenta)) {
+      // Si la validación es correcta, limpiar ambos campos
+      markValidity(precioCompraEl, true);
+      markValidity(precioVentaEl, true);
+    }
+
+    // 3. Mostrar mensaje y hacer foco si hay errores
+    if (!ok) {
+      msg.classList.add('text-danger');
+      msg.textContent = 'Revisa los campos resaltados.';
+      if (firstInvalid) {
+        switchToTabOf(firstInvalid);
+        firstInvalid.focus();
+      }
+      return;
+    }
 
     const fd = new FormData(form);
     const payload = {

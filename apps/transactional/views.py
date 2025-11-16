@@ -76,25 +76,33 @@ def gestion_transacciones(request):
     Lista, filtra, ordena y exporta movimientos de inventario.
     """
     query = request.GET.get('q', '')
-    sort_by = request.GET.get('sort', '-fecha')
+    sort_by = request.GET.get('sort', 'sku')  # Por defecto, los más nuevos primero por ID
     ver = request.GET.get('ver', 'todos')
     export = request.GET.get('export', '')
 
-    valid_sort_fields = ['fecha', '-fecha', 'producto__nombre', '-producto__nombre', 'tipo', '-tipo']
+    valid_sort_fields = ['id', '-id', 'fecha', '-fecha', 'producto__nombre', '-producto__nombre', 'tipo', '-tipo']
     if sort_by not in valid_sort_fields:
-        sort_by = '-fecha'
+        sort_by = '-id'
+
+    # Si el valor es 'id', usamos '-id' para que "Ordenar por..." muestre los más recientes.
+    if sort_by == 'id':
+        sort_by = '-id'
 
     qs = MovimientoInventario.objects.select_related(
         'producto', 'proveedor', 'bodega_origen', 'bodega_destino', 'creado_por'
     ).all()
 
     # Filtro por tipo desde 'ver'
-    if ver == 'ingresos':
-        qs = qs.filter(tipo__in=['Ingreso', 'Devolución'])
-    elif ver == 'salidas':
+    if ver == 'ingreso':
+        qs = qs.filter(tipo='Ingreso')
+    elif ver == 'salida':
         qs = qs.filter(tipo='Salida')
-    elif ver == 'ajustes':
+    elif ver == 'ajuste':
         qs = qs.filter(tipo='Ajuste')
+    elif ver == 'devolucion':
+        qs = qs.filter(tipo='Devolución')
+    elif ver == 'transferencia':
+        qs = qs.filter(tipo='Transferencia')
     # 'todos' no filtra
 
     # Filtro textual amplio

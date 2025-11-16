@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
+from django.core.exceptions import ValidationError
 
 valida_sku = RegexValidator(r'^[A-Z0-9\-_.]{3,50}$', "SKU inválido (usa A-Z, 0-9, -, _, .)")
 valida_ean = RegexValidator(r'^\d{8}(\d{4,6})?$', "EAN/UPC debe ser 8/12/13/14 dígitos")
@@ -96,11 +97,27 @@ class Producto(models.Model):
             ),
         ]
 
+    def clean(self):
+        """
+        Validaciones a nivel de modelo para asegurar la lógica de negocio.
+        """
+        super().clean()
+        # Validar que el precio de venta no sea menor que el costo estándar.
+        # Se comprueba que ambos valores existan antes de comparar.
+        if self.costo_estandar is not None and self.precio_venta is not None:
+            if self.costo_estandar < self.precio_venta:
+                raise ValidationError(
+                    {'costo_estandar': 'El costo estándar no puede ser mayor que el precio de venta.'}
+                )
+
     def save(self, *args, **kwargs):
+        # Normaliza campos de texto antes de validar y guardar.
         if self.sku:
             self.sku = self.sku.strip().upper()
         if self.nombre:
             self.nombre = self.nombre.strip()
+        # Ejecuta todas las validaciones del modelo, incluido el método clean().
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):

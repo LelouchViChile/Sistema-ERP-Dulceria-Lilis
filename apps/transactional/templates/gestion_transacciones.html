@@ -26,6 +26,7 @@
       </div>
 
       <select name="sort" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
+        <option value="sku" {% if sort_by == 'sku' %}selected{% endif %} >Ordenar por...</option>
         <option value="fecha" {% if sort_by == 'fecha' %}selected{% endif %}>Fecha</option>
         <option value="-fecha" {% if sort_by == '-fecha' %}selected{% endif %}>Fecha (desc)</option>
         <option value="tipo" {% if sort_by == 'tipo' %}selected{% endif %}>Tipo</option>
@@ -35,10 +36,17 @@
 
       <select name="ver" class="form-select form-select-sm border-danger" onchange="this.form.dispatchEvent(new Event('submit',{cancelable:true}))">
         <option value="todos" {% if ver == 'todos' %}selected{% endif %}>Todos</option>
-        <option value="ingresos" {% if ver == 'ingresos' %}selected{% endif %}>Ingresos</option>
-        <option value="salidas" {% if ver == 'salidas' %}selected{% endif %}>Salidas</option>
-        <option value="ajustes" {% if ver == 'ajustes' %}selected{% endif %}>Ajustes</option>
+        <option value="ingreso" {% if ver == 'ingreso' %}selected{% endif %}>Ingreso</option>
+        <option value="salida" {% if ver == 'salida' %}selected{% endif %}>Salida</option>
+        <option value="ajuste" {% if ver == 'ajuste' %}selected{% endif %}>Ajuste</option>
+        <option value="devolucion" {% if ver == 'devolucion' %}selected{% endif %}>Devolución</option>
+        <option value="transferencia" {% if ver == 'transferencia' %}selected{% endif %}>Transferencia</option>
       </select>
+
+      <a class="btn btn-success btn-sm d-flex align-items-center shadow-sm"
+         href="{% url 'transactional:list' %}?q={{ query }}&sort={{ sort_by }}&export=xlsx">
+        <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+      </a>
     </form>
   </div>
 
@@ -49,7 +57,7 @@
       <div class="card border border-danger shadow-sm h-100">
         <div class="card-body">
           <h6 class="text-danger fw-bold mb-3 d-flex align-items-center">
-            <i class="bi bi-plus-square-fill me-2"></i>Registrar movimiento
+            <i class="bi bi-plus-circle-fill me-2"></i>Registrar movimiento
           </h6>
 
           <form id="form-mov" class="needs-validation" novalidate>
@@ -75,11 +83,11 @@
                 <div class="row g-2">
                   <div class="col-6">
                     <label class="form-label small">Fecha</label>
-                    <input id="movFecha" name="fecha" type="date" class="form-control form-control-sm" readonly>
+                    <input id="movFecha" name="fecha" type="date" class="form-control form-control-sm" disabled readonly>
                     <div class="form-text small">Se registrará la fecha actual.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small">Tipo</label>
+                    <label class="form-label small">Tipo <span class="text-danger">*</span></label>
                     <select id="movTipo" name="tipo" class="form-select form-select-sm" required>
                       <option value="">Seleccione...</option>
                       <option>Ingreso</option>
@@ -92,7 +100,7 @@
                   </div>
 
                   <div class="col-6">
-                    <label class="form-label small">Producto</label>
+                    <label class="form-label small">Producto <span class="text-danger">*</span></label>
                     <input id="movProducto" name="producto_text" type="text" class="form-control form-control-sm" required placeholder="SKU o nombre">
                     <input type="hidden" id="movProductoId" name="producto_id" value="">
                     <div class="invalid-feedback">Producto obligatorio.</div>
@@ -107,9 +115,9 @@
                   </div>
 
                   <div class="col-6">
-                    <label class="form-label small">Cantidad</label>
-                    <input id="movCantidad" name="cantidad" type="number" class="form-control form-control-sm" step="0.01" min="0" required>
-                    <div class="invalid-feedback">Cantidad ≥ 0.</div>
+                    <label class="form-label small">Cantidad <span class="text-danger">*</span></label>
+                    <input id="movCantidad" name="cantidad" type="number" class="form-control form-control-sm" step="1" min="0" required>
+                    <div class="invalid-feedback">Cantidad igual o mayor a 0.</div>
                   </div>
                 </div>
               </div>
@@ -119,15 +127,17 @@
                 <div class="row g-2">
                   <div class="col-6">
                     <label class="form-label small">Lote</label>
-                    <input id="movLote" name="lote" type="text" class="form-control form-control-sm">
+                    <input id="movLote" name="lote" type="text" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">Error en el lote.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small">Serie</label>
-                    <input id="movSerie" name="serie" type="text" class="form-control form-control-sm">
+                    <input id="movSerie" name="serie" type="text" class="form-control form-control-sm" required>
+                    <div class="invalid-feedback">Error en la serie.</div>
                   </div>
                   <div class="col-12">
                     <label class="form-label small">Fecha vencimiento</label>
-                    <input id="movVenc" name="vencimiento" type="date" class="form-control form-control-sm">
+                    <input id="movVenc" name="vencimiento" type="date" class="form-control form-control-sm" required>
                     <div class="form-text small">Si se informa, no puede estar vencida para Ingreso/Transferencia.</div>
                   </div>
                 </div>
@@ -137,12 +147,15 @@
               <div class="tab-pane fade" id="pane-referencias" role="tabpanel">
                 <div class="row g-2">
                   <div class="col-12">
-                    <label class="form-label small">Doc. Referencia</label>
-                    <input id="movDoc" name="doc_ref" type="text" class="form-control form-control-sm" placeholder="DL-101">
+                    <label class="form-label small">Doc. Referencia <span class="text-danger">*</span></label>
+                    <input id="movDoc" name="doc_ref" type="text" class="form-control form-control-sm" placeholder="DL-101" required>
+                    <div class="invalid-feedback">Error en el documento.</div>
                   </div>
                   <div class="col-12">
-                    <label class="form-label small">Motivo</label>
-                    <input id="movMotivo" name="motivo" type="text" class="form-control form-control-sm" placeholder="Obligatorio en Ajuste/Devolución">
+                    <label class="form-label small">Motivo <span class="text-danger">*</span></label>
+                    <input id="movMotivo" name="motivo" type="text" class="form-control form-control-sm" required placeholder="Opcional">
+                    <div class="form-text small">Requerido en Ajuste/Devolución.</div>
+                    <div class="invalid-feedback">El motivo es obligatorio para este tipo de movimiento.</div>
                   </div>
                   <div class="col-12">
                     <label class="form-label small">Observaciones</label>
@@ -276,13 +289,11 @@
   const CSRF = getCookie("csrftoken");
 
   // Helpers
-  function setInvalid(el, msg){
+  function markValidity(el, ok) {
     if(!el) return;
-    const fb = el.parentElement.querySelector('.invalid-feedback');
-    if(msg){ el.classList.add('is-invalid'); if(fb) fb.textContent = msg; }
-    else { el.classList.remove('is-invalid'); if(fb) fb.textContent=''; }
+    el.classList.toggle('is-invalid', !ok);
+    el.classList.toggle('is-valid', ok);
   }
-
   function showMsg(el, text, ok=true){
     el.classList.remove('text-danger','text-success');
     el.classList.add(ok?'text-success':'text-danger');
@@ -302,16 +313,57 @@
   const movFechaEl = document.getElementById('movFecha');
   if (movFechaEl) movFechaEl.value = today;
 
+  // VALIDACIÓN EN TIEMPO REAL
+  (function attachFieldValidation() {
+    const fields = {
+      'movTipo':      el => !!el.value,
+      'movProducto':  el => !!el.value.trim(),
+      'movCantidad':  el => el.value !== '' && !isNaN(el.value) && parseFloat(el.value) > 0,
+    };
+
+    for (const id in fields) {
+      const el = document.getElementById(id);
+      if (el) {
+        const event = (el.tagName === 'SELECT') ? 'change' : 'input';
+        el.addEventListener(event, () => markValidity(el, fields[id](el)));
+      }
+    }
+  })();
+
   // VALIDACIÓN GENERAL
   function validateForm(formEl){
-    let ok = true, first = null;
-    formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el=>{
-      const val = (el.value||'').trim();
-      const valido = val !== "" && !(el.type === "number" && isNaN(val));
-      if(!valido){ setInvalid(el, 'Este campo es obligatorio.'); if(!first) first = el; ok = false; }
-      else { setInvalid(el, null); }
+    let ok = true;
+    let firstInvalid = null;
+
+    // 1. Validar TODOS los campos con `required` en el formulario
+    formEl.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
+      const isValid = !!(el.value || '').trim();
+      markValidity(el, isValid);
+      if (!isValid) {
+        ok = false;
+        if (!firstInvalid) firstInvalid = el;
+      }
     });
-    if(first){ switchToTabOf(first); first.focus(); }
+
+    // 2. Validaciones condicionales (que no usan `required`)
+    const tipoMov = document.getElementById('movTipo').value;
+    const proveedorInput = document.getElementById('movProveedor');
+    const motivoInput = document.getElementById('movMotivo');
+
+    const esProveedorRequerido = ['Ingreso', 'Devolución'].includes(tipoMov);
+    const proveedorValido = !esProveedorRequerido || !!proveedorInput.value.trim();
+    markValidity(proveedorInput, proveedorValido);
+    if (!proveedorValido) { ok = false; if (!firstInvalid) firstInvalid = proveedorInput; }
+
+    const esMotivoRequerido = ['Ajuste', 'Devolución'].includes(tipoMov);
+    const motivoValido = !esMotivoRequerido || !!motivoInput.value.trim();
+    markValidity(motivoInput, motivoValido);
+    if (!motivoValido) { ok = false; if (!firstInvalid) firstInvalid = motivoInput; }
+
+    if (firstInvalid) {
+      switchToTabOf(firstInvalid);
+      firstInvalid.focus();
+    }
     return ok;
   }
 
@@ -358,8 +410,10 @@
       if(!resp.ok || !data.ok){
         const errs = data.errors || {};
         for(const k in errs){
-          const field = document.querySelector(`[name="${k}"]`);
-          if(field) setInvalid(field, errs[k]);
+          // Mapeo de nombres de backend a IDs de frontend
+          const fieldId = { producto_text: 'movProducto', proveedor_text: 'movProveedor' }[k] || `mov${k.charAt(0).toUpperCase() + k.slice(1)}`;
+          const field = document.getElementById(fieldId);
+          if(field) markValidity(field, false); // Solo marca como inválido, el mensaje ya está en el HTML
         }
         showMsg(movMsg, errs.__all__ || 'Revisa los campos con errores.', false);
         return;
@@ -391,7 +445,7 @@
         html: `
           <div class="swal-label-input"><label for="swal-fecha">Fecha</label><input id="swal-fecha" type="date" class="swal2-input" value="${data.movimiento.fecha.split('T')[0]}"></div>
           <div class="swal-label-input"><label for="swal-tipo">Tipo</label><input id="swal-tipo" class="swal2-input" value="${data.movimiento.tipo}"></div>
-          <div class="swal-label-input"><label for="swal-cantidad">Cantidad</label><input id="swal-cantidad" type="number" step="0.01" class="swal2-input" value="${data.movimiento.cantidad}"></div>
+          <div class="swal-label-input"><label for="swal-cantidad">Cantidad</label><input id="swal-cantidad" type="number" step="1" class="swal2-input" value="${data.movimiento.cantidad}"></div>
         `,
         customClass:{ htmlContainer:'swal-container' },
         showCancelButton:true,

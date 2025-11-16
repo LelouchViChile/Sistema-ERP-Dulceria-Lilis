@@ -7,7 +7,6 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
 from datetime import datetime
-import re  # <-- NUEVO, para validar formato del teléfono
 
 from .models import Usuario
 from .utils_invite import invite_user_and_email
@@ -89,7 +88,7 @@ def gestion_usuarios(request):
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', 'id')
     export = request.GET.get('export')
-    ver = request.GET.get('ver', 'activos')  # activos | inactivos | todos
+    ver = request.GET.get('ver', 'todos')  # activos | inactivos | todos
 
     valid_sort_fields = ['id', '-id', 'username', '-username', 'first_name', '-first_name', 'rol', '-rol']
     if sort_by not in valid_sort_fields:
@@ -132,11 +131,7 @@ def gestion_usuarios(request):
     if export == 'xlsx':
         return _usuarios_to_excel(usuarios_list)
     
-    # forza página 1 si q viene vacío o no viene
-    page_number = request.GET.get('page')
-    if q == '' or 'q' not in request.GET:
-        page_number = 1
-    
+    page_number = request.GET.get('page', 1)
     paginator = Paginator(usuarios_list, 10)
     page_obj = paginator.get_page(page_number)
 
@@ -168,13 +163,6 @@ def crear_usuario(request):
     if not all([username, email, nombre, apellido, telefono, rol, estado]):
         return JsonResponse({'status': 'error', 'message': 'Todos los campos son obligatorios.'})
 
-    # NUEVO: validación de formato de teléfono chileno +569XXXXXXXX (12 caracteres)
-    if not re.fullmatch(r'^\+569\d{8}$', telefono):
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Teléfono inválido. Usa el formato +569XXXXXXXX (12 caracteres).'
-        })
-
     if Usuario.objects.filter(username=username).exists():
         return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})
     if Usuario.objects.filter(email=email).exists():
@@ -201,7 +189,7 @@ def crear_usuario(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'No se pudo crear el usuario: {e}'}, status=500)
 
-
+@transaction.atomic
 @login_required
 @csrf_exempt
 def eliminar_usuario(request, user_id):
@@ -240,13 +228,6 @@ def editar_usuario(request, user_id):
         telefono = (request.POST.get('telefono') or '').strip()
         rol      = (request.POST.get('rol') or '').strip()
         estado   = (request.POST.get('estado') or '').strip()
-
-        # NUEVO: validación de formato también al editar
-        if not re.fullmatch(r'^\+569\d{8}$', telefono):
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Teléfono inválido. Usa el formato +569XXXXXXXX (12 caracteres).'
-            })
 
         if Usuario.objects.filter(username=username).exclude(id=usuario.id).exists():
             return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})
@@ -362,3 +343,34 @@ def reiniciar_clave(request: HttpRequest, user_id: int):
         'message': f'Se ha enviado un correo para el reinicio de clave a {usuario.email}.',
         'force_logout': force_logout,
     })
+
+@login_required
+@csrf_exempt
+def bloquear_usuario(request, user_id):
+    if not _es_admin(request.user):
+        return HttpResponseForbidden("Solo Administrador.")
+    usuario = get_object_or_404(Usuario, id=user_id)
+
+    # No se puede bloquear a sí mismo
+    if usuario.id == request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'No puedes bloquear tu propia cuenta.'}, status=403)
+
+    usuario.estado = 'bloqueado'
+    usuario.activo = False
+    usuario.save(update_fields=['estado', 'activo'])
+    return JsonResponse({'status': 'ok', 'message': 'Usuario bloqueado.'})
+
+@login_required
+@csrf_exempt
+def desbloquear_usuario(request, user_id):
+    if not _es_admin(request.user):
+        return HttpResponseForbidden("Solo Administrador.")
+    usuario = get_object_or_404(Usuario, id=user_id)
+
+    if usuario.id == request.user.id:
+        return JsonResponse({'status': 'error', 'message': 'No puedes desbloquear tu propia cuenta.'}, status=403)
+
+    usuario.estado = 'activo'
+    usuario.activo = True
+    usuario.save(update_fields=['estado', 'activo'])
+    return JsonResponse({'status': 'ok', 'message': 'Usuario desbloqueado.'})
