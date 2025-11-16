@@ -12,7 +12,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.forms.models import model_to_dict
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldError, ValidationError
 from django.apps import apps  # <- para cargar Bodega de forma segura
 from django.db.models.deletion import ProtectedError, RestrictedError  # 👈 NUEVO
 
@@ -268,6 +268,7 @@ def crear_producto(request):
             status=400)
 
     sku = (data.get("sku") or "").strip().upper()
+    ean = (data.get("codigo_barras") or "").strip()
     nombre = (data.get("nombre") or "").strip()
     categoria_id = (data.get("categoria") or "").strip() or None
 
@@ -278,16 +279,31 @@ def crear_producto(request):
     if Product.objects.filter(sku=sku).exists():
         return JsonResponse({"ok": False, "error": "Ya existe un producto con ese SKU."}, status=400)
 
-    prod = Product.objects.create(
-        sku=sku,
-        nombre=nombre,
-        categoria_id=categoria_id,
-        descripcion=data.get("descripcion") or "",
-        marca=data.get("marca") or "",
-        modelo=data.get("modelo") or "",
-        costo_estandar=precio_compra,
-        precio_venta=precio_venta,
-    )
+    try:
+        prod = Product.objects.create(
+            sku=sku,
+            nombre=nombre,
+            categoria_id=categoria_id,
+            descripcion=data.get("descripcion") or "",
+            marca=data.get("marca") or "",
+            modelo=data.get("modelo") or "",
+            costo_estandar=precio_compra,
+            precio_venta=precio_venta,
+            ean_upc=ean or None,
+        )
+    except ValidationError as e:
+        errores = []
+        if hasattr(e, "message_dict"):
+            for msgs in e.message_dict.values():
+                errores.extend(msgs)
+        else:
+            errores.extend(e.messages)
+
+        return JsonResponse(
+            {"ok": False, "error": " ".join(errores)},
+            status=400
+        )
+
     return JsonResponse({"ok": True, "id": prod.id})
 
 

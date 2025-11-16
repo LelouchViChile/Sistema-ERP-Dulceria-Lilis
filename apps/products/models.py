@@ -105,7 +105,7 @@ class Producto(models.Model):
         # Validar que el precio de venta no sea menor que el costo estándar.
         # Se comprueba que ambos valores existan antes de comparar.
         if self.costo_estandar is not None and self.precio_venta is not None:
-            if self.costo_estandar < self.precio_venta:
+            if self.costo_estandar > self.precio_venta:
                 raise ValidationError(
                     {'costo_estandar': 'El costo estándar no puede ser mayor que el precio de venta.'}
                 )

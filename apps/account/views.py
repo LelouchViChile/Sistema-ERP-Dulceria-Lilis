@@ -1,4 +1,3 @@
-# apps/account/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -6,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse, NoReverseMatch
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordChangeView
 from django.urls import reverse_lazy
+from django.http import JsonResponse
 
 import logging
 logger = logging.getLogger('login_secure')  # <<<<<< YA LO TENÍAS
@@ -204,24 +204,41 @@ class PasswordResetConfirmCustomView(PasswordResetConfirmView):
 
 
 class ChangePasswordView(PasswordChangeView):
-    template_name = "change_password.html"  # usaremos tu template extendido
+    template_name = "change_password.html"
     form_class = CustomPasswordChangeForm
-    success_url = reverse_lazy("password_change_done")
+
+    def get_success_url(self):
+        """
+        Redirige al módulo que corresponde según el rol del usuario.
+        """
+        return get_redirect_for_role(self.request.user)
+
+    def form_invalid(self, form):
+        # Si es AJAX -> devolver errores en JSON
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+        return super().form_invalid(form)
 
     def form_valid(self, form):
-        # Primero dejamos que Django cambie la contraseña
-        resp = super().form_valid(form)
+        """
+        Si es AJAX, devolvemos JSON con redirect dinámico por rol.
+        Si es POST normal, usa get_success_url().
+        """
+        # Guardamos el usuario ANTES de la respuesta para poder modificarlo
+        user = form.save()
 
-        # Mensaje de éxito (lo verás en la siguiente vista que renderice messages)
-        messages.success(
-            self.request,
-            "Tu contraseña ha sido actualizada correctamente."
-        )
+        # Si era primer acceso forzado, desactivar flag y limpiar invite_code
+        if getattr(user, "must_change_password", False):
+            user.must_change_password = False
+            user.invite_code = ""
+            user.save(update_fields=["must_change_password", "invite_code"])
 
-        u = self.request.user
-        # Si era primer acceso forzado, limpiar flags
-        if getattr(u, "must_change_password", False):
-            u.must_change_password = False
-            u.invite_code = ""
-            u.save(update_fields=["must_change_password", "invite_code"])
-        return resp
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({
+                "ok": True,
+                "redirect": self.get_success_url()
+            })
+        
+        # Para peticiones normales, la redirección la maneja la clase padre
+        # que usa get_success_url()
+        return super().form_valid(form)
