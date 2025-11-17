@@ -1,7 +1,7 @@
 from datetime import datetime
 import json
 import traceback
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -27,6 +27,7 @@ except ImportError:
 # Modelos locales
 from .models import Producto as Product
 from .models import Categoria
+from .forms import ProductoForm
 
 
 # -------------------------- Constantes / helpers --------------------------
@@ -161,6 +162,16 @@ def _json_or_empty(request):
         return {}
 
 
+# Helper: convierte a Decimal o devuelve None si viene vacío / inválido
+def _to_decimal_or_none(val):
+    if val in (None, "", "None"):
+        return None
+    try:
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
 # ---------------- LISTADO ----------------
 @login_required
 @require_roles("ADMIN", "INVENTARIO", "PRODUCCION", "VENTAS")
@@ -250,62 +261,34 @@ def crear_producto(request):
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
 
-    is_json = (request.headers.get("Content-Type", "") or "").startswith("application/json")
-    data = json.loads(request.body.decode("utf-8") or "{}") if is_json else request.POST
+    is_json = "application/json" in request.headers.get("Content-Type", "")
+    data = _json_or_empty(request) if is_json else request.POST
+    form = ProductoForm(data)
 
-    try:
-        precio_compra = Decimal(data.get("costo_estandar", "0") or "0")
-        precio_venta = Decimal(data.get("precio_venta", "0") or "0")
+    if form.is_valid():
+        try:
+            producto = form.save(commit=False)
 
-        if precio_compra > precio_venta:
-            return JsonResponse(
-                {"ok": False, "error": "El costo estándar no puede ser mayor que el precio de venta."},
-                status=400)
-        
-    except Exception:
-        return JsonResponse(
-            {"ok": False, "error": "Valores numéricos inválidos para costo estándar o precio de venta."},
-            status=400)
+            # Aseguramos que los valores vacíos se manejen correctamente
+            if not producto.ean_upc:
+                producto.ean_upc = ""  # Asignar un valor vacío en lugar de None
+            if not producto.stock_minimo:
+                producto.stock_minimo = 0  # Asignar 0 si está vacío
+            if not producto.stock_maximo:
+                producto.stock_maximo = 0  # Asignar 0 si está vacío
 
-    sku = (data.get("sku") or "").strip().upper()
-    ean = (data.get("codigo_barras") or "").strip()
-    nombre = (data.get("nombre") or "").strip()
-    categoria_id = (data.get("categoria") or "").strip() or None
+            producto.save()  # Guardamos el producto
 
-    if not sku or not nombre:
-        return JsonResponse({"ok": False, "error": "SKU y Nombre son obligatorios."}, status=400)
-    if not categoria_id:
-        return JsonResponse({"ok": False, "error": "Selecciona una Categoría."}, status=400)
-    if Product.objects.filter(sku=sku).exists():
-        return JsonResponse({"ok": False, "error": "Ya existe un producto con ese SKU."}, status=400)
+            return JsonResponse({"ok": True, "id": producto.id})
 
-    try:
-        prod = Product.objects.create(
-            sku=sku,
-            nombre=nombre,
-            categoria_id=categoria_id,
-            descripcion=data.get("descripcion") or "",
-            marca=data.get("marca") or "",
-            modelo=data.get("modelo") or "",
-            costo_estandar=precio_compra,
-            precio_venta=precio_venta,
-            ean_upc=ean or None,
-        )
-    except ValidationError as e:
+        except Exception as e:
+            return JsonResponse({"ok": False, "error": f"Error inesperado al guardar: {str(e)}"}, status=500)
+    else:
         errores = []
-        if hasattr(e, "message_dict"):
-            for msgs in e.message_dict.values():
-                errores.extend(msgs)
-        else:
-            errores.extend(e.messages)
-
-        return JsonResponse(
-            {"ok": False, "error": " ".join(errores)},
-            status=400
-        )
-
-    return JsonResponse({"ok": True, "id": prod.id})
-
+        for field, field_errors in form.errors.items():
+            errores.append(f"{field}: {', '.join(field_errors)}")
+        error_str = " | ".join(errores)
+        return JsonResponse({"ok": False, "error": f"Datos inválidos: {error_str}"}, status=400)
 
 @login_required
 @require_roles("ADMIN", "INVENTARIO", "PRODUCCION", "VENTAS")
@@ -319,7 +302,8 @@ def editar_producto(request, prod_id: int):
             producto,
             fields=[
                 "id", "sku", "nombre", "descripcion", "marca", "modelo",
-                "ean_upc", "stock_minimo", "stock_maximo", "punto_reorden", "categoria"
+                "ean_upc", "stock_minimo", "stock_maximo", "punto_reorden", "categoria",
+                "url_imagen", "url_ficha_tecnica"
             ]
         )
         data["categoria_nombre"] = getattr(producto.categoria, "nombre", "")
@@ -372,19 +356,40 @@ def editar_producto(request, prod_id: int):
         if "categoria" in data and categoria_changed:
             update_fields.append("categoria")
 
-        # Mantengo tu soporte previo: ean/código de barras y numéricos si aparecieran
+        # ean / código de barras
         if "codigo_barras" in data or "ean_upc" in data:
             ean = (data.get("codigo_barras") or data.get("ean_upc") or "").strip()
             producto.ean_upc = ean or None
             update_fields.append("ean_upc")
 
+        # urls
+        if "url_imagen" in data:
+            img = (data.get("url_imagen") or "").strip() or None
+            producto.url_imagen = img
+            update_fields.append("url_imagen")
+        if "url_ficha_tecnica" in data:
+            ficha = (data.get("url_ficha_tecnica") or "").strip() or None
+            producto.url_ficha_tecnica = ficha
+            update_fields.append("url_ficha_tecnica")
+
+        # numéricos: stock_minimo, stock_maximo, punto_reorden (seguro)
         for f in ("stock_minimo", "stock_maximo", "punto_reorden"):
             if f in data and hasattr(producto, f):
                 val = data.get(f)
                 try:
-                    # Permite "", None -> no tocar; si viene algo, castea
-                    if val not in ("", None):
-                        setattr(producto, f, val)
+                    if val in ("", None):
+                        # Para stock_minimo no forzamos None (tiene default y no admite null), 
+                        # para los otros (nullable) sí permitimos limpiar a None
+                        if f == "stock_minimo":
+                            # si viene vacío, no tocar stock_minimo (mantener valor actual)
+                            continue
+                        else:
+                            setattr(producto, f, None)
+                            update_fields.append(f)
+                    else:
+                        # convertir a Decimal o None si inválido
+                        converted = _to_decimal_or_none(val)
+                        setattr(producto, f, converted)
                         update_fields.append(f)
                 except Exception:
                     # no corta el flujo si viene sucio

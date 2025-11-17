@@ -10,6 +10,7 @@ from datetime import datetime
 
 from .models import Usuario
 from .utils_invite import invite_user_and_email
+from .forms import UsuarioForm
 
 # ====== export a Excel (openpyxl) ======
 try:
@@ -151,43 +152,22 @@ def crear_usuario(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
 
-    username = (request.POST.get('username') or '').strip()
-    email = (request.POST.get('email') or '').strip()
-    nombre = (request.POST.get('first_name') or '').strip()
-    apellido = (request.POST.get('last_name') or '').strip()
-    telefono = (request.POST.get('telefono') or '').strip()
-    rol = (request.POST.get('rol') or '').strip()
-    estado = (request.POST.get('estado') or '').strip()
-    mfa_habilitado = request.POST.get('mfa_habilitado') == 'on'
+    form = UsuarioForm(request.POST)
+    if form.is_valid():
+        try:
+            usuario = form.save(commit=False)
+            usuario.activo = (form.cleaned_data.get('estado') == 'activo')
+            # El formulario no maneja la contraseña, se establecerá al aceptar la invitación.
+            usuario.set_unusable_password()
+            usuario.save()
 
-    if not all([username, email, nombre, apellido, telefono, rol, estado]):
-        return JsonResponse({'status': 'error', 'message': 'Todos los campos son obligatorios.'})
-
-    if Usuario.objects.filter(username=username).exists():
-        return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})
-    if Usuario.objects.filter(email=email).exists():
-        return JsonResponse({'status': 'error', 'message': 'El email ya está registrado.'})
-    if Usuario.objects.filter(telefono=telefono).exists():
-        return JsonResponse({'status': 'error', 'message': 'El teléfono ya está registrado.'})
-
-    try:
-        usuario = Usuario.objects.create(
-            username=username,
-            email=email,
-            first_name=nombre,
-            last_name=apellido,
-            telefono=telefono,
-            rol=rol,
-            estado=estado,
-            activo=(estado == 'activo'),
-            mfa_habilitado=mfa_habilitado,
-        )
-        invite_user_and_email(usuario)
-        return JsonResponse({'status': 'ok', 'message': 'Usuario creado e invitación enviada.'})
-    except ValidationError as e:
-        return JsonResponse({'status': 'error', 'message': ' '.join(e.messages)})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': f'No se pudo crear el usuario: {e}'}, status=500)
+            invite_user_and_email(usuario)
+            return JsonResponse({'status': 'ok', 'message': 'Usuario creado e invitación enviada.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'No se pudo crear el usuario: {e}'}, status=500)
+    else:
+        # Devuelve los errores de validación del formulario en formato JSON
+        return JsonResponse({'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors.get_json_data()}, status=400)
 
 @transaction.atomic
 @login_required
@@ -221,31 +201,21 @@ def editar_usuario(request, user_id):
     usuario = get_object_or_404(Usuario, id=user_id)
 
     if request.method == 'POST':
-        username = (request.POST.get('username') or '').strip()
-        email    = (request.POST.get('email') or '').strip()
-        nombre   = (request.POST.get('first_name') or '').strip()
-        apellido = (request.POST.get('last_name') or '').strip()
-        telefono = (request.POST.get('telefono') or '').strip()
-        rol      = (request.POST.get('rol') or '').strip()
-        estado   = (request.POST.get('estado') or '').strip()
-
-        if Usuario.objects.filter(username=username).exclude(id=usuario.id).exists():
-            return JsonResponse({'status': 'error', 'message': 'El nombre de usuario ya existe.'})
-        if Usuario.objects.filter(email=email).exclude(id=usuario.id).exists():
-            return JsonResponse({'status': 'error', 'message': 'El email ya está registrado.'})
-        if Usuario.objects.filter(telefono=telefono).exclude(id=usuario.id).exists():
-            return JsonResponse({'status': 'error', 'message': 'El teléfono ya está registrado.'})
-
-        usuario.username   = username
-        usuario.email      = email
-        usuario.first_name = nombre
-        usuario.last_name  = apellido
-        usuario.telefono   = telefono
-        usuario.rol        = rol
-        usuario.estado     = estado
-        usuario.activo     = (estado == 'activo')
-        usuario.save()
-        return JsonResponse({'status': 'ok', 'message': 'Usuario actualizado correctamente.'})
+        form = UsuarioForm(request.POST, instance=usuario)
+        if form.is_valid():
+            try:
+                usuario_actualizado = form.save(commit=False)
+                # Sincroniza el campo 'activo' con el 'estado'
+                usuario_actualizado.activo = (form.cleaned_data.get('estado') == 'activo')
+                usuario_actualizado.save()
+                return JsonResponse({'status': 'ok', 'message': 'Usuario actualizado correctamente.'})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': f'No se pudo actualizar el usuario: {e}'}, status=500)
+        else:
+            # Devuelve los errores de validación del formulario en formato JSON
+            return JsonResponse({
+                'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors.get_json_data()
+            }, status=400)
 
     return JsonResponse({
         'id': usuario.id,
@@ -256,7 +226,7 @@ def editar_usuario(request, user_id):
         'telefono': usuario.telefono,
         'rol': usuario.rol,
         'estado': usuario.estado,
-        'activo': usuario.activo,
+        'mfa_habilitado': usuario.mfa_habilitado,
     })
 
 

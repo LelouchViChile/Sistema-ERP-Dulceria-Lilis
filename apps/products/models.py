@@ -37,7 +37,6 @@ class Producto(models.Model):
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="productos", verbose_name="Categoría")
     marca = models.CharField("Marca", max_length=100, blank=True)
     modelo = models.CharField("Modelo", max_length=100, blank=True)
-
     uom_compra = models.CharField("UoM de compra", max_length=10, choices=UOMS, default="UN")
     uom_venta = models.CharField("UoM de venta", max_length=10, choices=UOMS, default="UN")
     factor_conversion = models.DecimalField("Factor conversión", max_digits=10, decimal_places=4, default=1,
@@ -61,8 +60,8 @@ class Producto(models.Model):
     control_por_lote = models.BooleanField("Control por lote", default=False)
     control_por_serie = models.BooleanField("Control por serie", default=False)
 
-    url_imagen = models.URLField("URL Imagen", blank=True)
-    url_ficha_tecnica = models.URLField("URL Ficha técnica", blank=True)
+    url_imagen = models.URLField("URL Imagen", blank=True, null=True)
+    url_ficha_tecnica = models.URLField("URL Ficha técnica", blank=True, null=True)
 
     activo = models.BooleanField("Activo", default=True)
     creado_en = models.DateTimeField("Creado en", auto_now_add=True)
@@ -116,8 +115,9 @@ class Producto(models.Model):
             self.sku = self.sku.strip().upper()
         if self.nombre:
             self.nombre = self.nombre.strip()
-        # Ejecuta todas las validaciones del modelo, incluido el método clean().
-        self.full_clean()
+        # La validación completa (full_clean) es manejada por los ModelForms.
+        # Llamarla aquí puede causar conflictos, especialmente con campos opcionales.
+        # self.full_clean() # <- Eliminamos esta línea.
         super().save(*args, **kwargs)
 
     def __str__(self):

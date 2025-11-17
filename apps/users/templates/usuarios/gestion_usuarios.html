@@ -91,7 +91,7 @@
             <div class="col-6">
               <label class="form-label small mb-1" for="telefono">Teléfono <span class="text-danger">*</span></label>
               <input type="text" id="telefono" name="telefono" class="form-control form-control-sm" placeholder="+56 9 XXXX XXXX" required>
-              <div class="invalid-feedback">Ingrese un número valido.</div>
+              <div class="invalid-feedback">Formato: +56 9 XXXX XXXX.</div>
             </div>
 
             <div class="col-6">
@@ -384,8 +384,8 @@
   // ---- validadores simples (sin passwords)
   const reUser = /^[a-zA-Z0-9_.-]{3,30}$/;
   const reMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  const reTel = /^\+56\s9\s\d{4}\s\d{4}$/;
   const reName = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+  const reTel = /^\+569\d{8}$/; // SIN espacios, como en el backend
 
   function markValidity(el, ok) {
     if (!el) return;
@@ -407,72 +407,85 @@
     e.addEventListener('input', () => markValidity(e, reMail.test((e.value || '').trim())));
     n.addEventListener('input', () => markValidity(n, reName.test((n.value || '').trim())));
     a.addEventListener('input', () => markValidity(a, reName.test((a.value || '').trim())));
-    t.addEventListener('blur', () => markValidity(t, reTel.test((t.value || '').trim())));
+    // Para el teléfono, eliminamos espacios antes de validar para ser más flexibles
+    t.addEventListener('blur', () => {
+      const valueSinEspacios = (t.value || '').replace(/\s/g, '');
+      markValidity(t, reTel.test(valueSinEspacios));
+      t.value = valueSinEspacios; // Opcional: limpiar el campo al usuario
+    });
     r.addEventListener('change', () => markValidity(r, !!(r.value || '')));
 })();
 
+  // Función para limpiar los errores previos en el formulario
+  function limpiarErroresFormulario(form) {
+      form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      form.querySelectorAll('.invalid-feedback').forEach(el => {
+          // Restaura el mensaje de error por defecto que estaba en el HTML
+          el.textContent = el.dataset.defaultError || '';
+      });
+      const msg = document.getElementById('userMsg');
+      if (msg) {
+        msg.textContent = '';
+        msg.className = 'small mt-2';
+      }
+  }
+
+  // Función para mostrar los errores que vienen del backend
+  function mostrarErroresFormulario(form, errors) {
+      for (const fieldName in errors) {
+          const input = form.querySelector(`[name="${fieldName}"]`);
+          if (input) {
+              input.classList.add('is-invalid');
+              const errorDiv = input.nextElementSibling;
+              if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+                  errorDiv.textContent = errors[fieldName][0].message;
+              }
+          }
+      }
+      const msg = document.getElementById('userMsg');
+      if (msg) {
+        msg.textContent = 'Por favor, corrige los errores en el formulario.';
+        msg.classList.add('text-danger');
+      }
+  }
 
   // CREAR USUARIO (AJAX) - Lógica similar a Proveedores
   document.getElementById('btnGuardarUsuario')?.addEventListener('click', async () => {
     const form = document.getElementById('formUsuario');
-    const msg  = document.getElementById('userMsg');
-    msg.className = 'small mt-2';
-    msg.textContent = '';
-
-    // 1. Validar campos con Regex
-    let ok = true;
-    const checks = [
-      ['username',   v => reUser.test(v)],
-      ['email',      v => reMail.test(v)],
-      ['first_name', v => reName.test(v)],
-      ['last_name',  v => reName.test(v)],
-      ['telefono',   v => reTel.test(v)],
-      ['rol',        v => !!v],
-    ];
-
-    for (const [name, fn] of checks) {
-      const el = form.elements[name];
-      const valid = fn((el.value || '').trim());
-      markValidity(el, valid);
-      if (!valid) ok = false;
-    }
-
-    if (!ok) {
-      form.querySelectorAll("[required]").forEach(el => {
-    if (!el.value.trim()) {
-      markValidity(el, false);
-    }
-    });
-
-      msg.classList.add('text-danger');
-      msg.textContent = 'Revisa los campos resaltados.';
-      return;
-    }
-    
-    // 2. Construir payload
-    const payload = {
-      username:       form.elements.username.value.trim(),
-      email:          form.elements.email.value.trim(),
-      first_name:     form.elements.first_name.value.trim(),
-      last_name:      form.elements.last_name.value.trim(),
-      telefono:       form.elements.telefono.value.trim(),
-      rol:            form.elements.rol.value,
-      mfa_habilitado: form.elements.mfa_habilitado.checked,
-      // El estado no se envía porque el backend lo asigna por defecto
-    };
+    limpiarErroresFormulario(form);
 
     Swal.showLoading();
 
-    fetch(form.action, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false }).then(() => location.reload());
-        } else {
-          Swal.fire({ icon: 'error', title: 'Error', text: data.message || data.error || 'No se pudo crear el usuario.' });
+    try {
+        const formData = new FormData(form);
+        // El campo 'estado' está deshabilitado, por lo que no se incluye en FormData.
+        // Lo agregamos manualmente ya que el backend lo espera.
+        formData.append('estado', 'activo');
+
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) { // status 200-299
+            Swal.fire({ icon: 'success', title: data.message, timer: 1400, showConfirmButton: false }).then(() => location.reload());
+        } else { // status 400, 500 etc.
+            Swal.close(); // Cierra el "loading"
+            if (data.errors) {
+                mostrarErroresFormulario(form, data.errors);
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo crear el usuario.' });
+            }
         }
-      })
-      .catch(() => Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor.' }));
+    } catch (error) {
+        Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo conectar con el servidor.' });
+    }
   });
 
   // limpiar
@@ -523,59 +536,81 @@
       .then(res => res.json())
       .then(data => {
         Swal.fire({
-          title: 'Editar Usuario',
-          html: `
-            <div class="swal-label-input"><label for="edit_username">Username</label><input id="edit_username" class="swal2-input" value="${data.username || ''}"></div>
-            <div class="swal-label-input"><label for="edit_first">Nombre</label><input id="edit_first" class="swal2-input" value="${data.first_name || ''}"></div>
-            <div class="swal-label-input"><label for="edit_last">Apellido</label><input id="edit_last" class="swal2-input" value="${data.last_name || ''}"></div>
-            <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email || ''}"></div>
-            <div class="swal-label-input"><label for="edit_tel">Teléfono</label><input id="edit_tel" class="swal2-input" value="${data.telefono || ''}" placeholder="+56 9 XXXX XXXX"></div>
-            <div class="swal-label-input">
-              <label for="edit_rol">Rol</label>
-              <select id="edit_rol" class="swal-custom-select">
-                <option value="ADMIN"      ${data.rol === 'ADMIN' ? 'selected' : ''}>Administrador</option>
-                <option value="COMPRAS"    ${data.rol === 'COMPRAS' ? 'selected' : ''}>Operador de Compras</option>
-                <option value="INVENTARIO" ${data.rol === 'INVENTARIO' ? 'selected' : ''}>Operador de Inventario</option>
-                <option value="PRODUCCION" ${data.rol === 'PRODUCCION' ? 'selected' : ''}>Operador de Producción</option>
-                <option value="VENTAS"     ${data.rol === 'VENTAS' ? 'selected' : ''}>Operador de Ventas</option>
-              </select>
-            </div>
-            <div class="swal-label-input">
-              <label for="edit_estado">Estado</label>
-              <select id="edit_estado" class="swal-custom-select">
-                <option value="activo"    ${data.estado === 'activo' ? 'selected' : ''}>Activo</option>
-                <option value="inactivo"  ${data.estado === 'inactivo' ? 'selected' : ''}>Inactivo</option>
-                <option value="bloqueado" ${data.estado === 'bloqueado' ? 'selected' : ''}>Bloqueado</option>
-              </select>
-            </div>`,
-          customClass: { htmlContainer: 'swal-container' },
-          showCancelButton: true,
-          confirmButtonColor: '#d33',
-          confirmButtonText: 'Guardar',
-          cancelButtonText: 'Cancelar',
-          preConfirm: () => {
-            const fd = new FormData();
-            fd.append('username',  document.getElementById('edit_username').value);
-            fd.append('email',     document.getElementById('edit_email').value);
-            fd.append('first_name',document.getElementById('edit_first').value);
-            fd.append('last_name', document.getElementById('edit_last').value);
-            fd.append('telefono',  document.getElementById('edit_tel').value);
-            fd.append('rol',       document.getElementById('edit_rol').value);
-            fd.append('estado',    document.getElementById('edit_estado').value);
-            return fetch(`/users/editar/${id}/`, {
-              method: 'POST',
-              headers: { 'X-CSRFToken': getCookie('csrftoken') },
-              body: fd
-            }).then(r => r.json());
-          }
-        }).then(result => {
-          if (result.value && result.value.status === 'ok') {
-            Swal.fire({ icon: 'success', title: 'Actualizado correctamente', timer: 1200, showConfirmButton: false })
-              .then(() => location.reload());
-          } else if (result.value && result.value.status === 'error') {
-            Swal.fire({ icon: 'error', title: 'Error', text: result.value.message || 'No se pudo actualizar.' });
-          }
-        });
+            title: 'Editar Usuario',
+            html: `
+              <form id="formEditUsuario" class="text-start">
+                <div class="swal-label-input"><label for="edit_username">Username</label><input id="edit_username" name="username" class="swal2-input" value="${data.username || ''}"><div class="swal2-validation-message"></div></div>
+                <div class="swal-label-input"><label for="edit_first_name">Nombre</label><input id="edit_first_name" name="first_name" class="swal2-input" value="${data.first_name || ''}"><div class="swal2-validation-message"></div></div>
+                <div class="swal-label-input"><label for="edit_last_name">Apellido</label><input id="edit_last_name" name="last_name" class="swal2-input" value="${data.last_name || ''}"><div class="swal2-validation-message"></div></div>
+                <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" name="email" type="email" class="swal2-input" value="${data.email || ''}"><div class="swal2-validation-message"></div></div>
+                <div class="swal-label-input"><label for="edit_telefono">Teléfono</label><input id="edit_telefono" name="telefono" class="swal2-input" value="${data.telefono || ''}" placeholder="+569XXXXXXXX"><div class="swal2-validation-message"></div></div>
+              </form>`,
+            customClass: { htmlContainer: 'swal-container' },
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            didOpen: () => {
+              const telInput = document.getElementById('edit_telefono');
+              telInput.addEventListener('blur', () => {
+                  const valueSinEspacios = (telInput.value || '').replace(/\s/g, '');
+                  telInput.value = valueSinEspacios;
+              });
+            },
+            preConfirm: async () => {
+              const form = document.getElementById('formEditUsuario');
+              const url = `/users/editar/${id}/`;
+              const formData = new FormData(form);
+
+              // Limpiar errores previos
+              form.querySelectorAll('.swal2-validation-message').forEach(el => {
+                el.style.display = 'none';
+                el.textContent = '';
+              });
+
+              try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const responseData = await response.json();
+
+                if (!response.ok) {
+                    if (responseData.errors) {
+                        for (const fieldName in responseData.errors) {
+                            const input = form.querySelector(`[name="${fieldName}"]`);
+                            if (input) {
+                                const errorDiv = input.nextElementSibling;
+                                if (errorDiv && errorDiv.classList.contains('swal2-validation-message')) {
+                                    errorDiv.textContent = responseData.errors[fieldName][0].message;
+                                    errorDiv.style.display = 'block';
+                                }
+                            }
+                        }
+                    }
+                    // Evita que el popup se cierre retornando false
+                    return false; 
+                }
+                // Si todo OK, retorna los datos para el .then()
+                return responseData;
+
+              } catch (error) {
+                  Swal.showValidationMessage(`Error de red: ${error}`);
+                  return false;
+              }
+            }
+          }).then(result => {
+            // Este bloque solo se ejecuta si preConfirm retorna un valor (no false)
+            if (result.isConfirmed && result.value) {
+              Swal.fire({ icon: 'success', title: '¡Actualizado!', text: result.value.message, timer: 1200, showConfirmButton: false })
+                .then(() => location.reload());
+            }
+          });
       });
   }
   window.editarUsuario = editarUsuario;

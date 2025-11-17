@@ -133,12 +133,12 @@
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label small mb-1">Stock Mínimo</label>
-                    <input type="number" name="stock_min" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
+                    <input type="number" name="stock_minimo" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
                     <div class="invalid-feedback">El stock mínimo es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Stock Máximo</label>
-                    <input type="number" name="stock_max" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
+                    <input type="number" name="stock_maximo" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
                     <div class="invalid-feedback">El stock máximo es obligatorio.</div>
                   </div>
                   <div class="col-6">
@@ -177,7 +177,7 @@
                   </div>
                   <div class="col-12">
                     <label class="form-label small mb-1">Código de Barras</label>
-                    <input type="text" name="codigo_barras" class="form-control form-control-sm" placeholder="0987654321234" required>
+                    <input type="text" name="ean_upc" class="form-control form-control-sm" placeholder="0987654321234" required>
                     <div class="invalid-feedback">El código de barras es obligatorio.</div>
                   </div>
                   <div class="col-12">
@@ -271,15 +271,8 @@
   </div>
 </div>
 
-<!-- ========== JS CRUD ========== -->
+{% block script %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<style>
-  .swal-container { text-align: left !important; }
-  .swal-label-input { margin-bottom: 1rem; }
-  .swal-label-input label { display: block; margin-bottom: .25rem; font-size: .9rem; color: #555; }
-  .swal-label-input .swal2-input, .swal-label-input .swal-custom-select { width: 100% !important; margin: 0 !important; }
-  .swal-custom-select { display: block !important; padding: .375rem .75rem; font-size: 1rem; border: 1px solid #d1d1d1; border-radius: .25rem; }
-</style>
 <script>
 /* -------- Validación visual y CRUD del formulario principal -------- */
 (function(){
@@ -332,7 +325,7 @@
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9._-]/g,'');
   });
 
-  ['stock_min', 'stock_max', 'precio_compra', 'precio_venta'].forEach(name => {
+  ['stock_minimo', 'stock_maximo', 'precio_compra', 'precio_venta'].forEach(name => {
     const input = form.querySelector(`input[name="${name}"]`);
     if (input) {
       input.addEventListener('input', (e) => {
@@ -342,103 +335,121 @@
   });
 
   document.getElementById('btnGuardarProducto')?.addEventListener('click', async () => {
-    const msg = document.getElementById('prodMsg');
-    msg.className = 'small mt-2';
-    msg.textContent = '';
+  const msg = document.getElementById('prodMsg');
+  msg.className = 'small mt-2';
+  msg.textContent = '';
 
-    let ok = true;
-    let firstInvalid = null;
+  let ok = true;
+  let firstInvalid = null;
 
-    // 1. Validar todos los campos requeridos
-    form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
-      const valid = !!el.value.trim();
-      markValidity(el, valid);
-      if (!valid) {
-        ok = false;
-        if (!firstInvalid) firstInvalid = el;
-      }
-    });
-
-    // 2. Validaciones específicas (stock y precios)
-    const stockMinEl = form.elements.stock_min;
-    const stockMaxEl = form.elements.stock_max;
-    const stockMin = parseFloat(stockMinEl.value);
-    const stockMax = parseFloat(stockMaxEl.value);
-    if (!isNaN(stockMin) && !isNaN(stockMax) && stockMin > stockMax) {
-      markValidity(stockMinEl, false, 'El stock mínimo no puede superar al máximo.');
+  // 1. Validar todos los campos requeridos
+  form.querySelectorAll("input[required], select[required], textarea[required]").forEach(el => {
+    const valid = !!el.value.trim();
+    markValidity(el, valid);
+    if (!valid) {
       ok = false;
-      if (!firstInvalid) firstInvalid = stockMinEl;
-    } else if (!isNaN(stockMin) && !isNaN(stockMax)) {
-      // Si la validación es correcta, asegurarse de que no queden marcados como inválidos
-      markValidity(stockMinEl, true);
-      markValidity(stockMaxEl, true);
-    }
-
-    const precioCompraEl = form.elements.precio_compra;
-    const precioVentaEl = form.elements.precio_venta;
-    const precioCompra = parseFloat(precioCompraEl.value);
-    const precioVenta = parseFloat(precioVentaEl.value);
-    if (!isNaN(precioCompra) && !isNaN(precioVenta) && precioCompra > precioVenta) {
-      markValidity(precioCompraEl, false, 'El precio de compra no puede ser mayor al de venta.');
-      ok = false;
-      if (!firstInvalid) firstInvalid = precioCompraEl;
-    } else if (!isNaN(precioCompra) && !isNaN(precioVenta)) {
-      // Si la validación es correcta, limpiar ambos campos
-      markValidity(precioCompraEl, true);
-      markValidity(precioVentaEl, true);
-    }
-
-    // 3. Mostrar mensaje y hacer foco si hay errores
-    if (!ok) {
-      msg.classList.add('text-danger');
-      msg.textContent = 'Revisa los campos resaltados.';
-      if (firstInvalid) {
-        switchToTabOf(firstInvalid);
-        firstInvalid.focus();
-      }
-      return;
-    }
-
-    const fd = new FormData(form);
-    const payload = {
-      sku:           (fd.get("sku") || "").trim(),
-      nombre:        (fd.get("nombre") || "").trim(),
-      categoria:     (fd.get("categoria") || "").trim(),
-      descripcion:   (fd.get("descripcion") || "").trim(),
-      precio_compra: (fd.get("precio_compra") || "").trim(),
-      precio_venta:  (fd.get("precio_venta") || "").trim(),
-      marca:         (fd.get("marca") || "").trim(),
-      stock_min:     (fd.get("stock_min") || "").trim(),
-      stock_max:     (fd.get("stock_max") || "").trim(),
-      estado:        (fd.get("estado") || "Activo").trim(),
-      ubicacion:     (fd.get("ubicacion") || "").trim(),
-      uom:           (fd.get("uom") || "").trim(),
-    };
-
-    try {
-      const resp = await fetch("{% url 'products:crear' %}", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": CSRF,
-          "X-Requested-With": "XMLHttpRequest"
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-
-      if (!resp.ok || !data.ok) {
-        throw new Error(data.error || "Error del servidor. No se pudo crear el producto.");
-      }
-
-      await Swal.fire({icon:'success', title:'Producto creado', timer:1200, showConfirmButton:false});
-      form.reset();
-      location.reload();
-    } catch (err) {
-      console.error(err);
-      Swal.fire({icon:'error', title:'Error', text: err.message || 'Error inesperado.'});
+      if (!firstInvalid) firstInvalid = el;
     }
   });
+
+  // 2. Validaciones específicas (stock y precios)
+  const stockMinEl = form.elements.stock_minimo;
+  const stockMaxEl = form.elements.stock_maximo;
+  const stockMin = parseFloat(stockMinEl.value);
+  const stockMax = parseFloat(stockMaxEl.value);
+  if (!isNaN(stockMin) && !isNaN(stockMax) && stockMin > stockMax) {
+    markValidity(stockMinEl, false, 'El stock mínimo no puede superar al máximo.');
+    ok = false;
+    if (!firstInvalid) firstInvalid = stockMinEl;
+  } else if (!isNaN(stockMin) && !isNaN(stockMax)) {
+    // Si la validación es correcta, asegurarse de que no queden marcados como inválidos
+    markValidity(stockMinEl, true);
+    markValidity(stockMaxEl, true);
+  }
+
+  const precioCompraEl = form.elements.precio_compra;
+  const precioVentaEl = form.elements.precio_venta;
+  const precioCompra = parseFloat(precioCompraEl.value);
+  const precioVenta = parseFloat(precioVentaEl.value);
+  if (!isNaN(precioCompra) && !isNaN(precioVenta) && precioCompra > precioVenta) {
+    markValidity(precioCompraEl, false, 'El precio de compra no puede ser mayor al de venta.');
+    ok = false;
+    if (!firstInvalid) firstInvalid = precioCompraEl;
+  } else if (!isNaN(precioCompra) && !isNaN(precioVenta)) {
+    // Si la validación es correcta, limpiar ambos campos
+    markValidity(precioCompraEl, true);
+    markValidity(precioVentaEl, true);
+  }
+
+  // 3. Mostrar mensaje y hacer foco si hay errores
+  if (!ok) {
+    msg.classList.add('text-danger');
+    msg.textContent = 'Revisa los campos resaltados.';
+    if (firstInvalid) {
+      switchToTabOf(firstInvalid);
+      firstInvalid.focus();
+    }
+    return;
+  }
+
+  const fd = new FormData(form);
+  const payload = {
+    sku:           (fd.get("sku") || "").trim(),
+    nombre:        (fd.get("nombre") || "").trim(),
+    categoria:     (fd.get("categoria") || "").trim(),
+    descripcion:   (fd.get("descripcion") || "").trim(),
+    precio_compra: (fd.get("precio_compra") || "").trim(),
+    precio_venta:  (fd.get("precio_venta") || "").trim(),
+    marca:         (fd.get("marca") || "").trim(),
+    stock_minimo:     (fd.get("stock_minimo") || "").trim(),
+    stock_maximo:     (fd.get("stock_maximo") || "").trim(),
+    estado:        (fd.get("estado") || "Activo").trim(),
+    ubicacion:     (fd.get("ubicacion") || "").trim(),
+    uom:           (fd.get("uom") || "").trim(),
+    ean_upc:       (fd.get("ean_upc") || "").trim(),
+  };
+
+  try {
+    const resp = await fetch("{% url 'products:crear' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": CSRF,
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    // Verificar si la respuesta tiene un contenido JSON válido
+    const ctype = resp.headers.get("content-type") || "";
+    if (!ctype.includes("application/json")) {
+      const html = await resp.text();
+      throw new Error(`${resp.status} ${resp.statusText} – Detalle: ${html.slice(0, 400)}`);
+    }
+
+    const data = await resp.json(); // Intentamos parsear la respuesta como JSON
+
+    if (!resp.ok || !data.ok) {
+      throw new Error(data.error || "Error del servidor. No se pudo crear el producto.");
+    }
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Producto creado',
+      timer: 1200,
+      showConfirmButton: false
+    });
+    form.reset();
+    location.reload();
+  } catch (err) {
+    console.error(err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: err.message || 'Error inesperado.'
+    });
+  }
+});
 
   document.getElementById('btnLimpiar')?.addEventListener('click', () => {
     form.reset();
@@ -650,4 +661,5 @@
   }
 })();
 </script>
+{% endblock %}
 {% endblock %}
