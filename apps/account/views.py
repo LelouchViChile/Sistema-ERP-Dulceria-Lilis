@@ -180,56 +180,27 @@ class PasswordResetRequestView(PasswordResetView):
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
-    # MANTENEMOS exactamente el nombre de template que usas
+    # Usamos tu template actual
     template_name = "password_rest_confirm.html"
     form_class = CustomSetPasswordForm
-    # NO definimos success_url porque no quieres depender de password_reset_complete
-
-    def get(self, request, *args, **kwargs):
-        """
-        Dejamos que Django procese primero (super().get) para que llene self.validlink.
-        Si self.validlink es False -> token inválido/expirado/usado -> mostramos tu template de invalid.
-        """
-        response = super().get(request, *args, **kwargs)
-
-        if not getattr(self, "validlink", False):
-            return render(request, "password_reset_invalid.html")
-
-        return response
-
-    def post(self, request, *args, **kwargs):
-        """
-        En POST Django ya habrá evaluado validlink en la fase de setup/dispatch; si es inválido
-        devolvemos la plantilla de token inválido. En caso contrario, delegamos a super().
-        """
-        if not getattr(self, "validlink", False):
-            return render(request, "password_reset_invalid.html")
-
-        return super().post(request, *args, **kwargs)
+    # No tocamos dispatch, dejamos que Django maneje validlink
 
     def form_valid(self, form):
         """
-        Guardamos la nueva contraseña y redirigimos explícitamente al login con ?reset=1.
-        No usamos ni dependemos de ninguna ruta llamada password_reset_complete.
+        Guardar contraseña nueva y redirigir al login con ?reset=1.
         """
         user = form.save()
 
-        # Por seguridad, cerramos cualquier sesión activa del request
+        # Por seguridad cerramos cualquier sesión activa
         logout(self.request)
 
-        # Mensaje que verá el login cuando lo redirigamos
         messages.success(
             self.request,
             "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
         )
 
-        # Redirigimos explícitamente al login (usa el name 'login' que sí tienes)
         login_url = reverse("login")
         return redirect(f"{login_url}?reset=1")
-
-
-
-
 
 class ChangePasswordView(PasswordChangeView):
     template_name = "change_password.html"

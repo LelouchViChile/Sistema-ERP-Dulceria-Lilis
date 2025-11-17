@@ -190,5 +190,5 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 
 # --- Dominio fijo para los enlaces de recuperación de contraseña ---
-PASSWORD_RESET_DOMAIN = "3.85.33.49"   # IP pública de tu instancia EC2
+PASSWORD_RESET_DOMAIN = "127.0.0.1:8000"   # IP pública de tu instancia EC2 "3.85.33.49"
 PASSWORD_RESET_PROTOCOL = "http"       # usa "https" si tienes SSL en la instancia
