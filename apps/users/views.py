@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpRequest
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
 from datetime import datetime
-
+from apps.account.views import get_redirect_for_role
 from .models import Usuario
 from .utils_invite import invite_user_and_email
 from .forms import UsuarioForm
@@ -84,7 +84,7 @@ def _es_admin(user):
 @login_required
 def gestion_usuarios(request):
     if not _es_admin(request.user):
-        return HttpResponseForbidden("Solo Administrador.")
+        return redirect(get_redirect_for_role(request.user))
 
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', 'id')
