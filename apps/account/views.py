@@ -180,7 +180,6 @@ class PasswordResetRequestView(PasswordResetView):
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
     template_name = "password_reset_confirm.html"
     form_class = CustomSetPasswordForm
-    success_url = reverse_lazy("password_reset_complete")
 
     def form_valid(self, form):
         """
