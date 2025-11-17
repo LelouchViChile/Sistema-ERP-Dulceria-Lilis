@@ -180,33 +180,29 @@ class PasswordResetRequestView(PasswordResetView):
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
-    template_name = "password_rest_confirm.html"  # tu nombre exacto
+    template_name = "password_rest_confirm.html"
     form_class = CustomSetPasswordForm
     success_url = reverse_lazy("password_reset_complete")
 
-    # 🔥 VALIDACIÓN DEL TOKEN (AÑADIDO)
-    def dispatch(self, request, *args, **kwargs):
-        uidb64 = kwargs.get("uidb64")
-        token = kwargs.get("token")
+    # 🔥 Validador correcto (SIN ROMPER TOKENS VÁLIDOS)
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
 
-        try:
-            uid = urlsafe_base64_decode(uidb64).decode()
-            user = self.get_user(uid)
-        except Exception:
-            user = None
-
-        # Token inválido → redirigir a página de error
-        if user is None or not default_token_generator.check_token(user, token):
+        if not self.validlink:
+            # Token expirado, usado o inválido
             return render(request, "password_reset_invalid.html")
 
-        return super().dispatch(request, *args, **kwargs)
+        return response
+
+    def post(self, request, *args, **kwargs):
+        # Django *también* valida el token en el POST, así que lo revisamos aquí igual.
+        if not self.validlink:
+            return render(request, "password_reset_invalid.html")
+
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        """
-        Guardar contraseña nueva, cerrar sesión y redirigir a login con bandera ?reset=1
-        para que el login muestre el mensaje de éxito.
-        """
-        user = form.save()  # Guarda nueva contraseña
+        user = form.save()
 
         logout(self.request)
 
@@ -217,6 +213,7 @@ class PasswordResetConfirmCustomView(PasswordResetConfirmView):
 
         login_url = reverse("login")
         return redirect(f"{login_url}?reset=1")
+
 
 
 class ChangePasswordView(PasswordChangeView):
