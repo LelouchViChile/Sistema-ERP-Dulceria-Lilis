@@ -2,12 +2,16 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Upper
 from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-# NUEVO: validador específico para celular chileno +569XXXXXXXX
+
+# Validador para celular chileno:
+# - Acepta +569XXXXXXXX
+# - Acepta 9XXXXXXXXX  (9 dígitos, sin +56)
 telefono_chile_validator = RegexValidator(
-    regex=r'^\+569\d{8}$',
-    message='Formato inválido: debe ser +569XXXXXXXX (12 caracteres).'
+    regex=r'^(\+569\d{8}|9\d{8})$',
+    message='Formato inválido: usa +569XXXXXXXX o 9XXXXXXXXX (9 dígitos).'
 )
 
 
@@ -37,13 +41,18 @@ class Usuario(AbstractUser):
     telefono = models.CharField(
         "Teléfono",
         max_length=30,
-        blank=True,         # opcional en formularios; en BD sigue siendo NOT NULL
-        validators=[telefono_chile_validator],  # <-- AQUÍ USAMOS EL NUEVO VALIDADOR
+        blank=True,         # opcional en formularios
+        validators=[telefono_chile_validator],
     )
 
-    rol = models.CharField(_("Rol"), max_length=20, choices=Roles.choices, default=Roles.VENTAS)
+    rol = models.CharField(
+        _("Rol"),
+        max_length=20,
+        choices=Roles.choices,
+        default=Roles.VENTAS
+    )
 
-    # NUEVO: el estado que tu UI/vistas usan
+    # Estado que tu UI/vistas usan
     estado = models.CharField(
         _("Estado"),
         max_length=10,
@@ -58,7 +67,7 @@ class Usuario(AbstractUser):
     # Puedes mantener este boolean si lo necesitas aparte del 'estado'
     activo = models.BooleanField("Activo", default=True)
 
-    # --- NUEVOS CAMPOS (para invitación/cambio forzado) ---
+    # Campos para invitación/cambio forzado
     invite_code = models.CharField(
         max_length=12,
         blank=True,
@@ -70,6 +79,46 @@ class Usuario(AbstractUser):
         help_text="Forzar cambio de contraseña al iniciar"
     )
 
+    def clean(self):
+        """
+        Normaliza y valida el teléfono:
+        - Acepta +569XXXXXXXX o 9XXXXXXXXX (sin espacios).
+        - Lo guarda SIEMPRE como +569XXXXXXXX.
+        - Impide teléfonos duplicados.
+        """
+        super().clean()
+
+        tel = (self.telefono or "").strip()
+        if not tel:
+            # Si está vacío, no obligamos a tener teléfono.
+            return
+
+        # Quitar espacios en blanco
+        tel = tel.replace(" ", "")
+
+        # Normalizar
+        if tel.startswith("+569") and len(tel) == 12 and tel[4:].isdigit():
+            normalizado = tel
+        elif tel.startswith("9") and len(tel) == 9 and tel.isdigit():
+            # De 9XXXXXXXXX pasamos a +569XXXXXXXX
+            normalizado = "+56" + tel
+        else:
+            raise ValidationError({
+                "telefono": "Formato inválido: usa +569XXXXXXXX o 9XXXXXXXXX (9 dígitos)."
+            })
+
+        # Verificar unicidad (otro usuario con el mismo teléfono)
+        qs = Usuario.objects.filter(telefono=normalizado)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError({
+                "telefono": "Ya existe un usuario con este número de teléfono."
+            })
+
+        # Guardamos siempre en formato normalizado
+        self.telefono = normalizado
+
     class Meta:
         verbose_name = "Usuario"
         verbose_name_plural = "Usuarios"
@@ -80,7 +129,10 @@ class Usuario(AbstractUser):
             models.Index(fields=["activo"]),
         ]
         constraints = [
-            models.CheckConstraint(check=models.Q(activo__in=[True, False]), name="usr_activo_bool"),
+            models.CheckConstraint(
+                check=models.Q(activo__in=[True, False]),
+                name="usr_activo_bool"
+            ),
         ]
         ordering = ["username"]
 
