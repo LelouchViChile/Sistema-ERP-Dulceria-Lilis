@@ -184,35 +184,21 @@ class PasswordResetConfirmCustomView(PasswordResetConfirmView):
     form_class = CustomSetPasswordForm
     success_url = reverse_lazy("password_reset_complete")
 
-    # 🔥 Validador correcto (SIN ROMPER TOKENS VÁLIDOS)
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
 
+        # Django ya validó el token y puso self.validlink
         if not self.validlink:
-            # Token expirado, usado o inválido
             return render(request, "password_reset_invalid.html")
 
         return response
 
     def post(self, request, *args, **kwargs):
-        # Django *también* valida el token en el POST, así que lo revisamos aquí igual.
         if not self.validlink:
             return render(request, "password_reset_invalid.html")
 
         return super().post(request, *args, **kwargs)
 
-    def form_valid(self, form):
-        user = form.save()
-
-        logout(self.request)
-
-        messages.success(
-            self.request,
-            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
-        )
-
-        login_url = reverse("login")
-        return redirect(f"{login_url}?reset=1")
 
 
 
