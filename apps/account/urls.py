@@ -19,7 +19,7 @@ urlpatterns = [
 
     # === NUEVO: Recuperar contraseña ===
     # Usa tu template: apps/account/templates/password_reset_request.html
-    path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
 
     # Tras enviar el correo, redirigimos al login (sin crear plantilla "done")
     path(
