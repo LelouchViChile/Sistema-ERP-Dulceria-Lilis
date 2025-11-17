@@ -180,24 +180,53 @@ class PasswordResetRequestView(PasswordResetView):
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
+    # MANTENEMOS exactamente el nombre de template que usas
     template_name = "password_rest_confirm.html"
     form_class = CustomSetPasswordForm
-    success_url = reverse_lazy("password_reset_complete")
+    # NO definimos success_url porque no quieres depender de password_reset_complete
 
     def get(self, request, *args, **kwargs):
+        """
+        Dejamos que Django procese primero (super().get) para que llene self.validlink.
+        Si self.validlink es False -> token inválido/expirado/usado -> mostramos tu template de invalid.
+        """
         response = super().get(request, *args, **kwargs)
 
-        # Django ya validó el token y puso self.validlink
-        if not self.validlink:
+        if not getattr(self, "validlink", False):
             return render(request, "password_reset_invalid.html")
 
         return response
 
     def post(self, request, *args, **kwargs):
-        if not self.validlink:
+        """
+        En POST Django ya habrá evaluado validlink en la fase de setup/dispatch; si es inválido
+        devolvemos la plantilla de token inválido. En caso contrario, delegamos a super().
+        """
+        if not getattr(self, "validlink", False):
             return render(request, "password_reset_invalid.html")
 
         return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """
+        Guardamos la nueva contraseña y redirigimos explícitamente al login con ?reset=1.
+        No usamos ni dependemos de ninguna ruta llamada password_reset_complete.
+        """
+        user = form.save()
+
+        # Por seguridad, cerramos cualquier sesión activa del request
+        logout(self.request)
+
+        # Mensaje que verá el login cuando lo redirigamos
+        messages.success(
+            self.request,
+            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
+        )
+
+        # Redirigimos explícitamente al login (usa el name 'login' que sí tienes)
+        login_url = reverse("login")
+        return redirect(f"{login_url}?reset=1")
+
 
 
 
