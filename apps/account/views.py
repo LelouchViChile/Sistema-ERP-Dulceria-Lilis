@@ -6,6 +6,8 @@ from django.urls import reverse, NoReverseMatch
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordChangeView
 from django.urls import reverse_lazy
 from django.http import JsonResponse
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
 
 import logging
 logger = logging.getLogger('login_secure')  # <<<<<< YA LO TENÍAS
@@ -182,6 +184,23 @@ class PasswordResetConfirmCustomView(PasswordResetConfirmView):
     form_class = CustomSetPasswordForm
     success_url = reverse_lazy("password_reset_complete")
 
+    # 🔥 VALIDACIÓN DEL TOKEN (AÑADIDO)
+    def dispatch(self, request, *args, **kwargs):
+        uidb64 = kwargs.get("uidb64")
+        token = kwargs.get("token")
+
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = self.get_user(uid)
+        except Exception:
+            user = None
+
+        # Token inválido → redirigir a página de error
+        if user is None or not default_token_generator.check_token(user, token):
+            return render(request, "password_reset_invalid.html")
+
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         """
         Guardar contraseña nueva, cerrar sesión y redirigir a login con bandera ?reset=1
@@ -189,16 +208,13 @@ class PasswordResetConfirmCustomView(PasswordResetConfirmView):
         """
         user = form.save()  # Guarda nueva contraseña
 
-        # Cerramos sesión activa por seguridad
         logout(self.request)
 
-        # Mensaje de éxito que viajará al login
         messages.success(
             self.request,
             "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
         )
 
-        # Redirección al login con query param que el login interpretará
         login_url = reverse("login")
         return redirect(f"{login_url}?reset=1")
 
