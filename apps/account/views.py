@@ -181,26 +181,34 @@ class PasswordResetRequestView(PasswordResetView):
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
     # Usamos tu template actual
-    template_name = "password_rest_confirm.html"
+    template_name = "password_reset_confirm.html"
     form_class = CustomSetPasswordForm
     # No tocamos dispatch, dejamos que Django maneje validlink
-
+    
     def form_valid(self, form):
         """
-        Guardar contraseña nueva y redirigir al login con ?reset=1.
+        Guarda la contraseña. Si es AJAX, devuelve JSON. Si no, redirige.
         """
         user = form.save()
-
-        # Por seguridad cerramos cualquier sesión activa
         logout(self.request)
 
-        messages.success(
-            self.request,
-            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
-        )
+        # Si la petición es AJAX (desde tu script), devuelve JSON
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            login_url = reverse("login")
+            return JsonResponse({
+                "ok": True,
+                "redirect": f"{login_url}?reset=1"
+            })
 
+        # Comportamiento para peticiones no-AJAX (si las hubiera)
         login_url = reverse("login")
         return redirect(f"{login_url}?reset=1")
+
+    def form_invalid(self, form):
+        # Si la petición es AJAX, devuelve los errores en formato JSON
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+        return super().form_invalid(form)
 
 class ChangePasswordView(PasswordChangeView):
     template_name = "change_password.html"

@@ -24,9 +24,14 @@ class CustomPasswordResetForm(PasswordResetForm):
     """Puedes extender validaciones de email si lo necesitas."""
     pass
 
-
 class CustomSetPasswordForm(SetPasswordForm):
     """Usada en reset/confirm."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].help_text = (
+            "Mínimo 12 caracteres, con mayúscula, minúscula, dígito y símbolo."
+        )
 
     def clean_new_password1(self):
         """

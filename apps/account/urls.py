@@ -28,7 +28,7 @@ urlpatterns = [
         name='password_reset_done',
     ),
 
-    # Confirmar (crear nueva) usando tu template: password_rest_confirm.html
+    # Confirmar (crear nueva) usando tu template: password_reset_confirm.html
     path(
         'password/reset/confirm/<uidb64>/<token>/',
         PasswordResetConfirmCustomView.as_view(),
