@@ -14,7 +14,7 @@
                         <h3 class="card-title text-center mt-3 fw-bold text-danger">ERP Lilis</h3>
                     </div>
 
-                    {# Contenedor oculto para los mensajes de Django que leerá SweetAlert #}
+                    <!-- 🔥 CONTENEDOR OCULTO PARA MENSAJES (SweetAlert los toma desde aquí) -->
                     <div id="django-messages" style="display: none;">
                         {% if messages %}
                             {% for message in messages %}
@@ -22,6 +22,7 @@
                             {% endfor %}
                         {% endif %}
                     </div>
+                    <!-- 🔥 FIN MENSAJES -->
 
                     <form method="post" action="" novalidate>
                         {% csrf_token %}
@@ -56,7 +57,6 @@
 {% endblock %}
 
 {% block scripts %}
-{# Asegúrate que SweetAlert2 esté cargado en base.html o aquí #}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 2. Mostrar mensajes de Django (éxito o error) con SweetAlert2
+    // 2. Mostrar mensajes Django + SweetAlert
     const messageContainer = document.getElementById('django-messages');
     if (messageContainer) {
         const firstMessage = messageContainer.querySelector('div');
@@ -87,14 +87,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
             Swal.fire({
                 icon: tag === 'success' ? 'success' : 'error',
-                title: tag === 'success' ? 'Operación exitosa' : 'Error de inicio de sesión',
+                title: tag === 'success'
+                       ? 'Operación exitosa'
+                       : 'Atención',
                 text: text,
             });
         }
     }
 
-    // 3. 🔥 NUEVO: mensaje de éxito al venir desde el reset de contraseña
-    //    La vista de reset te redirige a: /login/?reset=1
+    // 3. Mensaje especial desde reset de contraseña
     const resetFlag = "{{ request.GET.reset|default:'' }}";
     if (resetFlag === "1") {
         Swal.fire({

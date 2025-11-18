@@ -1,9 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpRequest
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
-from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
 from datetime import datetime
@@ -12,12 +11,18 @@ from .models import Usuario
 from .utils_invite import invite_user_and_email
 from .forms import UsuarioForm
 
+# ====== AUDITORÍA ======
+import logging
+audit_logger = logging.getLogger("auditoria")
+# =======================
+
 # ====== export a Excel (openpyxl) ======
 try:
     from openpyxl import Workbook
     from openpyxl.utils import get_column_letter
 except ImportError:
     Workbook = None
+
 
 def _usuarios_to_excel(queryset):
     if Workbook is None:
@@ -58,6 +63,7 @@ def _usuarios_to_excel(queryset):
     wb.save(response)
     return response
 
+
 def _rol_from_text(q: str):
     q = (q or "").strip().lower()
     mapping = {
@@ -74,9 +80,6 @@ def _rol_from_text(q: str):
     return mapping.get(q)
 
 
-# ====== export a Excel (openpyxl) ======
-
-
 def _es_admin(user):
     return user.is_superuser or getattr(user, "rol", "") == "ADMIN"
 
@@ -89,7 +92,7 @@ def gestion_usuarios(request):
     query = request.GET.get('q', '')
     sort_by = request.GET.get('sort', 'id')
     export = request.GET.get('export')
-    ver = request.GET.get('ver', 'todos')  # activos | inactivos | todos
+    ver = request.GET.get('ver', 'todos')
 
     valid_sort_fields = ['id', '-id', 'username', '-username', 'first_name', '-first_name', 'rol', '-rol']
     if sort_by not in valid_sort_fields:
@@ -97,51 +100,44 @@ def gestion_usuarios(request):
 
     usuarios_list = Usuario.objects.all()
 
-    # Filtro de estado/activo
     if ver == 'inactivos':
         usuarios_list = usuarios_list.filter(Q(estado__in=['inactivo', 'bloqueado']) | Q(activo=False))
     elif ver == 'activos':
         usuarios_list = usuarios_list.filter(estado='activo', activo=True)
-    # ver == 'todos' no filtra
 
-    q = (request.GET.get('q') or '').strip()
+    q = (query or '').strip()
     expr = Q()
     if q:
-        # username, nombre, apellido, email, teléfono
-        expr |= Q(username__icontains=q)
-        expr |= Q(first_name__icontains=q)
-        expr |= Q(last_name__icontains=q)
-        expr |= Q(email__icontains=q)
-        expr |= Q(telefono__icontains=q)
-
-        # ID exacto si es número
+        expr |= Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        expr |= Q(email__icontains=q) | Q(telefono__icontains=q)
         try:
             expr |= Q(id=int(q))
         except ValueError:
             pass
-
-        # Rol por etiqueta de texto
         rol_code = _rol_from_text(q)
         if rol_code:
             expr |= Q(rol=rol_code)
-
         usuarios_list = usuarios_list.filter(expr)
 
     usuarios_list = usuarios_list.order_by(sort_by)
 
     if export == 'xlsx':
         return _usuarios_to_excel(usuarios_list)
-    
-    page_number = request.GET.get('page', 1)
+
     paginator = Paginator(usuarios_list, 10)
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
 
-    return render(
-        request,
-        'usuarios/gestion_usuarios.html',
-        {'page_obj': page_obj, 'query': query, 'sort_by': sort_by, 'ver': ver}
-    )
+    return render(request, 'usuarios/gestion_usuarios.html', {
+        'page_obj': page_obj,
+        'query': query,
+        'sort_by': sort_by,
+        'ver': ver
+    })
 
+
+# ================================================================
+# 🔥 CRUD + Auditoría
+# ================================================================
 
 @login_required
 @transaction.atomic
@@ -154,22 +150,24 @@ def crear_usuario(request):
 
     form = UsuarioForm(request.POST)
     if form.is_valid():
-        try:
-            usuario = form.save(commit=False)
-            usuario.activo = (form.cleaned_data.get('estado') == 'activo')
-            # El formulario no maneja la contraseña, se establecerá al aceptar la invitación.
-            usuario.set_unusable_password()
-            usuario.save()
+        usuario = form.save(commit=False)
+        usuario.activo = (form.cleaned_data.get('estado') == 'activo')
+        usuario.set_unusable_password()
+        usuario.save()
 
-            invite_user_and_email(usuario)
-            return JsonResponse({'status': 'ok', 'message': 'Usuario creado e invitación enviada.'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'No se pudo crear el usuario: {e}'}, status=500)
-    else:
-        # Devuelve los errores de validación del formulario en formato JSON
-        return JsonResponse({'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors.get_json_data()}, status=400)
+        invite_user_and_email(usuario)
 
-@transaction.atomic
+        # === AUDITORÍA ===
+        audit_logger.info(
+            f"CREATE Usuario id={usuario.id}, username={usuario.username}, por={request.user.username}"
+        )
+
+        return JsonResponse({'status': 'ok', 'message': 'Usuario creado e invitación enviada.'})
+
+    return JsonResponse({'status': 'error', 'errors': form.errors.get_json_data()}, status=400)
+
+
+
 @login_required
 @csrf_exempt
 def eliminar_usuario(request, user_id):
@@ -178,19 +176,20 @@ def eliminar_usuario(request, user_id):
 
     usuario = get_object_or_404(Usuario, id=user_id)
 
-    # No se puede eliminar a sí mismo
     if usuario.id == request.user.id:
         return JsonResponse({'status': 'error', 'message': 'No puedes eliminar tu propia cuenta.'}, status=403)
 
-    # Solo un superusuario puede eliminar a otro administrador.
-    # Un administrador normal (rol=ADMIN) no puede eliminar a otro admin o superuser.
     if _es_admin(usuario) and not request.user.is_superuser:
-        return JsonResponse({
-            'status': 'error', 'message': 'Solo un Superusuario puede eliminar a otro administrador.'
-        }, status=403)
+        return JsonResponse({'status': 'error', 'message': 'Solo un Superusuario puede eliminar a otro administrador.'}, status=403)
+
+    # === AUDITORÍA ===
+    audit_logger.info(
+        f"DELETE Usuario id={usuario.id}, username={usuario.username}, por={request.user.username}"
+    )
 
     usuario.delete()
     return JsonResponse({'status': 'ok', 'message': 'Usuario eliminado correctamente.'})
+
 
 
 @login_required
@@ -198,24 +197,24 @@ def eliminar_usuario(request, user_id):
 def editar_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
+
     usuario = get_object_or_404(Usuario, id=user_id)
 
     if request.method == 'POST':
         form = UsuarioForm(request.POST, instance=usuario)
         if form.is_valid():
-            try:
-                usuario_actualizado = form.save(commit=False)
-                # Sincroniza el campo 'activo' con el 'estado'
-                usuario_actualizado.activo = (form.cleaned_data.get('estado') == 'activo')
-                usuario_actualizado.save()
-                return JsonResponse({'status': 'ok', 'message': 'Usuario actualizado correctamente.'})
-            except Exception as e:
-                return JsonResponse({'status': 'error', 'message': f'No se pudo actualizar el usuario: {e}'}, status=500)
-        else:
-            # Devuelve los errores de validación del formulario en formato JSON
-            return JsonResponse({
-                'status': 'error', 'message': 'Datos inválidos.', 'errors': form.errors.get_json_data()
-            }, status=400)
+            usuario_actualizado = form.save(commit=False)
+            usuario_actualizado.activo = (form.cleaned_data.get('estado') == 'activo')
+            usuario_actualizado.save()
+
+            # === AUDITORÍA ===
+            audit_logger.info(
+                f"UPDATE Usuario id={usuario.id}, username={usuario.username}, por={request.user.username}"
+            )
+
+            return JsonResponse({'status': 'ok', 'message': 'Usuario actualizado correctamente.'})
+
+        return JsonResponse({'status': 'error', 'errors': form.errors.get_json_data()}, status=400)
 
     return JsonResponse({
         'id': usuario.id,
@@ -230,7 +229,11 @@ def editar_usuario(request, user_id):
     })
 
 
-# ---- Nuevos endpoints: desactivar / reactivar (solo ADMIN) ----
+
+# ================================================================
+# 🔥 Activación / desactivación + Auditoría
+# ================================================================
+
 @login_required
 @csrf_exempt
 def desactivar_usuario(request, user_id):
@@ -238,21 +241,19 @@ def desactivar_usuario(request, user_id):
         return HttpResponseForbidden("Solo Administrador.")
     usuario = get_object_or_404(Usuario, id=user_id)
 
-    # No se puede desactivar a sí mismo
     if usuario.id == request.user.id:
         return JsonResponse({'status': 'error', 'message': 'No puedes desactivar tu propia cuenta.'}, status=403)
-
-    # Un administrador no puede desactivar a un superusuario.
-    # Solo un superusuario puede gestionar a otro superusuario.
-    if usuario.is_superuser and not request.user.is_superuser:
-        return JsonResponse({
-            'status': 'error', 'message': 'No tienes permisos para desactivar a un Superusuario.'
-        }, status=403)
 
     usuario.estado = 'inactivo'
     usuario.activo = False
     usuario.save(update_fields=['estado', 'activo'])
+
+    audit_logger.info(
+        f"DESACTIVAR Usuario id={usuario.id}, por={request.user.username}"
+    )
+
     return JsonResponse({'status': 'ok', 'message': 'Usuario desactivado.'})
+
 
 
 @login_required
@@ -262,85 +263,78 @@ def reactivar_usuario(request, user_id):
         return HttpResponseForbidden("Solo Administrador.")
     usuario = get_object_or_404(Usuario, id=user_id)
 
-    # No se puede reactivar a sí mismo (caso improbable, pero seguro)
-    if usuario.id == request.user.id:
-        return JsonResponse({'status': 'error', 'message': 'Acción no permitida sobre tu propia cuenta.'}, status=403)
-
-    # Un administrador no puede reactivar a un superusuario.
-    # Solo un superusuario puede gestionar a otro superusuario.
-    if usuario.is_superuser and not request.user.is_superuser:
-        return JsonResponse({
-            'status': 'error', 'message': 'No tienes permisos para reactivar a un Superusuario.'
-        }, status=403)
-
     usuario.estado = 'activo'
     usuario.activo = True
     usuario.save(update_fields=['estado', 'activo'])
+
+    audit_logger.info(
+        f"REACTIVAR Usuario id={usuario.id}, por={request.user.username}"
+    )
+
     return JsonResponse({'status': 'ok', 'message': 'Usuario reactivado.'})
 
 
-@login_required
-@csrf_exempt
-def reiniciar_clave(request: HttpRequest, user_id: int):
-    """
-    Reinicia la clave de un usuario y le envía un correo de invitación
-    para que establezca una nueva, reutilizando la lógica de creación.
-    """
-    if not _es_admin(request.user):
-        return HttpResponseForbidden("Solo Administrador.")
 
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
-
-    usuario = get_object_or_404(Usuario, id=user_id)
-    
-    invite_user_and_email(usuario, source='reset')
-    
-    # Invalidar todas las sesiones existentes para este usuario.
-    # La sesión actual del admin no se ve afectada.
-    from django.contrib.auth import update_session_auth_hash
-    update_session_auth_hash(request, usuario)
-
-    # Si el admin se reinicia su propia clave, lo deslogueamos.
-    force_logout = False
-    if request.user.id == usuario.id:
-        from django.contrib.auth import logout
-        logout(request)
-        force_logout = True
-    
-    return JsonResponse({
-        'status': 'ok',
-        'message': f'Se ha enviado un correo para el reinicio de clave a {usuario.email}.',
-        'force_logout': force_logout,
-    })
+# ================================================================
+# 🔥 Bloquear / desbloquear + Auditoría
+# ================================================================
 
 @login_required
 @csrf_exempt
 def bloquear_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
+
     usuario = get_object_or_404(Usuario, id=user_id)
-
-    # No se puede bloquear a sí mismo
-    if usuario.id == request.user.id:
-        return JsonResponse({'status': 'error', 'message': 'No puedes bloquear tu propia cuenta.'}, status=403)
-
     usuario.estado = 'bloqueado'
     usuario.activo = False
     usuario.save(update_fields=['estado', 'activo'])
+
+    audit_logger.info(
+        f"BLOQUEAR Usuario id={usuario.id}, por={request.user.username}"
+    )
+
     return JsonResponse({'status': 'ok', 'message': 'Usuario bloqueado.'})
+
+
 
 @login_required
 @csrf_exempt
 def desbloquear_usuario(request, user_id):
     if not _es_admin(request.user):
         return HttpResponseForbidden("Solo Administrador.")
+
     usuario = get_object_or_404(Usuario, id=user_id)
-
-    if usuario.id == request.user.id:
-        return JsonResponse({'status': 'error', 'message': 'No puedes desbloquear tu propia cuenta.'}, status=403)
-
     usuario.estado = 'activo'
     usuario.activo = True
     usuario.save(update_fields=['estado', 'activo'])
+
+    audit_logger.info(
+        f"DESBLOQUEAR Usuario id={usuario.id}, por={request.user.username}"
+    )
+
     return JsonResponse({'status': 'ok', 'message': 'Usuario desbloqueado.'})
+
+
+
+# ================================================================
+# 🔥 Reinicio de clave + Auditoría
+# ================================================================
+
+@login_required
+@csrf_exempt
+def reiniciar_clave(request: HttpRequest, user_id: int):
+    if not _es_admin(request.user):
+        return HttpResponseForbidden("Solo Administrador.")
+    usuario = get_object_or_404(Usuario, id=user_id)
+
+    invite_user_and_email(usuario, source='reset')
+
+    audit_logger.info(
+        f"REINICIAR_CLAVE Usuario id={usuario.id}, por={request.user.username}"
+    )
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'Se envió un correo para reiniciar la clave a {usuario.email}.'
+    })

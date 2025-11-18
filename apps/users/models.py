@@ -16,6 +16,8 @@ telefono_chile_validator = RegexValidator(
 
 
 class Usuario(AbstractUser):
+    intentos_fallidos_login = models.IntegerField(default=0)
+    bloqueado_hasta = models.DateTimeField(null=True, blank=True)
     class Roles(models.TextChoices):
         ADMIN = 'ADMIN', _('Administrador')
         COMPRAS = 'COMPRAS', _('Operador de Compras')
@@ -23,6 +25,7 @@ class Usuario(AbstractUser):
         PRODUCCION = 'PRODUCCION', _('Operador de Producción')
         VENTAS = 'VENTAS', _('Operador de Ventas')
         FINANZAS = 'FINANZAS', _('Analista Financiero')
+        
 
     class Estados(models.TextChoices):
         ACTIVO = 'activo', _('Activo')

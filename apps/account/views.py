@@ -8,12 +8,13 @@ from django.urls import reverse_lazy
 from django.http import JsonResponse
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
+from django.utils import timezone
+from datetime import timedelta
+from django.views.decorators.cache import never_cache
+from django.conf import settings
 
 import logging
-logger = logging.getLogger('login_secure')  # <<<<<< YA LO TENÍAS
-
-from django.views.decorators.cache import never_cache  # <<<<<< AGREGADO
-from django.conf import settings  # <<<<<< NUEVO IMPORT
+logger = logging.getLogger('login_secure')
 
 from .forms import (
     CustomPasswordResetForm,
@@ -21,12 +22,12 @@ from .forms import (
     CustomPasswordChangeForm,
 )
 
-# ------------------ utilidades ------------------
+
+# ================================================================
+# UTILIDADES
+# ================================================================
+
 def safe_reverse(*candidates, default="dashboard"):
-    """
-    Intenta hacer reverse de varios nombres; si ninguno existe, usa `default`,
-    y si tampoco existe, retorna "/".
-    """
     for name in candidates:
         try:
             return reverse(name)
@@ -41,91 +42,147 @@ def safe_reverse(*candidates, default="dashboard"):
 def get_redirect_for_role(user):
     rol = getattr(user, "rol", "") or ""
 
-    # Admin / superuser → dashboard
     if user.is_superuser or rol == "ADMIN":
         return safe_reverse("dashboard")
 
-    # Resto de roles → su módulo
     role_map = {
-        "COMPRAS":     ("suppliers:list", "gestion_proveedores"),
-        "INVENTARIO":  ("products:list", "product_list"),
-        "VENTAS":      ("products:list", "product_list"),
-        "PRODUCCION":  ("transactional:list", "gestion_transacciones"),
-        "FINANZAS":    ("reports:panel",),
+        "COMPRAS": ("suppliers:list", "gestion_proveedores"),
+        "INVENTARIO": ("products:list", "product_list"),
+        "VENTAS": ("products:list", "product_list"),
+        "PRODUCCION": ("transactional:list", "gestion_transacciones"),
+        "FINANZAS": ("reports:panel",),
     }
     candidates = role_map.get(rol, ("dashboard",))
     return safe_reverse(*candidates, default="dashboard")
 
 
-# ------------------ auth views ------------------
-@never_cache  # <<<<<< AGREGADO (NO CAMBIAMOS NADA MÁS)
+# ================================================================
+# INICIO DE SESIÓN CON BLOQUEO POR INTENTOS
+# ================================================================
+
+@never_cache
 def iniciar_sesion(request):
-    # 🔹 Mostrar mensaje de éxito si viene desde reset de contraseña: /login/?reset=1
+
+    # mensaje si viene de reset
     if request.method == "GET" and request.GET.get("reset") == "1":
         messages.success(
             request,
             "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
         )
 
-    # Si ya está logueado, manda directo según rol
+    # si ya está logueado
     if request.user.is_authenticated:
         return redirect(get_redirect_for_role(request.user))
 
+    # PETICIÓN POST
     if request.method == "POST":
+
         usuario = request.POST.get("username", "")
         contrasena = request.POST.get("password", "")
 
-        # ------------------ LOG SEGURO ------------------
         ip = request.META.get('REMOTE_ADDR', 'desconocida')
         logger.info(f"Intento de login: usuario={usuario}, ip={ip}")
-        # ------------------------------------------------
 
+        # Intentamos obtener usuario para revisar bloqueo
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        try:
+            u = User.objects.get(username=usuario)
+        except User.DoesNotExist:
+            u = None
+
+        # ------------------------------------------------
+        # VALIDACIÓN DE BLOQUEO
+        # ------------------------------------------------
+        if u and u.bloqueado_hasta:
+            if timezone.now() < u.bloqueado_hasta:
+                segundos = int((u.bloqueado_hasta - timezone.now()).total_seconds())
+                minutos = segundos // 60
+                resto = segundos % 60
+
+                messages.error(
+                    request,
+                    f"Demasiados intentos fallidos. Intenta nuevamente en {minutos}m {resto}s."
+                )
+                return render(request, "login.html")
+
+        # Procesar autenticación
         user = authenticate(request, username=usuario, password=contrasena)
 
+        # ------------------------------------------------
+        # LOGIN CORRECTO
+        # ------------------------------------------------
         if user is not None:
-            # Bloqueo de acceso si está inactivo o no-activo por negocio
+
+            # limpiar contador
+            user.intentos_fallidos_login = 0
+            user.bloqueado_hasta = None
+            user.save(update_fields=["intentos_fallidos_login", "bloqueado_hasta"])
+
             if getattr(user, "estado", "activo") != "activo" or not getattr(user, "activo", True):
-
-                # -------- LOG BLOQUEO -----------
                 logger.info(f"Login bloqueado (usuario inactivo): usuario={usuario}, ip={ip}")
-                # -------------------------------
-
                 messages.error(request, "Tu usuario está desactivado. Contacta al administrador.")
                 return render(request, "login.html")
 
             login(request, user)
 
-            # -------- LOG LOGIN EXITOSO --------
             logger.info(f"Login exitoso: usuario={usuario}, ip={ip}")
-            # -----------------------------------
 
-            # Solo admin/superuser respeta ?next=...; el resto va a su módulo
             next_url = request.POST.get("next") or request.GET.get("next")
             if (user.is_superuser or getattr(user, "rol", "") == "ADMIN") and next_url:
                 return redirect(next_url)
 
             return redirect(get_redirect_for_role(user))
 
-        # -------- LOG LOGIN FALLIDO --------
+        # ------------------------------------------------
+        # LOGIN FALLIDO
+        # ------------------------------------------------
         logger.info(f"Login fallido: usuario={usuario}, ip={ip}")
-        # -----------------------------------
+
+        if u:
+            u.intentos_fallidos_login += 1
+
+            if u.intentos_fallidos_login >= 5:
+                u.bloqueado_hasta = timezone.now() + timedelta(minutes=1)
+                u.save(update_fields=["intentos_fallidos_login", "bloqueado_hasta"])
+
+                messages.error(
+                    request,
+                    "Has superado el número máximo de intentos. "
+                    "Tu cuenta está bloqueada por 1 minuto."
+                )
+                return render(request, "login.html")
+
+            u.save(update_fields=["intentos_fallidos_login"])
 
         messages.error(request, "Usuario o contraseña incorrectos.")
 
-    return render(request, "login.html")  # incluye {% csrf_token %} y el <input name="next">
+    return render(request, "login.html")
 
+
+# ================================================================
+# CERRAR SESIÓN
+# ================================================================
 
 def cerrar_sesion(request):
     logout(request)
     return redirect("login")
 
 
+# ================================================================
+# GATE MODULE
+# ================================================================
+
 @login_required
 def module_gate_view(request, app_slug: str):
     return render(request, "module_gate.html", {"app_slug": app_slug})
 
 
-# ------------------ password reset / change ------------------
+# ================================================================
+# PASSWORD RESET
+# ================================================================
+
 class PasswordResetRequestView(PasswordResetView):
     template_name = "password_reset_request.html"
     email_template_name = "emails/password_reset_email.txt"
@@ -134,14 +191,9 @@ class PasswordResetRequestView(PasswordResetView):
     form_class = CustomPasswordResetForm
 
     def get_context_data(self, **kwargs):
-        """
-        Contexto para la PÁGINA de solicitud de reset (no el correo).
-        """
         context = super().get_context_data(**kwargs)
 
-        # Dominio para mostrar en la página (no afecta al correo)
         domain = getattr(settings, "PASSWORD_RESET_DOMAIN", None) or self.request.get_host()
-
         protocol = getattr(settings, "PASSWORD_RESET_PROTOCOL", None)
         if not protocol:
             protocol = "https" if self.request.is_secure() else "http"
@@ -150,20 +202,13 @@ class PasswordResetRequestView(PasswordResetView):
         context["protocol"] = protocol
         return context
 
-    # 🔥🔥🔥 AQUÍ ES DONDE SE ARMA EL CORREO REALMENTE 🔥🔥🔥
     def form_valid(self, form):
-        """
-        Sobrescribimos el envío del mail para forzar el dominio 3.85.33.49
-        en el enlace de recuperación, sin romper nada más.
-        """
-        # Dominio fijo desde settings, con fallback a la IP por si acaso
+
         domain = getattr(settings, "PASSWORD_RESET_DOMAIN", "3.85.33.49")
 
-        # Protocolo según settings o la request
         protocol = getattr(settings, "PASSWORD_RESET_PROTOCOL", None)
         use_https = (protocol == "https") or self.request.is_secure()
 
-        # Usamos el método original de PasswordResetForm, pero pasando domain_override
         form.save(
             domain_override=domain,
             use_https=use_https,
@@ -175,66 +220,41 @@ class PasswordResetRequestView(PasswordResetView):
             extra_email_context=getattr(self, "extra_email_context", None),
         )
 
-        # Comportamiento original: redirigir a password_reset_done
         return redirect(self.success_url)
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
-    # Usamos tu template actual
-    template_name = "password_reset_confirm.html"
+    template_name = "password_rest_confirm.html"
     form_class = CustomSetPasswordForm
-    # No tocamos dispatch, dejamos que Django maneje validlink
-    
+
     def form_valid(self, form):
-        """
-        Guarda la contraseña. Si es AJAX, devuelve JSON. Si no, redirige.
-        """
         user = form.save()
         logout(self.request)
 
-        # Si la petición es AJAX (desde tu script), devuelve JSON
-        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            login_url = reverse("login")
-            return JsonResponse({
-                "ok": True,
-                "redirect": f"{login_url}?reset=1"
-            })
+        messages.success(
+            self.request,
+            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
+        )
 
-        # Comportamiento para peticiones no-AJAX (si las hubiera)
         login_url = reverse("login")
         return redirect(f"{login_url}?reset=1")
 
-    def form_invalid(self, form):
-        # Si la petición es AJAX, devuelve los errores en formato JSON
-        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return JsonResponse({"ok": False, "errors": form.errors}, status=400)
-        return super().form_invalid(form)
 
 class ChangePasswordView(PasswordChangeView):
     template_name = "change_password.html"
     form_class = CustomPasswordChangeForm
 
     def get_success_url(self):
-        """
-        Redirige al módulo que corresponde según el rol del usuario.
-        """
         return get_redirect_for_role(self.request.user)
 
     def form_invalid(self, form):
-        # Si es AJAX -> devolver errores en JSON
         if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"ok": False, "errors": form.errors}, status=400)
         return super().form_invalid(form)
 
     def form_valid(self, form):
-        """
-        Si es AJAX, devolvemos JSON con redirect dinámico por rol.
-        Si es POST normal, usa get_success_url().
-        """
-        # Guardamos el usuario ANTES de la respuesta para poder modificarlo
         user = form.save()
 
-        # Si era primer acceso forzado, desactivar flag y limpiar invite_code
         if getattr(user, "must_change_password", False):
             user.must_change_password = False
             user.invite_code = ""
@@ -245,7 +265,5 @@ class ChangePasswordView(PasswordChangeView):
                 "ok": True,
                 "redirect": self.get_success_url()
             })
-        
-        # Para peticiones normales, la redirección la maneja la clase padre
-        # que usa get_success_url()
+
         return super().form_valid(form)

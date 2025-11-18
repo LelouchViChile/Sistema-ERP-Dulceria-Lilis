@@ -121,21 +121,59 @@ DATABASES = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+
+    # ============
+    # FORMATTERS
+    # ============
+    'formatters': {
+        'audit_formatter': {
+            'format': '{asctime} | {levelname} | {message}',
+            'style': '{',
+        },
+    },
+
+    # ============
+    # HANDLERS
+    # ============
     'handlers': {
+
+        # --- Handler que ya tenías ---
         'login_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'login.log',
         },
+
+        # --- Nuevo handler para auditoría ---
+        'audit_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR /'audit.log',
+            'formatter': 'audit_formatter',
+        },
     },
+
+    # ============
+    # LOGGERS
+    # ============
     'loggers': {
+
+        # --- Logger que ya existía ---
         'login_secure': {
             'handlers': ['login_file'],
             'level': 'INFO',
             'propagate': False,
         },
+
+        # --- NUEVO logger audit ---
+        'auditoria': {
+            'handlers': ['audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
+
 
 
 # Password validation
