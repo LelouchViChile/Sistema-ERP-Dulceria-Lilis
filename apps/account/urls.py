@@ -21,9 +21,8 @@ urlpatterns = [
     # Usa tu template: apps/account/templates/password_reset_request.html
     path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
 
-    # Tras enviar el correo, redirigimos al login (sin crear plantilla "done")
-    path(
-        'password/reset/done/',
+    # Tras enviar el correo (en el flujo sin JS), redirigimos directamente al login.
+    path('password/reset/done/',
         RedirectView.as_view(pattern_name='login', permanent=False),
         name='password_reset_done',
     ),

@@ -203,24 +203,29 @@ class PasswordResetRequestView(PasswordResetView):
         return context
 
     def form_valid(self, form):
+        # Si la petición es AJAX (desde nuestro script), devolvemos JSON.
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            form.save(
+                domain_override=self.request.get_host(),
+                use_https=self.request.is_secure(),
+                email_template_name=self.email_template_name,
+                subject_template_name=self.subject_template_name,
+                request=self.request,
+            )
+            return JsonResponse({'status': 'success', 'message': 'Correo enviado.'})
 
-        domain = getattr(settings, "PASSWORD_RESET_DOMAIN", "3.85.33.49")
+        # Comportamiento normal si no es AJAX (no debería ocurrir con el nuevo script)
+        super().form_valid(form)
+        return redirect(self.get_success_url())
 
-        protocol = getattr(settings, "PASSWORD_RESET_PROTOCOL", None)
-        use_https = (protocol == "https") or self.request.is_secure()
-
-        form.save(
-            domain_override=domain,
-            use_https=use_https,
-            email_template_name=self.email_template_name,
-            subject_template_name=self.subject_template_name,
-            from_email=getattr(self, "from_email", None),
-            request=self.request,
-            html_email_template_name=getattr(self, "html_email_template_name", None),
-            extra_email_context=getattr(self, "extra_email_context", None),
-        )
-
-        return redirect(self.success_url)
+    def form_invalid(self, form):
+        # Si la petición es AJAX y el formulario es inválido (ej: email no existe),
+        # devolvemos los errores en formato JSON.
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            # Usamos el primer error del campo 'email' como mensaje principal.
+            error_message = form.errors.get('email', ['Error desconocido.'])[0]
+            return JsonResponse({'status': 'error', 'message': error_message}, status=400)
+        return super().form_invalid(form)
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
