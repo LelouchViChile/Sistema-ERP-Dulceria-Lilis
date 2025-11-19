@@ -567,14 +567,73 @@
       const data = await r.json();
       const { value: vals } = await Swal.fire({
         title:'Editar Proveedor',
-        html:`
-          <div class="swal-label-input"><label for="edit_rut">RUT/NIF</label><input id="edit_rut" class="swal2-input" value="${data.rut_nif||''}"></div>
-          <div class="swal-label-input"><label for="edit_razon">Razón Social</label><input id="edit_razon" class="swal2-input" value="${data.razon_social||''}"></div>
-          <div class="swal-label-input"><label for="edit_email">Email</label><input id="edit_email" type="email" class="swal2-input" value="${data.email||''}"></div>
-          <div class="swal-label-input"><label for="edit_telefono">Teléfono</label><input id="edit_telefono" class="swal2-input" value="${data.telefono||''}"></div>
-          <div class="swal-label-input"><label for="edit_web">Sitio Web</label><input id="edit_web" class="swal2-input" value="${data.sitio_web||''}"></div>
-          <div class="swal-label-input"><label for="edit_condiciones">Condiciones de Pago</label><input id="edit_condiciones" class="swal2-input" value="${data.condiciones_pago||''}"></div>
-        `,
+        html: `
+  <div style="display:flex; flex-direction:column; gap:12px; text-align:left;">
+
+    <!-- RUT -->
+    <div>
+      <label class="swal2-label">RUT/NIF <span class="text-danger">*</span></label>
+      <input id="edit_rut" class="swal2-input" value="${data.rut_nif || ''}">
+    </div>
+
+    <!-- Razón social -->
+    <div>
+      <label class="swal2-label">Razón Social <span class="text-danger">*</span></label>
+      <input id="edit_razon" class="swal2-input" value="${data.razon_social || ''}">
+    </div>
+
+    <!-- Nombre fantasía -->
+    <div>
+      <label class="swal2-label">Nombre fantasía (opcional)</label>
+      <input id="edit_fantasia" class="swal2-input" value="${data.nombre_fantasia || ''}">
+    </div>
+
+    <!-- Email -->
+    <div>
+      <label class="swal2-label">Email <span class="text-danger">*</span></label>
+      <input id="edit_email" type="email" class="swal2-input" value="${data.email || ''}">
+    </div>
+
+    <!-- Teléfono -->
+    <div>
+      <label class="swal2-label">Teléfono</label>
+      <input id="edit_telefono" class="swal2-input" value="${data.telefono || ''}">
+    </div>
+
+    <!-- Sitio Web -->
+    <div>
+      <label class="swal2-label">Sitio Web</label>
+      <input id="edit_web" class="swal2-input" value="${data.sitio_web || ''}">
+    </div>
+
+    <!-- Condiciones de pago -->
+    <div>
+      <label class="swal2-label">Condiciones de Pago</label>
+      <input id="edit_condiciones" class="swal2-input" value="${data.condiciones_pago || ''}">
+    </div>
+
+    <!-- Moneda -->
+    <div>
+      <label class="swal2-label">Moneda <span class="text-danger">*</span></label>
+      <select id="edit_moneda" class="swal2-input swal-custom-select">
+        <option value="">Seleccione…</option>
+        <option ${data.moneda === "CLP" ? "selected" : ""}>CLP</option>
+        <option ${data.moneda === "USD" ? "selected" : ""}>USD</option>
+        <option ${data.moneda === "EUR" ? "selected" : ""}>EUR</option>
+      </select>
+    </div>
+
+    <!-- Descuento -->
+    <div>
+      <label class="swal2-label">Descuento (%)</label>
+      <input id="edit_desc" type="number" class="swal2-input" min="0" max="100" step="0.01"
+             value="${data.descuento_porcentaje || ''}">
+    </div>
+
+  </div>
+`,
+
+
         customClass:{ htmlContainer:'swal-container' },
         showCancelButton:true,
         confirmButtonColor:'#d33',
@@ -583,6 +642,7 @@
         preConfirm:()=>{
           const rut = document.getElementById('edit_rut').value.trim();
           const tel = document.getElementById('edit_telefono').value.trim();
+          const email = document.getElementById("edit_email").value.trim();
 
           if (rut && !rutChilenoValido(rut)) {
             Swal.showValidationMessage('RUT inválido. Ejemplo: 76.543.210-K.');
@@ -596,10 +656,13 @@
           return {
             rut_nif: rut,
             razon_social: document.getElementById('edit_razon').value.trim(),
+            nombre_fantasia: document.getElementById('edit_fantasia').value.trim(),
             email: document.getElementById('edit_email').value.trim(),
             telefono: tel,
             sitio_web: document.getElementById('edit_web').value.trim(),
-            condiciones_pago: document.getElementById('edit_condiciones').value.trim()
+            condiciones_pago: document.getElementById('edit_condiciones').value.trim(),
+            moneda: document.getElementById('edit_moneda').value,
+            descuento_porcentaje: document.getElementById('edit_desc').value
           };
         }
       });
