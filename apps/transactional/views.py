@@ -226,8 +226,24 @@ def crear_transaccion(request):
 
     try:
         with transaction.atomic():
+            # Tomamos doc_ref y motivo, pero NO se guardan como campos (porque no existen)
+            doc_ref = (data.get("doc_ref") or "").strip()
+            motivo = (data.get("motivo") or "").strip()
+            observaciones = (data.get("observaciones") or "").strip()
+
+            # Si quieres mantener doc_ref y motivo, los agregamos al campo observacion
+            extras = []
+            if doc_ref:
+                extras.append(f"Doc ref: {doc_ref}")
+            if motivo:
+                extras.append(f"Motivo: {motivo}")
+
+            if extras:
+                if observaciones:
+                    observaciones += " | "
+                observaciones += " ".join(extras)
+
             mov = MovimientoInventario.objects.create(
-                fecha=fecha_str,
                 tipo=tipo,
                 producto=producto,
                 proveedor=proveedor,
@@ -235,11 +251,10 @@ def crear_transaccion(request):
                 lote=data.get("lote", ""),
                 serie=data.get("serie", ""),
                 fecha_vencimiento=data.get("vencimiento") or None,
-                doc_ref=data.get("doc_ref", ""),
-                motivo=data.get("motivo", ""),
-                observacion=data.get("observaciones", ""),
+                observacion=observaciones,
                 creado_por=request.user
             )
+
         return JsonResponse({"ok": True, "id": mov.id})
     except Exception as e:
         return JsonResponse({"ok": False, "errors": {"__all__": f"Error inesperado: {e}"}}, status=500)
