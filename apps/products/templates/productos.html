@@ -76,17 +76,17 @@
               <div class="tab-pane fade show active" id="pane-datos" role="tabpanel">
                 <div class="row g-3">
                   <div class="col-6">
-                    <label class="form-label small mb-1">SKU</label>
+                    <label class="form-label small mb-1">SKU <span class="text-danger">*</span></label>
                     <input type="text" name="sku" class="form-control form-control-sm" placeholder="LLS-CATE-0000-XX" required>
                     <div class="invalid-feedback">El SKU es obligatorio.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Nombre</label>
+                    <label class="form-label small mb-1">Nombre <span class="text-danger">*</span></label>
                     <input type="text" name="nombre" class="form-control form-control-sm" required>
                     <div class="invalid-feedback">El nombre es obligatorio.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Categoría</label>
+                    <label class="form-label small mb-1">Categoría <span class="text-danger">*</span></label>
                     <select name="categoria" class="form-select form-select-sm" required>
                       <option value="">Seleccione...</option>
                       {% for cat in categorias %}
@@ -97,21 +97,21 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Descripción</label>
-                    <textarea name="descripcion" class="form-control form-control-sm" rows="2" required></textarea>
+                    <textarea name="descripcion" class="form-control form-control-sm" rows="2"></textarea>
                     <div class="invalid-feedback">La descripción es obligatoria.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Compra</label>
-                    <input type="number" name="precio_compra" class="form-control form-control-sm" step="10" min="100" required>
+                    <input type="number" name="precio_compra" class="form-control form-control-sm" step="10" min="100">
                     <div class="invalid-feedback">El precio de compra es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Precio Venta</label>
-                    <input type="number" name="precio_venta" class="form-control form-control-sm" step="10" min="100" required>
+                    <input type="number" name="precio_venta" class="form-control form-control-sm" step="10" min="100">
                     <div class="invalid-feedback">El precio de venta es obligatorio.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Unidad de Medida</label>
+                    <label class="form-label small mb-1">Unidad de Medida <span class="text-danger">*</span></label>
                     <select name="uom" class="form-select form-select-sm" required>
                       <option value="">Seleccione...</option>
                       {% for code, name in uom_choices %}
@@ -122,7 +122,7 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Marca</label>
-                    <input type="text" name="marca" class="form-control form-control-sm" required>
+                    <input type="text" name="marca" class="form-control form-control-sm">
                     <div class="invalid-feedback">La marca es obligatoria.</div>
                   </div>
                 </div>
@@ -132,17 +132,17 @@
               <div class="tab-pane fade" id="pane-inv" role="tabpanel">
                 <div class="row g-3">
                   <div class="col-6">
-                    <label class="form-label small mb-1">Stock Mínimo</label>
+                    <label class="form-label small mb-1">Stock Mínimo <span class="text-danger">*</span></label>
                     <input type="number" name="stock_minimo" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
                     <div class="invalid-feedback">El stock mínimo es obligatorio.</div>
                   </div>
                   <div class="col-6">
                     <label class="form-label small mb-1">Stock Máximo</label>
-                    <input type="number" name="stock_maximo" class="form-control form-control-sm" min="0" step="1" inputmode="numeric" required>
+                    <input type="number" name="stock_maximo" class="form-control form-control-sm" min="0" step="1" inputmode="numeric">
                     <div class="invalid-feedback">El stock máximo es obligatorio.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Ubicación en Bodega</label>
+                    <label class="form-label small mb-1">Ubicación en Bodega <span class="text-danger">*</span></label>
                     <select name="ubicacion" class="form-select form-select-sm" required>
                       <option value="">Seleccione...</option>
                       {% for bodega in bodegas %}
@@ -152,7 +152,7 @@
                     <div class="invalid-feedback">La ubicación es obligatoria.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Proveedor Principal</label>
+                    <label class="form-label small mb-1">Proveedor Principal <span class="text-danger">*</span></label>
                     <input type="text" name="proveedor" class="form-control form-control-sm" required>
                   </div>
                   <div class="col-6">
@@ -161,7 +161,7 @@
                     <div class="form-text small">Se registrará la fecha actual.</div>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small mb-1">Estado</label>
+                    <label class="form-label small mb-1">Estado <span class="text-danger">*</span></label>
                     <input type="text" name="estado" class="form-control form-control-sm" disabled value="Activo" required>
                   </div>
                 </div>
@@ -172,16 +172,16 @@
                 <div class="row g-3">
                   <div class="col-12">
                     <label class="form-label small mb-1">Imagen del Producto</label>
-                    <input type="file" name="imagen" class="form-control form-control-sm" required>
+                    <input type="file" name="imagen" class="form-control form-control-sm">
                     <div class="invalid-feedback">La imagen es obligatoria.</div>
                   </div>
                   <div class="col-12">
                     <label class="form-label small mb-1">Código de Barras</label>
-                    <input type="text" name="ean_upc" class="form-control form-control-sm" placeholder="0987654321234" required>
+                    <input type="text" name="ean_upc" class="form-control form-control-sm" placeholder="0987654321234">
                     <div class="invalid-feedback">El código de barras es obligatorio.</div>
                   </div>
                   <div class="col-12">
-                    <label class="form-label small mb-1">Notas Internas</label>
+                    <label class="form-label small mb-1">Notas Internas <span class="text-danger">*</span></label>
                     <textarea name="notas" class="form-control form-control-sm" rows="2" required></textarea>
                     <div class="invalid-feedback">Las notas son obligatorias.</div>
                   </div>

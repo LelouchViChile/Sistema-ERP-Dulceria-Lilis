@@ -269,6 +269,11 @@ def crear_producto(request):
         try:
             producto = form.save(commit=False)
 
+            # --- INICIO DE LA MODIFICACIÓN ---
+            # Asignar precio_compra (del front) a costo_estandar (del modelo)
+            precio_compra = data.get("precio_compra")
+            producto.costo_estandar = _to_decimal_or_none(precio_compra)
+
             # Aseguramos que los valores vacíos se manejen correctamente
             if not producto.ean_upc:
                 producto.ean_upc = ""  # Asignar un valor vacío en lugar de None
@@ -276,6 +281,7 @@ def crear_producto(request):
                 producto.stock_minimo = 0  # Asignar 0 si está vacío
             if not producto.stock_maximo:
                 producto.stock_maximo = 0  # Asignar 0 si está vacío
+            # --- FIN DE LA MODIFICACIÓN ---
 
             producto.save()  # Guardamos el producto
 
