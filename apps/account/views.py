@@ -63,12 +63,7 @@ def get_redirect_for_role(user):
 @never_cache
 def iniciar_sesion(request):
 
-    # mensaje si viene de reset
-    if request.method == "GET" and request.GET.get("reset") == "1":
-        messages.success(
-            request,
-            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
-        )
+    # El mensaje de éxito de reseteo de contraseña ahora se maneja en la vista de confirmación.
 
     # si ya está logueado
     if request.user.is_authenticated:
@@ -186,6 +181,7 @@ def module_gate_view(request, app_slug: str):
 class PasswordResetRequestView(PasswordResetView):
     template_name = "password_reset_request.html"
     email_template_name = "emails/password_reset_email.txt"
+    html_email_template_name = "emails/password_reset_email.html"
     subject_template_name = "emails/password_reset_subject.txt"
     success_url = reverse_lazy("password_reset_done")
     form_class = CustomPasswordResetForm
@@ -205,10 +201,14 @@ class PasswordResetRequestView(PasswordResetView):
     def form_valid(self, form):
         # Si la petición es AJAX (desde nuestro script), devolvemos JSON.
         if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            # Usar el dominio de producción definido en settings.py
+            domain = getattr(settings, "PASSWORD_RESET_DOMAIN", self.request.get_host())
+
             form.save(
-                domain_override=self.request.get_host(),
+                domain_override=domain,
                 use_https=self.request.is_secure(),
                 email_template_name=self.email_template_name,
+                html_email_template_name=self.html_email_template_name,
                 subject_template_name=self.subject_template_name,
                 request=self.request,
             )
@@ -229,21 +229,28 @@ class PasswordResetRequestView(PasswordResetView):
 
 
 class PasswordResetConfirmCustomView(PasswordResetConfirmView):
-    template_name = "password_rest_confirm.html"
+    template_name = "password_reset_confirm.html"
     form_class = CustomSetPasswordForm
 
     def form_valid(self, form):
         user = form.save()
+        user.save()  # Asegurarse de que la nueva contraseña se guarde en la BD
         logout(self.request)
-
-        messages.success(
-            self.request,
-            "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
-        )
-
+        
+        success_message = "Tu contraseña ha sido actualizada correctamente. Por favor inicia sesión."
         login_url = reverse("login")
-        return redirect(f"{login_url}?reset=1")
 
+        # Si la petición es AJAX, devolvemos la URL de redirección en JSON
+        if self.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({
+                "ok": True, 
+                "message": success_message, # Enviamos el mensaje específico
+                "redirect": login_url
+            })
+
+        # Si no, hacemos una redirección normal
+        messages.success(self.request, success_message) # Mantenemos el mensaje para el flujo sin JS
+        return redirect(login_url)
 
 class ChangePasswordView(PasswordChangeView):
     template_name = "change_password.html"
